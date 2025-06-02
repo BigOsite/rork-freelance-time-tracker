@@ -1,5 +1,4 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
@@ -16,19 +15,15 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
-  });
 
   useEffect(() => {
-    if (loaded) {
+    // Hide splash screen after a short delay
+    const timer = setTimeout(() => {
       SplashScreen.hideAsync();
-    }
-  }, [loaded]);
+    }, 100);
 
-  if (!loaded) {
-    return null;
-  }
+    return () => clearTimeout(timer);
+  }, []);
 
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>

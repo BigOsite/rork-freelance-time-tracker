@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../../create-context';
+import { publicProcedure } from '../../create-context';
 
 const loginInputSchema = z.object({
   email: z.string().email('Invalid email address'),

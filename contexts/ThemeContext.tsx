@@ -23,20 +23,22 @@ export function ThemeProvider({ children }: ThemeProviderProps) {
   
   const colors = isDarkMode ? Colors.dark : Colors.light;
   
+  const contextValue: ThemeContextType = {
+    colors, 
+    isDarkMode, 
+    isDark: isDarkMode, // Alias
+    toggleDarkMode,
+    toggleTheme: toggleDarkMode // Alias
+  };
+  
   return (
-    <ThemeContext.Provider value={{ 
-      colors, 
-      isDarkMode, 
-      isDark: isDarkMode, // Alias
-      toggleDarkMode,
-      toggleTheme: toggleDarkMode // Alias
-    }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
-export function useTheme() {
+export function useTheme(): ThemeContextType {
   const context = useContext(ThemeContext);
   if (context === undefined) {
     throw new Error('useTheme must be used within a ThemeProvider');

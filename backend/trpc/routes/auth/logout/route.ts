@@ -1,4 +1,4 @@
-import { protectedProcedure } from '../../../create-context';
+import { protectedProcedure } from '../../create-context';
 
 export const logoutProcedure = protectedProcedure
   .mutation(async ({ ctx }: { ctx: any }) => {
