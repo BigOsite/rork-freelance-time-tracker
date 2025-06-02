@@ -37,7 +37,7 @@ export default function AccountScreen() {
       
       try {
         await login(email, password);
-        Alert.alert('Success', 'Logged in successfully!');
+        // Clear form after successful login
         setEmail('');
         setPassword('');
       } catch (error: any) {
@@ -62,7 +62,7 @@ export default function AccountScreen() {
       
       try {
         await register(email, password, displayName);
-        Alert.alert('Success', 'Account created successfully!');
+        // Clear form after successful registration
         setEmail('');
         setPassword('');
         setDisplayName('');
@@ -85,7 +85,6 @@ export default function AccountScreen() {
           onPress: async () => {
             try {
               await logout();
-              Alert.alert('Success', 'Signed out successfully');
             } catch (error) {
               Alert.alert('Error', 'Failed to sign out. Please try again.');
             }
@@ -118,7 +117,7 @@ export default function AccountScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {isAuthenticated && user ? (
+        {isAuthenticated && user?.isLoggedIn ? (
           // Authenticated User View
           <View style={styles.authenticatedContainer}>
             <View style={styles.profileCard}>
@@ -296,6 +295,14 @@ export default function AccountScreen() {
                 Sign in to backup and sync your data across multiple devices.
               </Text>
             </View>
+            
+            <View style={styles.demoCard}>
+              <Text style={styles.demoTitle}>Demo Account</Text>
+              <Text style={styles.demoText}>
+                Email: demo@example.com{'\n'}
+                Password: password123
+              </Text>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -424,6 +431,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+    marginBottom: 16,
   },
   infoTitle: {
     fontSize: 18,
@@ -561,6 +569,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+    marginBottom: 16,
   },
   disclaimerTitle: {
     fontSize: 16,
@@ -573,5 +582,26 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 14,
     color: colors.subtext,
     lineHeight: 20,
+  },
+  demoCard: {
+    backgroundColor: colors.primaryLight,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  demoTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: colors.primary,
+    marginBottom: 8,
+  },
+  demoText: {
+    fontSize: 14,
+    color: colors.primary,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
 });

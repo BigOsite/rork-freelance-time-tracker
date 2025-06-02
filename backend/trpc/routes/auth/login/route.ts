@@ -28,6 +28,7 @@ export const loginProcedure = publicProcedure
           email,
           displayName: 'Demo User',
           isLoggedIn: true,
+          createdAt: Date.now() - 86400000, // 1 day ago
         },
         token,
       };

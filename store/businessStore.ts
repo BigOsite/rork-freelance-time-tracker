@@ -190,6 +190,20 @@ export const useBusinessStore = create<BusinessState>()(
     {
       name: 'business-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      // Only persist certain parts of the state
+      partialize: (state) => ({
+        businessInfo: state.businessInfo,
+        paymentOptions: state.paymentOptions,
+        taxSettings: state.taxSettings,
+        userAccount: state.userAccount,
+        authState: {
+          isAuthenticated: state.authState.isAuthenticated,
+          token: state.authState.token,
+          // Don't persist loading or error states
+        },
+        appRatings: state.appRatings,
+        isDarkMode: state.isDarkMode,
+      }),
     }
   )
 );

@@ -32,6 +32,7 @@ export const registerProcedure = publicProcedure
         email,
         displayName,
         isLoggedIn: true,
+        createdAt: Date.now(),
       },
       token,
     };

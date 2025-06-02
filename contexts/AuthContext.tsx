@@ -1,7 +1,6 @@
 import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useBusinessStore } from '@/store/businessStore';
 import { trpcClient } from '@/lib/trpc';
 import { AuthState, UserAccount } from '@/types';
@@ -70,8 +69,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
       
-      // Update state
-      setUserAccount(response.user);
+      // Update state - make sure user is marked as logged in
+      const loggedInUser = {
+        ...response.user,
+        isLoggedIn: true,
+      };
+      
+      setUserAccount(loggedInUser);
       setAuthToken(response.token);
       setAuthState({ 
         isAuthenticated: true, 
@@ -101,8 +105,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
       
-      // Update state
-      setUserAccount(response.user);
+      // Update state - make sure user is marked as logged in
+      const loggedInUser = {
+        ...response.user,
+        isLoggedIn: true,
+      };
+      
+      setUserAccount(loggedInUser);
       setAuthToken(response.token);
       setAuthState({ 
         isAuthenticated: true, 
@@ -139,7 +148,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!authState.isAuthenticated) return;
       
       const profile = await trpcClient.auth.getProfile.query();
-      setUserAccount(profile);
+      const loggedInUser = {
+        ...profile,
+        isLoggedIn: true,
+      };
+      setUserAccount(loggedInUser);
     } catch (error) {
       console.log('Failed to refresh profile:', error);
       // If profile fetch fails, user might be logged out
@@ -152,11 +165,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const initializeAuth = async () => {
       try {
         const token = await secureStorage.getItem(TOKEN_KEY);
-        if (token && userAccount?.isLoggedIn) {
+        if (token) {
           setAuthToken(token);
           setAuthState({ isAuthenticated: true, isLoading: false, error: null });
-          // Optionally refresh profile
-          await refreshProfile();
+          // Try to refresh profile to get latest user data
+          try {
+            const profile = await trpcClient.auth.getProfile.query();
+            const loggedInUser = {
+              ...profile,
+              isLoggedIn: true,
+            };
+            setUserAccount(loggedInUser);
+          } catch (error) {
+            console.log('Failed to refresh profile on init:', error);
+            // If profile fetch fails, clear auth
+            await logout();
+          }
         } else {
           setAuthState({ isAuthenticated: false, isLoading: false, error: null });
         }
