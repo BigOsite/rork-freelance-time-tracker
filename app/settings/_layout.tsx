@@ -1,85 +1,74 @@
-import { Stack } from "expo-router";
+import React from 'react';
+import { Stack } from 'expo-router';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function SettingsLayout() {
+  const { colors } = useTheme();
+  
   return (
     <Stack
       screenOptions={{
         headerStyle: {
-          backgroundColor: "#FFFFFF",
+          backgroundColor: colors.background,
         },
-        headerShadowVisible: true,
         headerTitleStyle: {
-          fontWeight: "700",
-          fontSize: 18,
-          letterSpacing: -0.3,
+          fontWeight: '600',
+          color: colors.text,
         },
+        headerTintColor: colors.text,
+        headerShadowVisible: false,
         contentStyle: {
-          backgroundColor: "#F8FAFC",
+          backgroundColor: colors.surface,
         },
-        headerTintColor: "#1E293B",
       }}
     >
       <Stack.Screen 
         name="business-info" 
         options={{ 
-          title: "Business Information",
-          headerBackVisible: false
+          title: 'Business Information',
+          presentation: 'modal'
         }} 
       />
       <Stack.Screen 
         name="tax-currency" 
         options={{ 
-          title: "Tax and Currency",
-          headerBackVisible: false
+          title: 'Tax & Currency',
+          presentation: 'modal'
         }} 
       />
       <Stack.Screen 
         name="payment-options" 
         options={{ 
-          title: "Payment Options",
-          headerBackVisible: false
-        }} 
-      />
-      <Stack.Screen 
-        name="payment-options/stripe" 
-        options={{ 
-          title: "Stripe Setup",
-          headerBackVisible: false
-        }} 
-      />
-      <Stack.Screen 
-        name="payment-options/paypal" 
-        options={{ 
-          title: "PayPal Setup",
-          headerBackVisible: false
+          title: 'Payment Options',
+          presentation: 'modal'
         }} 
       />
       <Stack.Screen 
         name="support" 
         options={{ 
-          title: "Customer Support",
-          headerBackVisible: false
+          title: 'Customer Support',
+          presentation: 'modal'
+        }} 
+      />
+      <Stack.Screen 
+        name="account" 
+        options={{ 
+          title: 'Account',
+          presentation: 'modal'
         }} 
       />
       <Stack.Screen 
         name="whats-new" 
         options={{ 
           title: "What's New",
-          headerBackVisible: false
-        }} 
-      />
-      <Stack.Screen 
-        name="account" 
-        options={{ 
-          title: "Account",
-          headerBackVisible: false
+          presentation: 'modal'
         }} 
       />
       <Stack.Screen 
         name="upgrade" 
         options={{ 
-          title: "Upgrade",
-          headerBackVisible: false
+          title: 'Upgrade',
+          presentation: 'modal'
         }} 
       />
     </Stack>

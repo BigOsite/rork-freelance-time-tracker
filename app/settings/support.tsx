@@ -12,11 +12,12 @@ import {
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, Send, MessageCircle } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { trpc } from '@/lib/trpc';
 
 export default function SupportScreen() {
   const router = useRouter();
+  const { colors } = useTheme();
   const [message, setMessage] = useState('');
   const [email, setEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,6 +69,8 @@ export default function SupportScreen() {
     }
   };
   
+  const styles = createStyles(colors);
+  
   return (
     <KeyboardAvoidingView 
       style={styles.container} 
@@ -78,7 +81,7 @@ export default function SupportScreen() {
           title: 'Customer Support',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
-              <ChevronLeft size={24} color={Colors.light.primary} />
+              <ChevronLeft size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
         }}
@@ -91,7 +94,7 @@ export default function SupportScreen() {
       >
         <View style={styles.headerSection}>
           <View style={styles.iconContainer}>
-            <MessageCircle size={32} color={Colors.light.primary} />
+            <MessageCircle size={32} color={colors.primary} />
           </View>
           <Text style={styles.title}>How can we help?</Text>
           <Text style={styles.subtitle}>
@@ -107,7 +110,7 @@ export default function SupportScreen() {
               value={email}
               onChangeText={setEmail}
               placeholder="your.email@example.com"
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.inactive}
               keyboardType="email-address"
               autoCapitalize="none"
               autoCorrect={false}
@@ -124,7 +127,7 @@ export default function SupportScreen() {
               value={message}
               onChangeText={setMessage}
               placeholder="Describe your question, feedback, or issue in detail..."
-              placeholderTextColor="#9CA3AF"
+              placeholderTextColor={colors.inactive}
               multiline
               numberOfLines={6}
               textAlignVertical="top"
@@ -159,10 +162,10 @@ export default function SupportScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surface,
   },
   content: {
     flexGrow: 1,
@@ -171,7 +174,7 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 12,
     borderRadius: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surface,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -186,7 +189,7 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -199,19 +202,19 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 28,
     fontWeight: '700',
-    color: '#1F2937',
+    color: colors.text,
     marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
     fontSize: 16,
-    color: '#6B7280',
+    color: colors.subtext,
     textAlign: 'center',
     lineHeight: 24,
     paddingHorizontal: 16,
   },
   formCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 24,
     padding: 24,
     marginBottom: 24,
@@ -230,48 +233,48 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#374151',
+    color: colors.text,
     marginBottom: 8,
   },
   emailInput: {
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 16,
     fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#FAFBFC',
+    color: colors.text,
+    backgroundColor: colors.surface,
   },
   messageInput: {
     borderWidth: 2,
-    borderColor: '#E5E7EB',
+    borderColor: colors.border,
     borderRadius: 16,
     padding: 16,
     fontSize: 16,
-    color: '#1F2937',
-    backgroundColor: '#FAFBFC',
+    color: colors.text,
+    backgroundColor: colors.surface,
     minHeight: 120,
   },
   inputHint: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: colors.subtext,
     marginTop: 6,
   },
   submitButton: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     padding: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: Colors.light.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
   },
   submitButtonDisabled: {
-    backgroundColor: '#D1D5DB',
+    backgroundColor: colors.inactive,
     shadowOpacity: 0,
     elevation: 0,
   },
@@ -284,21 +287,21 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   infoCard: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: colors.primaryLight,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#E0F2FE',
+    borderColor: colors.primary + '20',
   },
   infoTitle: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#0369A1',
+    color: colors.primary,
     marginBottom: 8,
   },
   infoText: {
     fontSize: 14,
-    color: '#0284C7',
+    color: colors.primary,
     lineHeight: 20,
   },
 });

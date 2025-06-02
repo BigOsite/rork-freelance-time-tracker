@@ -8,7 +8,8 @@ import {
   Alert, 
   ScrollView,
   Modal,
-  Share
+  Share,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { 
@@ -103,7 +104,11 @@ export default function SettingsScreen() {
     try {
       const shareOptions = {
         message: "Check out this amazing time tracking app! It helps me manage my work hours and generate professional invoices. Perfect for freelancers and small businesses!",
-        url: "https://example.com/download-app", // Placeholder URL
+        url: Platform.select({
+          ios: "https://apps.apple.com/app/time-tracker-invoice",
+          android: "https://play.google.com/store/apps/details?id=com.timetracker.invoice",
+          default: "https://timetracker-invoice.app"
+        }),
         title: "Time Tracker & Invoice App"
       };
 
@@ -313,7 +318,7 @@ export default function SettingsScreen() {
               </View>
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>Customer Support</Text>
-                <Text style={styles.settingDescription}>Get help and assistance</Text>
+                <Text style={styles.settingDescription}>Get help and report issues</Text>
               </View>
             </View>
             <View style={styles.chevronContainer}>

@@ -13,6 +13,7 @@ const Colors = {
     warning: '#F59E0B',
     danger: '#EF4444',
     inactive: '#9CA3AF',
+    placeholder: '#9CA3AF',
   },
   dark: {
     text: '#F9FAFB',
@@ -28,6 +29,7 @@ const Colors = {
     warning: '#FBBF24',
     danger: '#F87171',
     inactive: '#6B7280',
+    placeholder: '#6B7280',
   },
 };
 
