@@ -19,7 +19,7 @@ export const getProfileProcedure = protectedProcedure
         uid: user.id,
         email: user.email!,
         displayName,
-        photoURL: user.user_metadata?.avatar_url,
+        photoURL: user.user_metadata?.avatar_url || null,
         isLoggedIn: true,
         createdAt: new Date(user.created_at).getTime(),
       };

@@ -80,7 +80,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const loggedInUser: UserAccount = {
         ...response.user,
         isLoggedIn: true,
-        photoURL: response.user.photoURL || undefined,
+        photoURL: response.user.photoURL || null,
       };
       
       setUserAccount(loggedInUser);
@@ -124,7 +124,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const loggedInUser: UserAccount = {
         ...response.user,
         isLoggedIn: true,
-        photoURL: response.user.photoURL || undefined,
+        photoURL: response.user.photoURL || null,
       };
       
       setUserAccount(loggedInUser);
@@ -174,7 +174,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const loggedInUser: UserAccount = {
         ...profile,
         isLoggedIn: true,
-        photoURL: profile.photoURL || undefined,
+        photoURL: profile.photoURL || null,
       };
       setUserAccount(loggedInUser);
 
@@ -273,7 +273,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             const loggedInUser: UserAccount = {
               ...profile,
               isLoggedIn: true,
-              photoURL: profile.photoURL || undefined,
+              photoURL: profile.photoURL || null,
             };
             setUserAccount(loggedInUser);
 
