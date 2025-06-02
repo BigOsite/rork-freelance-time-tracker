@@ -12,7 +12,7 @@ import {
   Platform
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, MessageCircle, Send, Mail, Smartphone } from 'lucide-react-native';
+import { ChevronLeft, MessageCircle, Send, Mail, User, FileText } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { trpc } from '@/lib/trpc';
@@ -21,14 +21,20 @@ export default function SupportScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { user } = useAuth();
-  const [message, setMessage] = useState('');
+  const [name, setName] = useState(user?.displayName || '');
   const [email, setEmail] = useState(user?.email || '');
+  const [subject, setSubject] = useState('');
+  const [message, setMessage] = useState('');
   
   const submitSupportMutation = trpc.support.submit.useMutation({
     onSuccess: (data: { message: string }) => {
       Alert.alert('Success', data.message);
+      setSubject('');
       setMessage('');
-      if (!user) setEmail('');
+      if (!user) {
+        setName('');
+        setEmail('');
+      }
     },
     onError: (error: { message: string }) => {
       Alert.alert('Error', error.message || 'Failed to submit support request. Please try again.');
@@ -36,13 +42,23 @@ export default function SupportScreen() {
   });
   
   const handleSubmit = async () => {
-    if (!message.trim()) {
-      Alert.alert('Error', 'Please enter your message');
+    if (!name.trim()) {
+      Alert.alert('Error', 'Please enter your name');
       return;
     }
     
-    if (!user && !email.trim()) {
+    if (!email.trim()) {
       Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+    
+    if (!subject.trim()) {
+      Alert.alert('Error', 'Please enter a subject');
+      return;
+    }
+    
+    if (!message.trim()) {
+      Alert.alert('Error', 'Please enter your message');
       return;
     }
     
@@ -54,8 +70,10 @@ export default function SupportScreen() {
     });
     
     submitSupportMutation.mutate({
+      name: name.trim(),
+      email: email.trim(),
+      subject: subject.trim(),
       message: message.trim(),
-      userEmail: user?.email || email.trim(),
       deviceInfo,
       appVersion: '1.0.0',
     });
@@ -95,24 +113,54 @@ export default function SupportScreen() {
         </View>
         
         <View style={styles.form}>
-          {!user && (
-            <View style={styles.inputGroup}>
-              <Text style={styles.inputLabel}>Email Address</Text>
-              <View style={styles.inputContainer}>
-                <Mail size={20} color={colors.subtext} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="Enter your email"
-                  placeholderTextColor={colors.placeholder}
-                  value={email}
-                  onChangeText={setEmail}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                />
-              </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Name</Text>
+            <View style={styles.inputContainer}>
+              <User size={20} color={colors.subtext} style={styles.inputIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter your name"
+                placeholderTextColor={colors.placeholder}
+                value={name}
+                onChangeText={setName}
+                autoCapitalize="words"
+                autoCorrect={false}
+              />
             </View>
-          )}
+          </View>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Email Address</Text>
+            <View style={styles.inputContainer}>
+              <Mail size={20} color={colors.subtext} style={styles.inputIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="Enter your email"
+                placeholderTextColor={colors.placeholder}
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+              />
+            </View>
+          </View>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Subject</Text>
+            <View style={styles.inputContainer}>
+              <FileText size={20} color={colors.subtext} style={styles.inputIcon} />
+              <TextInput
+                style={styles.textInput}
+                placeholder="What is this about?"
+                placeholderTextColor={colors.placeholder}
+                value={subject}
+                onChangeText={setSubject}
+                autoCapitalize="sentences"
+                autoCorrect={true}
+              />
+            </View>
+          </View>
           
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Message</Text>
@@ -148,7 +196,7 @@ export default function SupportScreen() {
         
         <View style={styles.infoCard}>
           <View style={styles.infoHeader}>
-            <Smartphone size={24} color={colors.primary} />
+            <MessageCircle size={24} color={colors.primary} />
             <Text style={styles.infoTitle}>Device Information</Text>
           </View>
           <Text style={styles.infoText}>

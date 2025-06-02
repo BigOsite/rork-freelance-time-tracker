@@ -1,7 +1,9 @@
 -- Create support_requests table
 CREATE TABLE IF NOT EXISTS support_requests (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_email TEXT NOT NULL,
+  name TEXT NOT NULL,
+  email TEXT NOT NULL,
+  subject TEXT NOT NULL,
   message TEXT NOT NULL,
   device_info TEXT,
   app_version TEXT,

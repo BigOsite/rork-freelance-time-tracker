@@ -29,7 +29,7 @@ export interface UserAccount {
   uid: string;
   email: string;
   displayName?: string;
-  photoURL?: string;
+  photoURL?: string | null;
   isLoggedIn: boolean;
   accessToken?: string;
   idToken?: string;
@@ -110,8 +110,7 @@ export interface JobSettings {
 
 export interface Job {
   id: string;
-  title: string;
-  client: string;
+  name: string;
   hourlyRate: number;
   color: string;
   notes?: string;
@@ -272,8 +271,10 @@ export type ColorScheme = SolidColorScheme | GradientColorScheme;
 
 export interface SupportMessage {
   id: string;
+  name: string;
+  email: string;
+  subject: string;
   message: string;
-  userEmail?: string;
   deviceInfo?: string;
   appVersion?: string;
   createdAt: number;
@@ -281,8 +282,10 @@ export interface SupportMessage {
 }
 
 export interface SupportMessageInput {
+  name: string;
+  email: string;
+  subject: string;
   message: string;
-  userEmail?: string;
   deviceInfo?: string;
   appVersion?: string;
 }

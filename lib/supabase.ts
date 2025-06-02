@@ -12,7 +12,9 @@ export interface Database {
       support_requests: {
         Row: {
           id: string;
-          user_email: string;
+          name: string;
+          email: string;
+          subject: string;
           message: string;
           device_info: string | null;
           app_version: string | null;
@@ -20,7 +22,9 @@ export interface Database {
         };
         Insert: {
           id?: string;
-          user_email: string;
+          name: string;
+          email: string;
+          subject: string;
           message: string;
           device_info?: string | null;
           app_version?: string | null;
@@ -28,7 +32,9 @@ export interface Database {
         };
         Update: {
           id?: string;
-          user_email?: string;
+          name?: string;
+          email?: string;
+          subject?: string;
           message?: string;
           device_info?: string | null;
           app_version?: string | null;

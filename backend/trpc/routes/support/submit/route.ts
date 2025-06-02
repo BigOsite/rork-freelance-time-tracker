@@ -3,8 +3,10 @@ import { publicProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
 
 const supportInputSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email address'),
+  subject: z.string().min(1, 'Subject is required'),
   message: z.string().min(10, 'Message must be at least 10 characters'),
-  userEmail: z.string().email('Invalid email address'),
   deviceInfo: z.string().optional(),
   appVersion: z.string().optional(),
 });
@@ -17,7 +19,9 @@ export const submitSupportProcedure = publicProcedure
       const { data, error } = await supabase
         .from('support_requests')
         .insert({
-          user_email: input.userEmail,
+          name: input.name,
+          email: input.email,
+          subject: input.subject,
           message: input.message,
           device_info: input.deviceInfo || null,
           app_version: input.appVersion || null,

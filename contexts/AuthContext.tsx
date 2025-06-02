@@ -73,9 +73,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await secureStorage.setItem(TOKEN_KEY, response.token);
       
       // Update state - make sure user is marked as logged in
-      const loggedInUser = {
+      const loggedInUser: UserAccount = {
         ...response.user,
         isLoggedIn: true,
+        photoURL: response.user.photoURL || null,
       };
       
       setUserAccount(loggedInUser);
@@ -116,9 +117,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       await secureStorage.setItem(TOKEN_KEY, response.token);
       
       // Update state - make sure user is marked as logged in
-      const loggedInUser = {
+      const loggedInUser: UserAccount = {
         ...response.user,
         isLoggedIn: true,
+        photoURL: response.user.photoURL || null,
       };
       
       setUserAccount(loggedInUser);
@@ -165,9 +167,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!authState.isAuthenticated) return;
       
       const profile = await trpcClient.auth.profile.query();
-      const loggedInUser = {
+      const loggedInUser: UserAccount = {
         ...profile,
         isLoggedIn: true,
+        photoURL: profile.photoURL || null,
       };
       setUserAccount(loggedInUser);
 
@@ -195,9 +198,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Try to refresh profile to get latest user data
           try {
             const profile = await trpcClient.auth.profile.query();
-            const loggedInUser = {
+            const loggedInUser: UserAccount = {
               ...profile,
               isLoggedIn: true,
+              photoURL: profile.photoURL || null,
             };
             setUserAccount(loggedInUser);
 

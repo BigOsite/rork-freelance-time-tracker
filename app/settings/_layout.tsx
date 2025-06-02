@@ -21,6 +21,7 @@ export default function SettingsLayout() {
       <Stack.Screen name="payment-options" />
       <Stack.Screen name="tax-currency" />
       <Stack.Screen name="account" />
+      <Stack.Screen name="profile" />
       <Stack.Screen name="whats-new" />
       <Stack.Screen name="upgrade" />
       <Stack.Screen name="support" />
