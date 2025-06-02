@@ -53,48 +53,99 @@ export default function ProfileScreen() {
   const [showChangeDisplayName, setShowChangeDisplayName] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState(user?.displayName || '');
   
+  // Local error state for better error handling
+  const [localError, setLocalError] = useState('');
+
+  const getCleanErrorMessage = (error: any): string => {
+    if (!error) return '';
+    
+    const message = typeof error === 'string' ? error : error.message || '';
+    
+    // Handle common Supabase/auth errors with user-friendly messages
+    if (message.includes('Invalid login credentials')) {
+      return 'Invalid email or password. Please check your credentials and try again.';
+    }
+    if (message.includes('User already registered')) {
+      return 'An account with this email already exists. Please sign in instead.';
+    }
+    if (message.includes('Password should be at least 6 characters')) {
+      return 'Password must be at least 6 characters long.';
+    }
+    if (message.includes('Unable to validate email address')) {
+      return 'Please enter a valid email address.';
+    }
+    if (message.includes('Email not confirmed')) {
+      return 'Please check your email and confirm your account before signing in.';
+    }
+    if (message.includes('Too many requests')) {
+      return 'Too many attempts. Please wait a moment before trying again.';
+    }
+    if (message.includes('Network request failed')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    
+    // Return the original message if it's already user-friendly
+    return message || 'An unexpected error occurred. Please try again.';
+  };
+
   const handleSubmit = async () => {
+    setLocalError('');
+    
     if (isLoginMode) {
-      // Login
-      if (!email || !password) {
-        Alert.alert('Error', 'Please fill in all fields');
+      // Login validation
+      if (!email.trim()) {
+        setLocalError('Please enter your email address.');
+        return;
+      }
+      if (!password) {
+        setLocalError('Please enter your password.');
         return;
       }
       
       try {
-        await login(email, password);
+        await login(email.trim(), password);
         // Clear form after successful login
         setEmail('');
         setPassword('');
       } catch (error: any) {
-        Alert.alert('Login Failed', error.message || 'Please check your credentials and try again.');
+        setLocalError(getCleanErrorMessage(error));
       }
     } else {
-      // Register
-      if (!email || !password || !displayName || !confirmPassword) {
-        Alert.alert('Error', 'Please fill in all fields');
+      // Register validation
+      if (!email.trim()) {
+        setLocalError('Please enter your email address.');
         return;
       }
-      
-      if (password !== confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
+      if (!displayName.trim()) {
+        setLocalError('Please enter your display name.');
         return;
       }
-      
+      if (!password) {
+        setLocalError('Please enter a password.');
+        return;
+      }
       if (password.length < 6) {
-        Alert.alert('Error', 'Password must be at least 6 characters long');
+        setLocalError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (!confirmPassword) {
+        setLocalError('Please confirm your password.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setLocalError('Passwords do not match. Please try again.');
         return;
       }
       
       try {
-        await register(email, password, displayName);
+        await register(email.trim(), password, displayName.trim());
         // Clear form after successful registration
         setEmail('');
         setPassword('');
         setDisplayName('');
         setConfirmPassword('');
       } catch (error: any) {
-        Alert.alert('Registration Failed', error.message || 'Please try again.');
+        setLocalError(getCleanErrorMessage(error));
       }
     }
   };
@@ -121,32 +172,41 @@ export default function ProfileScreen() {
   };
 
   const handleForgotPassword = async () => {
-    if (!forgotEmail) {
-      Alert.alert('Error', 'Please enter your email address');
+    if (!forgotEmail.trim()) {
+      Alert.alert('Error', 'Please enter your email address.');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(forgotEmail.trim())) {
+      Alert.alert('Error', 'Please enter a valid email address.');
       return;
     }
 
     try {
-      await forgotPassword(forgotEmail);
+      await forgotPassword(forgotEmail.trim());
       setForgotPasswordSent(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send reset email');
+      Alert.alert('Error', getCleanErrorMessage(error));
     }
   };
 
   const handleChangePassword = async () => {
-    if (!newPassword || !confirmNewPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
+    if (!newPassword) {
+      Alert.alert('Error', 'Please enter a new password.');
       return;
     }
-
-    if (newPassword !== confirmNewPassword) {
-      Alert.alert('Error', 'Passwords do not match');
-      return;
-    }
-
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      Alert.alert('Error', 'Password must be at least 6 characters long.');
+      return;
+    }
+    if (!confirmNewPassword) {
+      Alert.alert('Error', 'Please confirm your new password.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      Alert.alert('Error', 'Passwords do not match. Please try again.');
       return;
     }
 
@@ -155,24 +215,29 @@ export default function ProfileScreen() {
       setShowChangePassword(false);
       setNewPassword('');
       setConfirmNewPassword('');
-      Alert.alert('Success', 'Password changed successfully');
+      Alert.alert('Success', 'Password updated successfully.');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to change password');
+      Alert.alert('Error', getCleanErrorMessage(error));
     }
   };
 
   const handleUpdateDisplayName = async () => {
     if (!newDisplayName.trim()) {
-      Alert.alert('Error', 'Please enter a display name');
+      Alert.alert('Error', 'Please enter a display name.');
+      return;
+    }
+
+    if (newDisplayName.trim() === user?.displayName) {
+      setShowChangeDisplayName(false);
       return;
     }
 
     try {
       await updateDisplayName(newDisplayName.trim());
       setShowChangeDisplayName(false);
-      Alert.alert('Success', 'Display name updated successfully');
+      Alert.alert('Success', 'Display name updated successfully.');
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to update display name');
+      Alert.alert('Error', getCleanErrorMessage(error));
     }
   };
 
@@ -180,6 +245,15 @@ export default function ProfileScreen() {
     setShowForgotPassword(false);
     setForgotEmail('');
     setForgotPasswordSent(false);
+  };
+
+  const switchMode = () => {
+    setIsLoginMode(!isLoginMode);
+    setEmail('');
+    setPassword('');
+    setDisplayName('');
+    setConfirmPassword('');
+    setLocalError('');
   };
   
   const styles = createStyles(colors);
@@ -364,9 +438,9 @@ export default function ProfileScreen() {
                 </View>
               )}
               
-              {error && (
+              {(localError || error) && (
                 <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{localError || getCleanErrorMessage(error)}</Text>
                 </View>
               )}
               
@@ -395,13 +469,7 @@ export default function ProfileScreen() {
               
               <TouchableOpacity 
                 style={styles.switchModeButton}
-                onPress={() => {
-                  setIsLoginMode(!isLoginMode);
-                  setEmail('');
-                  setPassword('');
-                  setDisplayName('');
-                  setConfirmPassword('');
-                }}
+                onPress={switchMode}
               >
                 <Text style={styles.switchModeText}>
                   {isLoginMode 
@@ -459,8 +527,7 @@ export default function ProfileScreen() {
               {forgotPasswordSent ? (
                 <View style={styles.modalBody}>
                   <Text style={styles.modalDescription}>
-                    We have sent a password reset link to {forgotEmail}. 
-                    Please check your email and follow the instructions to reset your password.
+                    Password reset link sent to {forgotEmail}. Please check your inbox and follow the instructions to reset your password.
                   </Text>
                   <TouchableOpacity 
                     style={styles.modalButton}
@@ -877,6 +944,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.danger,
     fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 20,
   },
   submitButton: {
     backgroundColor: colors.primary,

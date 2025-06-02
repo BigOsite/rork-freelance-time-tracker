@@ -100,11 +100,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
     } catch (error: any) {
+      const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
-        error: error.message || 'Login failed' 
+        error: errorMessage
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 
@@ -144,11 +145,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
     } catch (error: any) {
+      const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
-        error: error.message || 'Registration failed' 
+        error: errorMessage
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 
@@ -208,11 +210,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setAuthState({ isLoading: false, error: null });
     } catch (error: any) {
+      const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
-        error: error.message || 'Failed to send reset email' 
+        error: errorMessage
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 
@@ -230,11 +233,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setAuthState({ isLoading: false, error: null });
     } catch (error: any) {
+      const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
-        error: error.message || 'Failed to reset password' 
+        error: errorMessage
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 
@@ -252,11 +256,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setAuthState({ isLoading: false, error: null });
     } catch (error: any) {
+      const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
-        error: error.message || 'Failed to change password' 
+        error: errorMessage
       });
-      throw error;
+      throw new Error(errorMessage);
     }
   };
 
@@ -283,12 +288,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       setAuthState({ isLoading: false, error: null });
     } catch (error: any) {
+      const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
-        error: error.message || 'Failed to update display name' 
+        error: errorMessage
       });
-      throw error;
+      throw new Error(errorMessage);
     }
+  };
+
+  // Helper function to clean up error messages
+  const getCleanErrorMessage = (error: any): string => {
+    if (!error) return 'An unexpected error occurred.';
+    
+    const message = typeof error === 'string' ? error : error.message || '';
+    
+    // Handle common Supabase/auth errors with user-friendly messages
+    if (message.includes('Invalid login credentials')) {
+      return 'Invalid email or password. Please check your credentials and try again.';
+    }
+    if (message.includes('User already registered')) {
+      return 'An account with this email already exists. Please sign in instead.';
+    }
+    if (message.includes('Password should be at least 6 characters')) {
+      return 'Password must be at least 6 characters long.';
+    }
+    if (message.includes('Unable to validate email address')) {
+      return 'Please enter a valid email address.';
+    }
+    if (message.includes('Email not confirmed')) {
+      return 'Please check your email and confirm your account before signing in.';
+    }
+    if (message.includes('Too many requests')) {
+      return 'Too many attempts. Please wait a moment before trying again.';
+    }
+    if (message.includes('Network request failed') || message.includes('fetch')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    if (message.includes('signup is disabled')) {
+      return 'Account registration is currently disabled. Please contact support.';
+    }
+    if (message.includes('Email rate limit exceeded')) {
+      return 'Too many emails sent. Please wait before requesting another reset link.';
+    }
+    
+    // Return the original message if it's already user-friendly
+    return message || 'An unexpected error occurred. Please try again.';
   };
 
   // Initialize auth state on app start

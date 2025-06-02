@@ -19,25 +19,33 @@ import { useAuth } from '@/contexts/AuthContext';
 export default function ResetPasswordScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { resetPassword, isLoading, error } = useAuth();
+  const { resetPassword, isLoading } = useAuth();
   
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [localError, setLocalError] = useState('');
   
   const handleResetPassword = async () => {
-    if (!newPassword || !confirmPassword) {
-      Alert.alert('Error', 'Please fill in all fields');
-      return;
-    }
-
-    if (newPassword !== confirmPassword) {
-      Alert.alert('Error', 'Passwords do not match');
+    setLocalError('');
+    
+    if (!newPassword) {
+      setLocalError('Please enter a new password.');
       return;
     }
 
     if (newPassword.length < 6) {
-      Alert.alert('Error', 'Password must be at least 6 characters long');
+      setLocalError('Password must be at least 6 characters long.');
+      return;
+    }
+
+    if (!confirmPassword) {
+      setLocalError('Please confirm your new password.');
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      setLocalError('Passwords do not match. Please try again.');
       return;
     }
 
@@ -45,7 +53,7 @@ export default function ResetPasswordScreen() {
       await resetPassword(newPassword);
       setIsSuccess(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to reset password');
+      setLocalError(error.message || 'Failed to reset password. Please try again.');
     }
   };
 
@@ -143,9 +151,9 @@ export default function ResetPasswordScreen() {
                 </View>
               </View>
               
-              {error && (
+              {localError && (
                 <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{localError}</Text>
                 </View>
               )}
               
@@ -328,6 +336,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.danger,
     fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 20,
   },
   submitButton: {
     backgroundColor: colors.primary,
