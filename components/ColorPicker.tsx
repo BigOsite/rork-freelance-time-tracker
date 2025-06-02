@@ -9,7 +9,7 @@ import {
   SafeAreaView
 } from 'react-native';
 import { X } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 type ColorPickerProps = {
   visible?: boolean;
@@ -26,6 +26,8 @@ export default function ColorPicker({
   onClose = () => {}, 
   onSelectColor
 }: ColorPickerProps) {
+  const { colors } = useTheme();
+  
   // Use selectedColor as fallback if initialColor is not provided
   const currentColor = initialColor || selectedColor || '#4A7AFF';
   
@@ -43,6 +45,8 @@ export default function ColorPicker({
     '#795548', // Brown
     '#607D8B', // Blue Grey
   ];
+  
+  const styles = createStyles(colors);
   
   // If used as a modal
   if (visible !== undefined) {
@@ -69,7 +73,7 @@ export default function ColorPicker({
             <View style={styles.header}>
               <Text style={styles.title}>Select Color</Text>
               <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                <X size={24} color={Colors.light.text} />
+                <X size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
             
@@ -130,14 +134,14 @@ export default function ColorPicker({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
@@ -152,7 +156,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: colors.text,
   },
   closeButton: {
     padding: 4,
@@ -182,10 +186,10 @@ const styles = StyleSheet.create({
   },
   selectedColorItem: {
     borderWidth: 3,
-    borderColor: Colors.light.text,
+    borderColor: colors.text,
   },
   confirmButton: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',

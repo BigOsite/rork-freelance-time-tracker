@@ -11,13 +11,14 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, DollarSign, Percent } from 'lucide-react-native';
 import { useBusinessStore } from '@/store/businessStore';
+import { useTheme } from '@/contexts/ThemeContext';
 import OptionSelector from '@/components/OptionSelector';
 import { CURRENCIES, getCurrencyByCode } from '@/constants/currencies';
-import Colors from '@/constants/colors';
 
 export default function TaxCurrencyScreen() {
   const router = useRouter();
   const { taxSettings, updateCurrency, updateTaxRate } = useBusinessStore();
+  const { colors } = useTheme();
   
   const [selectedCurrency, setSelectedCurrency] = useState(taxSettings.currency);
   const [taxRate, setTaxRate] = useState(taxSettings.defaultTaxRate.toString());
@@ -124,6 +125,8 @@ export default function TaxCurrencyScreen() {
   
   const selectedCurrencyData = getCurrencyByCode(selectedCurrency);
   
+  const styles = createStyles(colors);
+  
   return (
     <View style={styles.container}>
       <Stack.Screen 
@@ -131,7 +134,7 @@ export default function TaxCurrencyScreen() {
           title: 'Tax & Currency',
           headerLeft: () => (
             <TouchableOpacity onPress={handleBack} style={styles.headerButton}>
-              <ChevronLeft size={24} color={Colors.light.primary} />
+              <ChevronLeft size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
         }}
@@ -140,7 +143,7 @@ export default function TaxCurrencyScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <DollarSign size={24} color={Colors.light.primary} />
+            <DollarSign size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>Currency Settings</Text>
           </View>
           
@@ -169,7 +172,7 @@ export default function TaxCurrencyScreen() {
         
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Percent size={24} color={Colors.light.primary} />
+            <Percent size={24} color={colors.primary} />
             <Text style={styles.sectionTitle}>Tax Settings</Text>
           </View>
           
@@ -185,6 +188,7 @@ export default function TaxCurrencyScreen() {
                 value={taxRate}
                 onChangeText={handleTaxRateChange}
                 placeholder="0.00"
+                placeholderTextColor={colors.placeholder}
                 keyboardType="decimal-pad"
                 maxLength={6}
               />
@@ -211,10 +215,10 @@ export default function TaxCurrencyScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surface,
   },
   content: {
     flexGrow: 1,
@@ -223,7 +227,7 @@ const styles = StyleSheet.create({
   headerButton: {
     padding: 12,
     borderRadius: 16,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.inputBg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06,
@@ -231,7 +235,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 20,
     padding: 24,
     marginBottom: 20,
@@ -253,7 +257,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.light.text,
+    color: colors.text,
     letterSpacing: -0.3,
   },
   settingItem: {
@@ -262,13 +266,13 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: colors.text,
     marginBottom: 8,
     letterSpacing: -0.2,
   },
   settingDescription: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     lineHeight: 20,
     marginBottom: 16,
   },
@@ -277,56 +281,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 12,
     padding: 12,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 12,
     gap: 8,
   },
   previewLabel: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     fontWeight: '500',
   },
   previewValue: {
     fontSize: 16,
-    color: Colors.light.primary,
+    color: colors.primary,
     fontWeight: '700',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.inputBg,
+    backgroundColor: colors.inputBg,
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: colors.border,
   },
   textInput: {
     flex: 1,
     fontSize: 16,
-    color: Colors.light.text,
+    color: colors.text,
     fontWeight: '500',
   },
   inputSuffix: {
     fontSize: 16,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     fontWeight: '600',
     marginLeft: 8,
   },
   taxPreview: {
     marginTop: 12,
     padding: 12,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 12,
   },
   saveButton: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: colors.primary,
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 24,
     alignItems: 'center',
     marginTop: 20,
-    shadowColor: Colors.light.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
     shadowRadius: 8,

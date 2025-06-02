@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { X, Plus, ChevronRight } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 import { PresetBreak } from '@/types';
 import { generateId } from '@/utils/helpers';
 
@@ -30,6 +30,7 @@ export default function PresetBreaksModal({
   onClose = () => {}, 
   onSave
 }: PresetBreaksModalProps) {
+  const { colors } = useTheme();
   const [presetBreaks, setPresetBreaks] = useState<PresetBreak[]>(initialBreaks || []);
   const [showDaysPicker, setShowDaysPicker] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
@@ -185,22 +186,22 @@ export default function PresetBreaksModal({
   
   const renderBreakItem = ({ item }: { item: PresetBreak }) => (
     <TouchableOpacity 
-      style={styles.breakItem}
+      style={[styles.breakItem, { backgroundColor: colors.background }]}
       onPress={() => handleEditBreak(item)}
     >
       <View style={styles.breakHeader}>
-        <Text style={styles.breakName}>{item.name}</Text>
-        <ChevronRight size={20} color={Colors.light.subtext} />
+        <Text style={[styles.breakName, { color: colors.text }]}>{item.name}</Text>
+        <ChevronRight size={20} color={colors.subtext} />
       </View>
       
       <View style={styles.breakDetails}>
-        <Text style={styles.breakTime}>
+        <Text style={[styles.breakTime, { color: colors.text }]}>
           {formatTimeForDisplay(item.startTime)} - {formatTimeForDisplay(item.endTime)}
         </Text>
-        <Text style={styles.breakDuration}>
+        <Text style={[styles.breakDuration, { color: colors.subtext }]}>
           {formatDurationForDisplay(item.duration)}
         </Text>
-        <Text style={styles.breakDays}>
+        <Text style={[styles.breakDays, { color: colors.subtext }]}>
           {formatDaysForDisplay(item.days)}
         </Text>
       </View>
@@ -246,8 +247,8 @@ export default function PresetBreaksModal({
         animationType="slide"
         transparent={false}
       >
-        <SafeAreaView style={styles.editorContainer}>
-          <View style={styles.editorHeader}>
+        <SafeAreaView style={[styles.editorContainer, { backgroundColor: colors.surface }]}>
+          <View style={[styles.editorHeader, { backgroundColor: colors.background, borderBottomColor: colors.border }]}>
             <TouchableOpacity onPress={() => {
               setShowBreakEditor(false);
               setEditingBreak(null);
@@ -256,27 +257,28 @@ export default function PresetBreaksModal({
               setShowEndTimePicker(false);
               setShowDaysPicker(false);
             }}>
-              <X size={24} color={Colors.light.text} />
+              <X size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={styles.editorTitle}>Edit Break</Text>
+            <Text style={[styles.editorTitle, { color: colors.text }]}>Edit Break</Text>
             <TouchableOpacity onPress={handleSaveBreak}>
-              <Text style={styles.saveButtonText}>Save</Text>
+              <Text style={[styles.saveButtonText, { color: colors.primary }]}>Save</Text>
             </TouchableOpacity>
           </View>
           
-          <View style={styles.editorForm}>
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Name</Text>
+          <View style={[styles.editorForm, { backgroundColor: colors.background }]}>
+            <View style={[styles.formGroup, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.formLabel, { color: colors.text }]}>Name</Text>
               <TextInput
-                style={styles.formInput}
+                style={[styles.formInput, { color: colors.text }]}
                 value={editingBreak.name}
                 onChangeText={(text) => handleUpdateBreakField('name', text)}
                 placeholder="Break name"
+                placeholderTextColor={colors.placeholder}
               />
             </View>
             
             <TouchableOpacity 
-              style={styles.formGroup}
+              style={[styles.formGroup, { borderBottomColor: colors.border }]}
               onPress={() => {
                 setShowEndTimePicker(false);
                 setShowDaysPicker(false);
@@ -284,17 +286,17 @@ export default function PresetBreaksModal({
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.formLabel}>Start</Text>
+              <Text style={[styles.formLabel, { color: colors.text }]}>Start</Text>
               <View style={styles.formValue}>
-                <Text style={styles.formValueText}>
+                <Text style={[styles.formValueText, { color: colors.subtext }]}>
                   {formatTimeForDisplay(editingBreak.startTime)}
                 </Text>
-                <ChevronRight size={20} color={Colors.light.subtext} />
+                <ChevronRight size={20} color={colors.subtext} />
               </View>
             </TouchableOpacity>
             
             <TouchableOpacity 
-              style={styles.formGroup}
+              style={[styles.formGroup, { borderBottomColor: colors.border }]}
               onPress={() => {
                 setShowStartTimePicker(false);
                 setShowDaysPicker(false);
@@ -302,26 +304,26 @@ export default function PresetBreaksModal({
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.formLabel}>End</Text>
+              <Text style={[styles.formLabel, { color: colors.text }]}>End</Text>
               <View style={styles.formValue}>
-                <Text style={styles.formValueText}>
+                <Text style={[styles.formValueText, { color: colors.subtext }]}>
                   {formatTimeForDisplay(editingBreak.endTime)}
                 </Text>
-                <ChevronRight size={20} color={Colors.light.subtext} />
+                <ChevronRight size={20} color={colors.subtext} />
               </View>
             </TouchableOpacity>
             
-            <View style={styles.formGroup}>
-              <Text style={styles.formLabel}>Duration</Text>
+            <View style={[styles.formGroup, { borderBottomColor: colors.border }]}>
+              <Text style={[styles.formLabel, { color: colors.text }]}>Duration</Text>
               <View style={styles.formValue}>
-                <Text style={styles.formValueText}>
+                <Text style={[styles.formValueText, { color: colors.subtext }]}>
                   {formatDurationForDisplay(editingBreak.duration)}
                 </Text>
               </View>
             </View>
             
             <TouchableOpacity 
-              style={styles.formGroup}
+              style={[styles.formGroup, { borderBottomColor: colors.border }]}
               onPress={() => {
                 setShowStartTimePicker(false);
                 setShowEndTimePicker(false);
@@ -329,18 +331,18 @@ export default function PresetBreaksModal({
               }}
               activeOpacity={0.7}
             >
-              <Text style={styles.formLabel}>Days</Text>
+              <Text style={[styles.formLabel, { color: colors.text }]}>Days</Text>
               <View style={styles.formValue}>
-                <Text style={styles.formValueText} numberOfLines={1} ellipsizeMode="tail">
+                <Text style={[styles.formValueText, { color: colors.subtext }]} numberOfLines={1} ellipsizeMode="tail">
                   {formatDaysForDisplay(editingBreak.days)}
                 </Text>
-                <ChevronRight size={20} color={Colors.light.subtext} />
+                <ChevronRight size={20} color={colors.subtext} />
               </View>
             </TouchableOpacity>
             
             {presetBreaks.some(b => b.id === editingBreak.id) && (
               <TouchableOpacity 
-                style={styles.deleteButton}
+                style={[styles.deleteButton, { borderColor: colors.danger }]}
                 onPress={() => {
                   Alert.alert(
                     "Delete Break",
@@ -363,13 +365,13 @@ export default function PresetBreaksModal({
                   );
                 }}
               >
-                <Text style={styles.deleteButtonText}>Delete Break</Text>
+                <Text style={[styles.deleteButtonText, { color: colors.danger }]}>Delete Break</Text>
               </TouchableOpacity>
             )}
           </View>
           
           {showStartTimePicker && (
-            <View style={styles.timePickerContainer}>
+            <View style={[styles.timePickerContainer, { backgroundColor: colors.background }]}>
               <DateTimePicker
                 value={(() => {
                   const [hours, minutes] = editingBreak.startTime.split(':').map(Number);
@@ -381,15 +383,15 @@ export default function PresetBreaksModal({
                 is24Hour={false}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={(event, selectedDate) => handleTimePickerChange(event, selectedDate, true)}
-                textColor={Colors.light.text}
-                accentColor={Colors.light.primary}
+                textColor={colors.text}
+                accentColor={colors.primary}
                 themeVariant="light"
               />
             </View>
           )}
           
           {showEndTimePicker && (
-            <View style={styles.timePickerContainer}>
+            <View style={[styles.timePickerContainer, { backgroundColor: colors.background }]}>
               <DateTimePicker
                 value={(() => {
                   const [hours, minutes] = editingBreak.endTime.split(':').map(Number);
@@ -401,8 +403,8 @@ export default function PresetBreaksModal({
                 is24Hour={false}
                 display={Platform.OS === 'ios' ? 'spinner' : 'default'}
                 onChange={(event, selectedDate) => handleTimePickerChange(event, selectedDate, false)}
-                textColor={Colors.light.text}
-                accentColor={Colors.light.primary}
+                textColor={colors.text}
+                accentColor={colors.primary}
                 themeVariant="light"
               />
             </View>
@@ -453,27 +455,27 @@ export default function PresetBreaksModal({
     };
     
     return (
-      <View style={styles.daysSelectorContainer}>
+      <View style={[styles.daysSelectorContainer, { backgroundColor: colors.background }]}>
         <View style={styles.daysSelectorContent}>
           <View style={styles.daysSelectorHeader}>
-            <Text style={styles.daysSelectorTitle}>Select Days</Text>
+            <Text style={[styles.daysSelectorTitle, { color: colors.text }]}>Select Days</Text>
             <TouchableOpacity onPress={() => setShowDaysPicker(false)}>
-              <X size={24} color={Colors.light.text} />
+              <X size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
           
           <View style={styles.daysQuickSelect}>
-            <TouchableOpacity style={styles.quickSelectButton} onPress={selectAllDays}>
-              <Text style={styles.quickSelectText}>All</Text>
+            <TouchableOpacity style={[styles.quickSelectButton, { backgroundColor: colors.inputBg }]} onPress={selectAllDays}>
+              <Text style={[styles.quickSelectText, { color: colors.text }]}>All</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickSelectButton} onPress={selectWeekdays}>
-              <Text style={styles.quickSelectText}>Weekdays</Text>
+            <TouchableOpacity style={[styles.quickSelectButton, { backgroundColor: colors.inputBg }]} onPress={selectWeekdays}>
+              <Text style={[styles.quickSelectText, { color: colors.text }]}>Weekdays</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickSelectButton} onPress={selectWeekends}>
-              <Text style={styles.quickSelectText}>Weekends</Text>
+            <TouchableOpacity style={[styles.quickSelectButton, { backgroundColor: colors.inputBg }]} onPress={selectWeekends}>
+              <Text style={[styles.quickSelectText, { color: colors.text }]}>Weekends</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickSelectButton} onPress={clearSelection}>
-              <Text style={styles.quickSelectText}>Clear</Text>
+            <TouchableOpacity style={[styles.quickSelectButton, { backgroundColor: colors.inputBg }]} onPress={clearSelection}>
+              <Text style={[styles.quickSelectText, { color: colors.text }]}>Clear</Text>
             </TouchableOpacity>
           </View>
           
@@ -483,18 +485,20 @@ export default function PresetBreaksModal({
                 key={day.value}
                 style={[
                   styles.dayOption,
-                  selectedDays.includes(day.value) && styles.dayOptionSelected
+                  { borderBottomColor: colors.border },
+                  selectedDays.includes(day.value) && { backgroundColor: `${colors.primary}10` }
                 ]}
                 onPress={() => toggleDay(day.value)}
               >
                 <Text style={[
                   styles.dayOptionText,
-                  selectedDays.includes(day.value) && styles.dayOptionTextSelected
+                  { color: colors.text },
+                  selectedDays.includes(day.value) && { color: colors.primary, fontWeight: '500' }
                 ]}>
                   {day.label}
                 </Text>
                 {selectedDays.includes(day.value) && (
-                  <View style={styles.checkmark} />
+                  <View style={[styles.checkmark, { backgroundColor: colors.primary }]} />
                 )}
               </TouchableOpacity>
             ))}
@@ -503,14 +507,15 @@ export default function PresetBreaksModal({
           <TouchableOpacity 
             style={[
               styles.confirmButton,
-              selectedDays.length === 0 && styles.confirmButtonDisabled
+              { backgroundColor: colors.primary },
+              selectedDays.length === 0 && { backgroundColor: colors.border }
             ]}
             onPress={handleConfirm}
             disabled={selectedDays.length === 0}
           >
             <Text style={[
               styles.confirmButtonText,
-              selectedDays.length === 0 && styles.confirmButtonTextDisabled
+              selectedDays.length === 0 && { color: colors.subtext }
             ]}>
               Confirm
             </Text>
@@ -519,6 +524,8 @@ export default function PresetBreaksModal({
       </View>
     );
   };
+  
+  const styles = createStyles(colors);
   
   return (
     <Modal
@@ -530,7 +537,7 @@ export default function PresetBreaksModal({
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <X size={24} color={Colors.light.text} />
+            <X size={24} color={colors.text} />
           </TouchableOpacity>
           <Text style={styles.title}>Preset Breaks</Text>
           <TouchableOpacity onPress={handleSave} style={styles.saveButton}>
@@ -562,7 +569,7 @@ export default function PresetBreaksModal({
           style={styles.addBreakButton}
           onPress={handleAddBreak}
         >
-          <Plus size={20} color={Colors.light.primary} />
+          <Plus size={20} color={colors.primary} />
           <Text style={styles.addBreakText}>Add Break</Text>
         </TouchableOpacity>
       </SafeAreaView>
@@ -572,19 +579,19 @@ export default function PresetBreaksModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
+    backgroundColor: colors.surface,
   },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
+    borderBottomColor: colors.border,
   },
   closeButton: {
     padding: 4,
@@ -592,7 +599,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: colors.text,
   },
   saveButton: {
     padding: 4,
@@ -600,22 +607,22 @@ const styles = StyleSheet.create({
   saveButtonText: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.primary,
+    color: colors.primary,
   },
   infoContainer: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     padding: 16,
     marginBottom: 16,
   },
   infoText: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     lineHeight: 20,
   },
   sectionTitle: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.light.subtext,
+    color: colors.subtext,
     marginHorizontal: 16,
     marginBottom: 8,
   },
@@ -623,7 +630,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   breakItem: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
@@ -642,71 +648,62 @@ const styles = StyleSheet.create({
   breakName: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text,
   },
   breakDetails: {
     marginTop: 8,
   },
   breakTime: {
     fontSize: 14,
-    color: Colors.light.text,
     marginBottom: 4,
   },
   breakDuration: {
     fontSize: 14,
-    color: Colors.light.subtext,
     marginBottom: 4,
   },
   breakDays: {
     fontSize: 14,
-    color: Colors.light.subtext,
   },
   addBreakButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 12,
     margin: 16,
   },
   addBreakText: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.light.primary,
+    color: colors.primary,
     marginLeft: 8,
   },
   emptyState: {
     padding: 24,
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 12,
   },
   emptyStateText: {
     fontSize: 16,
-    color: Colors.light.subtext,
+    color: colors.subtext,
   },
   // Break editor styles
   editorContainer: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
   },
   editorHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 16,
-    backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   editorTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.light.text,
   },
   editorForm: {
-    backgroundColor: '#FFFFFF',
     marginTop: 16,
   },
   formGroup: {
@@ -715,15 +712,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
   },
   formLabel: {
     fontSize: 16,
-    color: Colors.light.text,
   },
   formInput: {
     fontSize: 16,
-    color: Colors.light.text,
     textAlign: 'right',
     flex: 1,
   },
@@ -733,12 +727,10 @@ const styles = StyleSheet.create({
   },
   formValueText: {
     fontSize: 16,
-    color: Colors.light.subtext,
     marginRight: 8,
     maxWidth: 200,
   },
   timePickerContainer: {
-    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginHorizontal: 16,
     marginVertical: 8,
@@ -747,14 +739,12 @@ const styles = StyleSheet.create({
   deleteButton: {
     margin: 16,
     padding: 16,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'transparent',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: Colors.light.danger,
     alignItems: 'center',
   },
   deleteButtonText: {
-    color: Colors.light.danger,
     fontSize: 16,
     fontWeight: '500',
   },
@@ -764,7 +754,6 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingTop: 20,
@@ -789,7 +778,6 @@ const styles = StyleSheet.create({
   daysSelectorTitle: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.light.text,
   },
   daysQuickSelect: {
     flexDirection: 'row',
@@ -799,12 +787,10 @@ const styles = StyleSheet.create({
   quickSelectButton: {
     paddingVertical: 8,
     paddingHorizontal: 12,
-    backgroundColor: '#F0F2F5',
     borderRadius: 8,
   },
   quickSelectText: {
     fontSize: 14,
-    color: Colors.light.text,
   },
   daysListContainer: {
     flex: 1,
@@ -816,40 +802,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
-  },
-  dayOptionSelected: {
-    backgroundColor: `${Colors.light.primary}10`,
   },
   dayOptionText: {
     fontSize: 16,
-    color: Colors.light.text,
-  },
-  dayOptionTextSelected: {
-    color: Colors.light.primary,
-    fontWeight: '500',
   },
   checkmark: {
     width: 20,
     height: 20,
     borderRadius: 10,
-    backgroundColor: Colors.light.primary,
   },
   confirmButton: {
-    backgroundColor: Colors.light.primary,
     paddingVertical: 16,
     borderRadius: 12,
     alignItems: 'center',
-  },
-  confirmButtonDisabled: {
-    backgroundColor: Colors.light.border,
   },
   confirmButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
-  },
-  confirmButtonTextDisabled: {
-    color: Colors.light.subtext,
   },
 });

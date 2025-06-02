@@ -15,8 +15,8 @@ import ColorPicker from '@/components/ColorPicker';
 import OptionSelector from '@/components/OptionSelector';
 import PresetBreaksModal from '@/components/PresetBreaksModal';
 import { useBusinessStore } from '@/store/businessStore';
+import { useTheme } from '@/contexts/ThemeContext';
 import { getRandomColor } from '@/utils/helpers';
-import Colors from '@/constants/colors';
 import { PayPeriodType, RoundTimeType, OvertimeType, JobSettings, PresetBreak, TimeRoundingSettings, RoundingDirection, RoundingInterval } from '@/types';
 
 type JobFormProps = {
@@ -40,6 +40,7 @@ type JobFormProps = {
 export default function JobForm({ initialValues = {}, onSubmit, submitButtonText }: JobFormProps) {
   const router = useRouter();
   const { taxSettings } = useBusinessStore();
+  const { colors } = useTheme();
   
   // Safely handle initial values with proper defaults
   const safeInitialValues = {
@@ -284,6 +285,8 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
     return exampleText;
   };
   
+  const styles = createStyles(colors);
+  
   return (
     <>
       <ScrollView style={styles.container}>
@@ -299,7 +302,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                 value={title}
                 onChangeText={setTitle}
                 placeholder="e.g. Website Redesign"
-                placeholderTextColor={Colors.light.placeholder}
+                placeholderTextColor={colors.placeholder}
               />
             </View>
             
@@ -310,7 +313,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                 value={client}
                 onChangeText={setClient}
                 placeholder="e.g. Acme Corp"
-                placeholderTextColor={Colors.light.placeholder}
+                placeholderTextColor={colors.placeholder}
               />
             </View>
             
@@ -324,7 +327,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                   onChangeText={setHourlyRate}
                   keyboardType="decimal-pad"
                   placeholder="0.00"
-                  placeholderTextColor={Colors.light.placeholder}
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
             </View>
@@ -345,7 +348,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             {/* Time Rounding Section */}
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Clock size={20} color={Colors.light.subtext} />
+                <Clock size={20} color={colors.subtext} />
                 <View style={styles.settingText}>
                   <Text style={styles.settingLabel}>Time rounding</Text>
                   <Text style={styles.settingValue}>
@@ -356,7 +359,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
               <Switch
                 value={timeRoundingEnabled}
                 onValueChange={setTimeRoundingEnabled}
-                trackColor={{ false: Colors.light.border, true: Colors.light.primary }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={timeRoundingEnabled ? '#FFFFFF' : '#FFFFFF'}
               />
             </View>
@@ -394,7 +397,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                     onChangeText={setBufferTime}
                     keyboardType="number-pad"
                     placeholder="0"
-                    placeholderTextColor={Colors.light.placeholder}
+                    placeholderTextColor={colors.placeholder}
                   />
                   <Text style={styles.helpText}>
                     Buffer time defines how much time must pass before rounding occurs (0-30 minutes)
@@ -412,7 +415,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Bell size={20} color={Colors.light.subtext} />
+                <Bell size={20} color={colors.subtext} />
                 <View style={styles.settingText}>
                   <Text style={styles.settingLabel}>Remind me to clock out</Text>
                   <Text style={styles.settingValue}>
@@ -423,7 +426,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
               <Switch
                 value={clockOutReminders}
                 onValueChange={setClockOutReminders}
-                trackColor={{ false: Colors.light.border, true: Colors.light.primary }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={clockOutReminders ? '#FFFFFF' : '#FFFFFF'}
               />
             </View>
@@ -440,7 +443,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                       onChangeText={setDailyReminderThreshold}
                       keyboardType="decimal-pad"
                       placeholder="not set"
-                      placeholderTextColor={Colors.light.placeholder}
+                      placeholderTextColor={colors.placeholder}
                     />
                     <Text style={styles.reminderUnit}>hours</Text>
                   </View>
@@ -455,7 +458,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                       onChangeText={setWeeklyReminderThreshold}
                       keyboardType="decimal-pad"
                       placeholder="not set"
-                      placeholderTextColor={Colors.light.placeholder}
+                      placeholderTextColor={colors.placeholder}
                     />
                     <Text style={styles.reminderUnit}>hours</Text>
                   </View>
@@ -469,7 +472,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Clock size={20} color={Colors.light.subtext} />
+                <Clock size={20} color={colors.subtext} />
                 <View style={styles.settingText}>
                   <Text style={styles.settingLabel}>Automatic breaks</Text>
                   <Text style={styles.settingValue}>
@@ -480,7 +483,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
               <Switch
                 value={automaticBreaks}
                 onValueChange={setAutomaticBreaks}
-                trackColor={{ false: Colors.light.border, true: Colors.light.primary }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={automaticBreaks ? '#FFFFFF' : '#FFFFFF'}
               />
             </View>
@@ -519,7 +522,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                   onPress={handleOpenPresetBreaks}
                 >
                   <Text style={styles.manageBreaksText}>Manage Preset Breaks</Text>
-                  <ChevronRight size={16} color={Colors.light.primary} />
+                  <ChevronRight size={16} color={colors.primary} />
                 </TouchableOpacity>
               </View>
             )}
@@ -531,7 +534,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             
             <View style={styles.formGroup}>
               <View style={styles.settingInfo}>
-                <Tag size={20} color={Colors.light.subtext} />
+                <Tag size={20} color={colors.subtext} />
                 <Text style={styles.settingLabel}>Tags</Text>
               </View>
               <TextInput
@@ -539,14 +542,14 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                 value={tags}
                 onChangeText={setTags}
                 placeholder="e.g. Design, Frontend, Client Work"
-                placeholderTextColor={Colors.light.placeholder}
+                placeholderTextColor={colors.placeholder}
               />
               <Text style={styles.helpText}>Separate tags with commas</Text>
             </View>
             
             <View style={styles.formGroup}>
               <View style={styles.settingInfo}>
-                <MapPin size={20} color={Colors.light.subtext} />
+                <MapPin size={20} color={colors.subtext} />
                 <Text style={styles.settingLabel}>Location</Text>
               </View>
               <TextInput
@@ -554,7 +557,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                 value={location}
                 onChangeText={setLocation}
                 placeholder="e.g. Office, Home, Client Site"
-                placeholderTextColor={Colors.light.placeholder}
+                placeholderTextColor={colors.placeholder}
               />
             </View>
           </View>
@@ -566,7 +569,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             {/* Daily Overtime Toggle */}
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Clock size={20} color={Colors.light.subtext} />
+                <Clock size={20} color={colors.subtext} />
                 <View style={styles.settingText}>
                   <Text style={styles.settingLabel}>Daily overtime</Text>
                   <Text style={styles.settingValue}>
@@ -577,7 +580,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
               <Switch
                 value={dailyOvertimeEnabled}
                 onValueChange={handleDailyOvertimeChange}
-                trackColor={{ false: Colors.light.border, true: Colors.light.primary }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={dailyOvertimeEnabled ? '#FFFFFF' : '#FFFFFF'}
               />
             </View>
@@ -594,7 +597,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                       onChangeText={setDailyOvertimeThreshold}
                       keyboardType="decimal-pad"
                       placeholder="8"
-                      placeholderTextColor={Colors.light.placeholder}
+                      placeholderTextColor={colors.placeholder}
                     />
                     <Text style={styles.overtimeUnit}>hours</Text>
                   </View>
@@ -609,7 +612,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                       onChangeText={setDailyOvertimeRate}
                       keyboardType="decimal-pad"
                       placeholder="1.5"
-                      placeholderTextColor={Colors.light.placeholder}
+                      placeholderTextColor={colors.placeholder}
                     />
                     <Text style={styles.overtimeUnit}>x</Text>
                   </View>
@@ -620,7 +623,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             {/* Weekly Overtime Toggle */}
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Calendar size={20} color={Colors.light.subtext} />
+                <Calendar size={20} color={colors.subtext} />
                 <View style={styles.settingText}>
                   <Text style={styles.settingLabel}>Weekly overtime</Text>
                   <Text style={styles.settingValue}>
@@ -631,7 +634,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
               <Switch
                 value={weeklyOvertimeEnabled}
                 onValueChange={handleWeeklyOvertimeChange}
-                trackColor={{ false: Colors.light.border, true: Colors.light.primary }}
+                trackColor={{ false: colors.border, true: colors.primary }}
                 thumbColor={weeklyOvertimeEnabled ? '#FFFFFF' : '#FFFFFF'}
               />
             </View>
@@ -648,7 +651,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                       onChangeText={setWeeklyOvertimeThreshold}
                       keyboardType="decimal-pad"
                       placeholder="40"
-                      placeholderTextColor={Colors.light.placeholder}
+                      placeholderTextColor={colors.placeholder}
                     />
                     <Text style={styles.overtimeUnit}>hours</Text>
                   </View>
@@ -663,7 +666,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                       onChangeText={setWeeklyOvertimeRate}
                       keyboardType="decimal-pad"
                       placeholder="1.5"
-                      placeholderTextColor={Colors.light.placeholder}
+                      placeholderTextColor={colors.placeholder}
                     />
                     <Text style={styles.overtimeUnit}>x</Text>
                   </View>
@@ -703,7 +706,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             
             <View style={styles.formGroup}>
               <View style={styles.settingInfo}>
-                <Percent size={20} color={Colors.light.subtext} />
+                <Percent size={20} color={colors.subtext} />
                 <Text style={styles.settingLabel}>Estimated tax rate (%)</Text>
               </View>
               <TextInput
@@ -712,13 +715,13 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                 onChangeText={setEstimatedTaxRate}
                 keyboardType="decimal-pad"
                 placeholder="0"
-                placeholderTextColor={Colors.light.placeholder}
+                placeholderTextColor={colors.placeholder}
               />
             </View>
             
             <View style={styles.formGroup}>
               <View style={styles.settingInfo}>
-                <Calculator size={20} color={Colors.light.subtext} />
+                <Calculator size={20} color={colors.subtext} />
                 <Text style={styles.settingLabel}>Deductions ({taxSettings.currencySymbol})</Text>
               </View>
               <View style={styles.inputWithIcon}>
@@ -729,7 +732,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
                   onChangeText={setDeductions}
                   keyboardType="decimal-pad"
                   placeholder="0.00"
-                  placeholderTextColor={Colors.light.placeholder}
+                  placeholderTextColor={colors.placeholder}
                 />
               </View>
               <Text style={styles.helpText}>
@@ -766,16 +769,16 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.surface,
   },
   formContainer: {
     padding: 20,
   },
   section: {
-    backgroundColor: Colors.light.background,
+    backgroundColor: colors.background,
     borderRadius: 20,
     padding: 20,
     marginBottom: 16,
@@ -785,12 +788,12 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 4,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: colors.border,
   },
   sectionTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: Colors.light.text,
+    color: colors.text,
     marginBottom: 16,
     letterSpacing: -0.3,
   },
@@ -800,18 +803,18 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: colors.text,
     marginBottom: 8,
     letterSpacing: -0.2,
   },
   input: {
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 14,
     padding: 16,
     fontSize: 16,
-    color: Colors.light.text,
+    color: colors.text,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -821,11 +824,11 @@ const styles = StyleSheet.create({
   inputWithIcon: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 14,
     paddingHorizontal: 16,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -834,7 +837,7 @@ const styles = StyleSheet.create({
   },
   currencySymbol: {
     fontSize: 20,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     marginRight: 8,
     fontWeight: '500',
   },
@@ -842,7 +845,7 @@ const styles = StyleSheet.create({
     flex: 1,
     padding: 16,
     fontSize: 16,
-    color: Colors.light.text,
+    color: colors.text,
   },
   settingRow: {
     flexDirection: 'row',
@@ -850,7 +853,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
+    borderBottomColor: colors.border,
     marginBottom: 12,
   },
   settingInfo: {
@@ -865,17 +868,17 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: 16,
     fontWeight: '600',
-    color: Colors.light.text,
+    color: colors.text,
     marginBottom: 2,
     letterSpacing: -0.2,
   },
   settingValue: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
   },
   helpText: {
     fontSize: 12,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     marginTop: 4,
     fontStyle: 'italic',
   },
@@ -883,17 +886,17 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
+    borderTopColor: colors.border,
   },
   roundingDescription: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     lineHeight: 20,
     marginBottom: 16,
     fontStyle: 'italic',
   },
   exampleBox: {
-    backgroundColor: Colors.light.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 14,
     padding: 16,
     marginTop: 8,
@@ -901,19 +904,19 @@ const styles = StyleSheet.create({
   exampleTitle: {
     fontSize: 14,
     fontWeight: '600',
-    color: Colors.light.primary,
+    color: colors.primary,
     marginBottom: 4,
   },
   exampleText: {
     fontSize: 12,
-    color: Colors.light.primary,
+    color: colors.primary,
     lineHeight: 16,
   },
   reminderSettings: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
+    borderTopColor: colors.border,
   },
   reminderRow: {
     flexDirection: 'row',
@@ -921,12 +924,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
+    borderBottomColor: colors.border,
   },
   reminderLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.light.text,
+    color: colors.text,
     flex: 1,
   },
   reminderInputContainer: {
@@ -934,53 +937,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   reminderInput: {
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 8,
     padding: 8,
     fontSize: 16,
-    color: Colors.light.text,
+    color: colors.text,
     minWidth: 80,
     textAlign: 'center',
     marginRight: 8,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: colors.border,
   },
   reminderUnit: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
   },
   reminderDescription: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     lineHeight: 20,
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
+    borderTopColor: colors.border,
   },
   presetBreaksSection: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
+    borderTopColor: colors.border,
   },
   presetBreaksDescription: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     lineHeight: 20,
     marginBottom: 16,
   },
   presetBreaksLabel: {
     fontSize: 14,
     fontWeight: '500',
-    color: Colors.light.subtext,
+    color: colors.subtext,
     marginBottom: 8,
   },
   presetBreaksList: {
     marginBottom: 16,
   },
   presetBreakItem: {
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
@@ -988,20 +991,20 @@ const styles = StyleSheet.create({
   presetBreakName: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.light.text,
+    color: colors.text,
     marginBottom: 4,
   },
   presetBreakDetails: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
     marginBottom: 2,
   },
   presetBreakDays: {
     fontSize: 12,
-    color: Colors.light.subtext,
+    color: colors.subtext,
   },
   noPresetBreaks: {
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',
@@ -1009,7 +1012,7 @@ const styles = StyleSheet.create({
   },
   noPresetBreaksText: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
   },
   manageBreaksButton: {
     flexDirection: 'row',
@@ -1017,19 +1020,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 16,
-    backgroundColor: Colors.light.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 12,
   },
   manageBreaksText: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.light.primary,
+    color: colors.primary,
   },
   overtimeSettings: {
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: Colors.light.border,
+    borderTopColor: colors.border,
   },
   overtimeRow: {
     flexDirection: 'row',
@@ -1037,12 +1040,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.light.border,
+    borderBottomColor: colors.border,
   },
   overtimeLabel: {
     fontSize: 16,
     fontWeight: '500',
-    color: Colors.light.text,
+    color: colors.text,
     flex: 1,
   },
   overtimeInputContainer: {
@@ -1050,20 +1053,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   overtimeInput: {
-    backgroundColor: Colors.light.surface,
+    backgroundColor: colors.inputBg,
     borderRadius: 8,
     padding: 8,
     fontSize: 16,
-    color: Colors.light.text,
+    color: colors.text,
     minWidth: 80,
     textAlign: 'center',
     marginRight: 8,
     borderWidth: 1,
-    borderColor: Colors.light.border,
+    borderColor: colors.border,
   },
   overtimeUnit: {
     fontSize: 14,
-    color: Colors.light.subtext,
+    color: colors.subtext,
   },
   buttonContainer: {
     flexDirection: 'row',
@@ -1088,8 +1091,8 @@ const styles = StyleSheet.create({
     shadowColor: '#374151',
   },
   submitButton: {
-    backgroundColor: Colors.light.primary,
-    shadowColor: Colors.light.primary,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
   },
   cancelButtonText: {
     color: '#FFFFFF',

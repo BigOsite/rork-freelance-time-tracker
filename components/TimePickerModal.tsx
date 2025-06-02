@@ -10,7 +10,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { X } from 'lucide-react-native';
-import Colors from '@/constants/colors';
+import { useTheme } from '@/contexts/ThemeContext';
 
 type TimePickerModalProps = {
   visible: boolean;
@@ -27,6 +27,7 @@ export default function TimePickerModal({
   initialTime,
   title
 }: TimePickerModalProps) {
+  const { colors } = useTheme();
   const [selectedDate, setSelectedDate] = useState(() => {
     if (initialTime && !isNaN(initialTime)) {
       const date = new Date(initialTime);
@@ -79,6 +80,8 @@ export default function TimePickerModal({
     });
   };
   
+  const styles = createStyles(colors);
+  
   return (
     <Modal
       visible={visible}
@@ -91,7 +94,7 @@ export default function TimePickerModal({
           <View style={styles.header}>
             <Text style={styles.title}>{title}</Text>
             <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-              <X size={24} color={Colors.light.text} />
+              <X size={24} color={colors.text} />
             </TouchableOpacity>
           </View>
           
@@ -108,8 +111,8 @@ export default function TimePickerModal({
               display={Platform.OS === 'ios' ? 'spinner' : 'default'}
               onChange={handleDateChange}
               style={Platform.OS === 'ios' ? styles.picker : undefined}
-              textColor={Colors.light.text}
-              accentColor={Colors.light.primary}
+              textColor={colors.text}
+              accentColor={colors.primary}
               themeVariant="light"
             />
           </View>
@@ -125,14 +128,14 @@ export default function TimePickerModal({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   modalContainer: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: 'rgba(0, 0, 0, 0.6)',
   },
   modalContent: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
     padding: 28,
@@ -152,13 +155,13 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 22,
     fontWeight: '700',
-    color: Colors.light.text,
+    color: colors.text,
     letterSpacing: -0.4,
   },
   closeButton: {
     padding: 10,
     borderRadius: 14,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.inputBg,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -168,12 +171,12 @@ const styles = StyleSheet.create({
   selectedTimeContainer: {
     alignItems: 'center',
     marginBottom: 28,
-    backgroundColor: Colors.light.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 20,
     padding: 20,
     borderWidth: 1,
-    borderColor: Colors.light.primary + '20',
-    shadowColor: Colors.light.primary,
+    borderColor: colors.primary + '20',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
@@ -182,12 +185,12 @@ const styles = StyleSheet.create({
   selectedTime: {
     fontSize: 18,
     fontWeight: '600',
-    color: Colors.light.primary,
+    color: colors.primary,
     letterSpacing: -0.3,
   },
   pickerContainer: {
     marginBottom: 28,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 20,
     paddingVertical: 16,
     shadowColor: '#000',
@@ -198,14 +201,13 @@ const styles = StyleSheet.create({
   },
   picker: {
     height: 200,
-    backgroundColor: '#FFFFFF',
   },
   confirmButton: {
-    backgroundColor: Colors.light.primary,
+    backgroundColor: colors.primary,
     paddingVertical: 18,
     borderRadius: 20,
     alignItems: 'center',
-    shadowColor: Colors.light.primary,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 12,

@@ -10,8 +10,8 @@ import {
 } from 'react-native';
 import { Calendar, Clock, Trash2 } from 'lucide-react-native';
 import TimePickerModal from '@/components/TimePickerModal';
+import { useTheme } from '@/contexts/ThemeContext';
 import { formatTime, formatDate } from '@/utils/time';
-import Colors from '@/constants/colors';
 
 type TimeEntryFormProps = {
   initialValues?: {
@@ -34,6 +34,8 @@ export default function TimeEntryForm({
   jobName,
   isNewEntry = false,
 }: TimeEntryFormProps) {
+  const { colors } = useTheme();
+  
   // Provide default values for new entries
   const defaultValues = useMemo(() => ({
     startTime: Date.now(),
@@ -159,6 +161,8 @@ export default function TimeEntryForm({
 
   const isButtonDisabled = isSubmitting || !isFormValid || (!isNewEntry && !hasChanges);
 
+  const styles = createStyles(colors);
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.formContainer}>
@@ -185,7 +189,7 @@ export default function TimeEntryForm({
               style={styles.pickerButton}
               onPress={() => setShowStartTimePicker(true)}
             >
-              <Calendar size={16} color={Colors.light.primary} />
+              <Calendar size={16} color={colors.primary} />
               <Text style={styles.pickerButtonText}>
                 {formatDate(startTime)}
               </Text>
@@ -195,7 +199,7 @@ export default function TimeEntryForm({
               style={styles.pickerButton}
               onPress={() => setShowStartTimePicker(true)}
             >
-              <Clock size={16} color={Colors.light.primary} />
+              <Clock size={16} color={colors.primary} />
               <Text style={styles.pickerButtonText}>
                 {formatTime(startTime)}
               </Text>
@@ -229,7 +233,7 @@ export default function TimeEntryForm({
                   style={styles.pickerButton}
                   onPress={() => setShowEndTimePicker(true)}
                 >
-                  <Calendar size={16} color={Colors.light.primary} />
+                  <Calendar size={16} color={colors.primary} />
                   <Text style={styles.pickerButtonText}>
                     {formatDate(endTime)}
                   </Text>
@@ -239,7 +243,7 @@ export default function TimeEntryForm({
                   style={styles.pickerButton}
                   onPress={() => setShowEndTimePicker(true)}
                 >
-                  <Clock size={16} color={Colors.light.primary} />
+                  <Clock size={16} color={colors.primary} />
                   <Text style={styles.pickerButtonText}>
                     {formatTime(endTime)}
                   </Text>
@@ -263,7 +267,7 @@ export default function TimeEntryForm({
             value={note}
             onChangeText={setNote}
             placeholder="Add notes about this time entry..."
-            placeholderTextColor={Colors.light.placeholder}
+            placeholderTextColor={colors.placeholder}
             multiline
             numberOfLines={4}
             textAlignVertical="top"
@@ -303,7 +307,7 @@ export default function TimeEntryForm({
             onPress={handleDelete}
             disabled={isSubmitting}
           >
-            <Trash2 size={20} color={Colors.light.danger} />
+            <Trash2 size={20} color={colors.danger} />
             <Text style={styles.deleteButtonText}>Delete Time Entry</Text>
           </TouchableOpacity>
         )}
@@ -328,16 +332,16 @@ export default function TimeEntryForm({
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.surface,
   },
   formContainer: {
     padding: 20,
   },
   section: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 20,
     padding: 24,
     marginBottom: 16,
@@ -356,30 +360,30 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: '700',
-    color: Colors.light.text,
+    color: colors.text,
     marginBottom: 16,
     letterSpacing: -0.4,
   },
   jobContainer: {
-    backgroundColor: Colors.light.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: Colors.light.primary + '15',
+    borderColor: colors.primary + '15',
   },
   jobName: {
     fontSize: 18,
-    color: Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
     letterSpacing: -0.3,
   },
   timeButton: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.inputBg,
     borderRadius: 16,
     padding: 20,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
@@ -388,7 +392,7 @@ const styles = StyleSheet.create({
   },
   timeButtonText: {
     fontSize: 16,
-    color: Colors.light.text,
+    color: colors.text,
     textAlign: 'center',
     fontWeight: '600',
     letterSpacing: -0.2,
@@ -402,13 +406,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: Colors.light.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 14,
     padding: 16,
     gap: 8,
     borderWidth: 1,
-    borderColor: Colors.light.primary + '25',
-    shadowColor: Colors.light.primary,
+    borderColor: colors.primary + '25',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -416,23 +420,23 @@ const styles = StyleSheet.create({
   },
   pickerButtonText: {
     fontSize: 14,
-    color: Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
     letterSpacing: -0.1,
   },
   clearButton: {
     fontSize: 14,
-    color: Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
   },
   setEndTimeButton: {
-    backgroundColor: Colors.light.primaryLight,
+    backgroundColor: colors.primaryLight,
     borderRadius: 16,
     padding: 20,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: Colors.light.primary + '25',
-    shadowColor: Colors.light.primary,
+    borderColor: colors.primary + '25',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -440,19 +444,19 @@ const styles = StyleSheet.create({
   },
   setEndTimeButtonText: {
     fontSize: 16,
-    color: Colors.light.primary,
+    color: colors.primary,
     fontWeight: '600',
     letterSpacing: -0.2,
   },
   noteInput: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.inputBg,
     borderRadius: 16,
     padding: 20,
     fontSize: 16,
-    color: Colors.light.text,
+    color: colors.text,
     minHeight: 120,
     borderWidth: 1,
-    borderColor: '#E2E8F0',
+    borderColor: colors.border,
     textAlignVertical: 'top',
     fontWeight: '500',
     shadowColor: '#000',
@@ -485,8 +489,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.2,
   },
   submitButton: {
-    backgroundColor: Colors.light.primary,
-    shadowColor: Colors.light.primary,
+    backgroundColor: colors.primary,
+    shadowColor: colors.primary,
     shadowOpacity: 0.3,
   },
   submitButtonDisabled: {
@@ -513,20 +517,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: colors.background,
     borderRadius: 18,
     padding: 18,
     borderWidth: 2,
-    borderColor: Colors.light.danger,
+    borderColor: colors.danger,
     gap: 10,
-    shadowColor: Colors.light.danger,
+    shadowColor: colors.danger,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
     elevation: 3,
   },
   deleteButtonText: {
-    color: Colors.light.danger,
+    color: colors.danger,
     fontWeight: '700',
     fontSize: 16,
     letterSpacing: -0.2,
