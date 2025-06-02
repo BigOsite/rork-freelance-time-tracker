@@ -10,10 +10,12 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
-  Modal
+  Modal,
+  Image
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, Key, X, Edit } from 'lucide-react-native';
+import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, Key, X, Edit, Camera, Upload } from 'lucide-react-native';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -30,7 +32,8 @@ export default function ProfileScreen() {
     error,
     forgotPassword,
     changePassword,
-    updateDisplayName
+    updateDisplayName,
+    updateProfilePhoto
   } = useAuth();
   
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -46,12 +49,16 @@ export default function ProfileScreen() {
   
   // Change password modal state
   const [showChangePassword, setShowChangePassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
   
   // Change display name modal state
   const [showChangeDisplayName, setShowChangeDisplayName] = useState(false);
   const [newDisplayName, setNewDisplayName] = useState(user?.displayName || '');
+  
+  // Profile photo upload state
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   
   // Local error state for better error handling
   const [localError, setLocalError] = useState('');
@@ -193,6 +200,10 @@ export default function ProfileScreen() {
   };
 
   const handleChangePassword = async () => {
+    if (!currentPassword) {
+      Alert.alert('Error', 'Please enter your current password.');
+      return;
+    }
     if (!newPassword) {
       Alert.alert('Error', 'Please enter a new password.');
       return;
@@ -213,6 +224,7 @@ export default function ProfileScreen() {
     try {
       await changePassword(newPassword);
       setShowChangePassword(false);
+      setCurrentPassword('');
       setNewPassword('');
       setConfirmNewPassword('');
       Alert.alert('Success', 'Password updated successfully.');
@@ -241,10 +253,104 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleProfilePhotoUpload = async () => {
+    try {
+      // Request permission
+      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
+        return;
+      }
+
+      // Show action sheet for photo selection
+      Alert.alert(
+        'Update Profile Photo',
+        'Choose how you would like to update your profile photo',
+        [
+          {
+            text: 'Camera',
+            onPress: () => openCamera(),
+          },
+          {
+            text: 'Photo Library',
+            onPress: () => openImagePicker(),
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel',
+          },
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'Failed to access photo library.');
+    }
+  };
+
+  const openCamera = async () => {
+    try {
+      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      
+      if (permissionResult.granted === false) {
+        Alert.alert('Permission Required', 'Permission to access camera is required!');
+        return;
+      }
+
+      const result = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfilePhoto(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open camera.');
+    }
+  };
+
+  const openImagePicker = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets[0]) {
+        await uploadProfilePhoto(result.assets[0].uri);
+      }
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open image picker.');
+    }
+  };
+
+  const uploadProfilePhoto = async (uri: string) => {
+    try {
+      setUploadingPhoto(true);
+      await updateProfilePhoto(uri);
+      Alert.alert('Success', 'Profile photo updated successfully.');
+    } catch (error: any) {
+      Alert.alert('Error', getCleanErrorMessage(error));
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   const resetForgotPasswordModal = () => {
     setShowForgotPassword(false);
     setForgotEmail('');
     setForgotPasswordSent(false);
+  };
+
+  const resetChangePasswordModal = () => {
+    setShowChangePassword(false);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmNewPassword('');
   };
 
   const switchMode = () => {
@@ -284,9 +390,26 @@ export default function ProfileScreen() {
           <View style={styles.authenticatedContainer}>
             <View style={styles.profileCard}>
               <View style={styles.avatarContainer}>
-                <View style={styles.avatar}>
-                  <User size={40} color={colors.primary} />
-                </View>
+                <TouchableOpacity 
+                  style={styles.avatarWrapper}
+                  onPress={handleProfilePhotoUpload}
+                  disabled={uploadingPhoto}
+                >
+                  {user.photoURL ? (
+                    <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
+                  ) : (
+                    <View style={styles.avatar}>
+                      <User size={40} color={colors.primary} />
+                    </View>
+                  )}
+                  <View style={styles.cameraOverlay}>
+                    {uploadingPhoto ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <Camera size={16} color="#FFFFFF" />
+                    )}
+                  </View>
+                </TouchableOpacity>
               </View>
               
               <View style={styles.userInfo}>
@@ -301,7 +424,26 @@ export default function ProfileScreen() {
             </View>
             
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account Settings</Text>
+              <Text style={styles.sectionTitle}>Profile Settings</Text>
+              
+              <TouchableOpacity 
+                style={styles.actionButton} 
+                onPress={handleProfilePhotoUpload}
+                disabled={uploadingPhoto}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, { backgroundColor: colors.primary + '15' }]}>
+                    {uploadingPhoto ? (
+                      <ActivityIndicator size={20} color={colors.primary} />
+                    ) : (
+                      <Upload size={20} color={colors.primary} />
+                    )}
+                  </View>
+                  <Text style={styles.actionText}>
+                    {uploadingPhoto ? 'Uploading...' : 'Change Profile Photo'}
+                  </Text>
+                </View>
+              </TouchableOpacity>
               
               <TouchableOpacity 
                 style={styles.actionButton} 
@@ -317,6 +459,10 @@ export default function ProfileScreen() {
                   <Text style={styles.actionText}>Change Display Name</Text>
                 </View>
               </TouchableOpacity>
+            </View>
+            
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Security Settings</Text>
               
               <TouchableOpacity 
                 style={styles.actionButton} 
@@ -329,6 +475,10 @@ export default function ProfileScreen() {
                   <Text style={styles.actionText}>Change Password</Text>
                 </View>
               </TouchableOpacity>
+            </View>
+            
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Account Actions</Text>
               
               <TouchableOpacity style={styles.actionButton} onPress={handleLogout}>
                 <View style={styles.actionContent}>
@@ -583,7 +733,7 @@ export default function ProfileScreen() {
         visible={showChangePassword}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowChangePassword(false)}
+        onRequestClose={resetChangePasswordModal}
       >
         <View style={styles.modalOverlay}>
           <KeyboardAvoidingView 
@@ -594,7 +744,7 @@ export default function ProfileScreen() {
               <View style={styles.modalHeader}>
                 <Text style={styles.modalTitle}>Change Password</Text>
                 <TouchableOpacity 
-                  onPress={() => setShowChangePassword(false)}
+                  onPress={resetChangePasswordModal}
                   style={styles.modalCloseButton}
                 >
                   <X size={24} color={colors.subtext} />
@@ -603,8 +753,25 @@ export default function ProfileScreen() {
 
               <View style={styles.modalBody}>
                 <Text style={styles.modalDescription}>
-                  Enter your new password below. Make sure it is at least 6 characters long.
+                  Enter your current password and choose a new password. Your new password must be at least 6 characters long.
                 </Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Current Password</Text>
+                  <View style={styles.inputContainer}>
+                    <Lock size={20} color={colors.subtext} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Enter current password"
+                      placeholderTextColor={colors.placeholder}
+                      value={currentPassword}
+                      onChangeText={setCurrentPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
                 
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>New Password</Text>
@@ -760,6 +927,9 @@ const createStyles = (colors: any) => StyleSheet.create({
   avatarContainer: {
     marginBottom: 20,
   },
+  avatarWrapper: {
+    position: 'relative',
+  },
   avatar: {
     width: 80,
     height: 80,
@@ -772,6 +942,25 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
+  },
+  avatarImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primaryLight,
+  },
+  cameraOverlay: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: colors.background,
   },
   userInfo: {
     alignItems: 'center',

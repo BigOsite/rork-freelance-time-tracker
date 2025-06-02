@@ -1,6 +1,7 @@
 import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
+import * as FileSystem from 'expo-file-system';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
@@ -16,6 +17,7 @@ interface AuthContextType extends AuthState {
   resetPassword: (newPassword: string) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;
+  updateProfilePhoto: (imageUri: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -297,6 +299,92 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const updateProfilePhoto = async (imageUri: string) => {
+    try {
+      setAuthState({ isLoading: true, error: null });
+
+      if (!userAccount?.uid) {
+        throw new Error('User not authenticated');
+      }
+
+      // Read the image file
+      const fileInfo = await FileSystem.getInfoAsync(imageUri);
+      if (!fileInfo.exists) {
+        throw new Error('Image file not found');
+      }
+
+      // Create a unique filename
+      const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileName = `${userAccount.uid}-${Date.now()}.${fileExt}`;
+      const filePath = `avatars/${fileName}`;
+
+      // Read file as base64
+      const base64 = await FileSystem.readAsStringAsync(imageUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+
+      // Convert base64 to blob for upload
+      const byteCharacters = atob(base64);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: `image/${fileExt}` });
+
+      // Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(filePath, blob, {
+          cacheControl: '3600',
+          upsert: true
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(filePath);
+
+      if (!urlData?.publicUrl) {
+        throw new Error('Failed to get public URL for uploaded image');
+      }
+
+      // Update user profile with new photo URL
+      const { error: updateError } = await supabase.auth.updateUser({
+        data: { 
+          avatar_url: urlData.publicUrl,
+          photo_url: urlData.publicUrl 
+        }
+      });
+
+      if (updateError) {
+        throw updateError;
+      }
+
+      // Update local user state
+      if (userAccount) {
+        const updatedUser: UserAccount = {
+          ...userAccount,
+          photoURL: urlData.publicUrl,
+        };
+        setUserAccount(updatedUser);
+      }
+
+      setAuthState({ isLoading: false, error: null });
+    } catch (error: any) {
+      const errorMessage = getCleanErrorMessage(error);
+      setAuthState({ 
+        isLoading: false, 
+        error: errorMessage
+      });
+      throw new Error(errorMessage);
+    }
+  };
+
   // Helper function to clean up error messages
   const getCleanErrorMessage = (error: any): string => {
     if (!error) return 'An unexpected error occurred.';
@@ -330,6 +418,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     if (message.includes('Email rate limit exceeded')) {
       return 'Too many emails sent. Please wait before requesting another reset link.';
+    }
+    if (message.includes('The resource was not found')) {
+      return 'Upload failed. Please try again.';
+    }
+    if (message.includes('Image file not found')) {
+      return 'Selected image could not be found. Please try selecting another image.';
     }
     
     // Return the original message if it's already user-friendly
@@ -391,6 +485,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     resetPassword,
     changePassword,
     updateDisplayName,
+    updateProfilePhoto,
   };
 
   return (
