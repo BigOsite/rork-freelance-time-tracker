@@ -20,7 +20,6 @@ export default function SettingsLayout() {
       <Stack.Screen name="business-info" />
       <Stack.Screen name="payment-options" />
       <Stack.Screen name="tax-currency" />
-      <Stack.Screen name="account" />
       <Stack.Screen name="profile" />
       <Stack.Screen name="reset-password" />
       <Stack.Screen name="whats-new" />

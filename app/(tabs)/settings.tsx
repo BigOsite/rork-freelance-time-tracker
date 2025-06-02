@@ -52,7 +52,7 @@ export default function SettingsScreen() {
           icon: User,
           title: 'Profile',
           subtitle: user ? `Signed in as ${user.displayName}` : 'Sign in to sync data',
-          route: '/settings/account',
+          route: '/settings/profile',
         },
       ],
     },
