@@ -179,11 +179,11 @@ export default function SupportScreen() {
           </View>
           
           <TouchableOpacity 
-            style={[styles.submitButton, { opacity: submitSupportMutation.isLoading ? 0.7 : 1 }]}
+            style={[styles.submitButton, { opacity: submitSupportMutation.isPending ? 0.7 : 1 }]}
             onPress={handleSubmit}
-            disabled={submitSupportMutation.isLoading}
+            disabled={submitSupportMutation.isPending}
           >
-            {submitSupportMutation.isLoading ? (
+            {submitSupportMutation.isPending ? (
               <ActivityIndicator color="#FFFFFF" size="small" />
             ) : (
               <>

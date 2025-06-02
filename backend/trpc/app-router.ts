@@ -3,7 +3,7 @@ import { hiProcedure } from './routes/example/hi/route';
 import { loginProcedure } from './routes/auth/login/route';
 import { registerProcedure } from './routes/auth/register/route';
 import { logoutProcedure } from './routes/auth/logout/route';
-import { profileProcedure } from './routes/auth/profile/route';
+import { getProfileProcedure } from './routes/auth/profile/route';
 import { submitSupportProcedure } from './routes/support/submit/route';
 
 export const appRouter = router({
@@ -14,7 +14,7 @@ export const appRouter = router({
     login: loginProcedure,
     register: registerProcedure,
     logout: logoutProcedure,
-    profile: profileProcedure,
+    profile: getProfileProcedure,
   }),
   support: router({
     submit: submitSupportProcedure,
