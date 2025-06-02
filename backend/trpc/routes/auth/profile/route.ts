@@ -1,4 +1,4 @@
-import { protectedProcedure } from '../../create-context';
+import { protectedProcedure } from '../../../create-context';
 
 export const getProfileProcedure = protectedProcedure
   .query(async ({ ctx }: { ctx: any }) => {
