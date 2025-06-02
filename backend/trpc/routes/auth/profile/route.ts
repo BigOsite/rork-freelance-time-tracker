@@ -8,7 +8,7 @@ export const getProfileProcedure = protectedProcedure
       uid: ctx.userId,
       email: 'demo@example.com',
       displayName: 'Demo User',
-      photoURL: null,
+      photoURL: undefined,
       isLoggedIn: true,
       createdAt: Date.now() - 86400000, // 1 day ago
     };
