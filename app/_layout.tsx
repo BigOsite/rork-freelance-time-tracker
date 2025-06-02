@@ -1,42 +1,25 @@
-import FontAwesome from "@expo/vector-icons/FontAwesome";
-import { useFonts } from "expo-font";
-import { Stack } from "expo-router";
-import * as SplashScreen from "expo-splash-screen";
-import { useEffect } from "react";
-import { StatusBar } from "expo-status-bar";
-import { useBusinessStore } from "@/store/businessStore";
-import * as WebBrowser from "expo-web-browser";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { trpc, trpcClient } from "@/lib/trpc";
-import { ThemeProvider, useTheme } from "@/contexts/ThemeContext";
-
-// Initialize WebBrowser for auth
-WebBrowser.maybeCompleteAuthSession();
-
-export const unstable_settings = {
-  initialRouteName: "(tabs)",
-};
+import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { useFonts } from 'expo-font';
+import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect } from 'react';
+import 'react-native-reanimated/lib/reanimated2/js-reanimated';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { trpc, trpcClient } from '@/lib/trpc';
+import { ThemeProvider as CustomThemeProvider } from '@/contexts/ThemeContext';
+import { AuthProvider } from '@/contexts/AuthContext';
+import { useColorScheme } from '@/hooks/useColorScheme';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-// Create a client
 const queryClient = new QueryClient();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    ...FontAwesome.font,
+  const colorScheme = useColorScheme();
+  const [loaded] = useFonts({
+    SpaceMono: require('../assets/fonts/SpaceMono-Regular.ttf'),
   });
-
-  // Initialize auth state
-  const { userAccount } = useBusinessStore();
-
-  useEffect(() => {
-    if (error) {
-      console.error(error);
-      throw error;
-    }
-  }, [error]);
 
   useEffect(() => {
     if (loaded) {
@@ -51,46 +34,25 @@ export default function RootLayout() {
   return (
     <trpc.Provider client={trpcClient} queryClient={queryClient}>
       <QueryClientProvider client={queryClient}>
-        <ThemeProvider>
-          <RootLayoutNav />
-        </ThemeProvider>
+        <CustomThemeProvider>
+          <AuthProvider>
+            <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+              <Stack>
+                <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+                <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
+                <Stack.Screen name="+not-found" />
+                <Stack.Screen 
+                  name="settings" 
+                  options={{ 
+                    headerShown: false,
+                    presentation: 'card'
+                  }} 
+                />
+              </Stack>
+            </ThemeProvider>
+          </AuthProvider>
+        </CustomThemeProvider>
       </QueryClientProvider>
     </trpc.Provider>
-  );
-}
-
-function RootLayoutNav() {
-  const { colors, isDarkMode } = useTheme();
-  
-  return (
-    <>
-      <StatusBar style={isDarkMode ? "light" : "dark"} />
-      <Stack
-        screenOptions={{
-          headerBackTitle: "Back",
-          headerStyle: {
-            backgroundColor: colors.background,
-          },
-          headerShadowVisible: false,
-          headerTitleStyle: {
-            fontWeight: "600",
-            color: colors.text,
-          },
-          headerTintColor: colors.text,
-          contentStyle: {
-            backgroundColor: colors.surface,
-          },
-        }}
-      >
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen 
-          name="modal" 
-          options={{ 
-            presentation: "modal",
-            headerBackVisible: false
-          }} 
-        />
-      </Stack>
-    </>
   );
 }

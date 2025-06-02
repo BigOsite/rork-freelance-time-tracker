@@ -2,6 +2,7 @@ import { createTRPCReact } from "@trpc/react-query";
 import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
+import { useBusinessStore } from "@/store/businessStore";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -20,6 +21,17 @@ export const trpcClient = trpc.createClient({
     httpLink({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
+      headers: () => {
+        // Get auth token from store
+        const authState = useBusinessStore.getState().authState;
+        const headers: Record<string, string> = {};
+        
+        if (authState.token) {
+          headers.authorization = `Bearer ${authState.token}`;
+        }
+        
+        return headers;
+      },
     }),
   ],
 });

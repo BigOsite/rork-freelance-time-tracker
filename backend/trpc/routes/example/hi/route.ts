@@ -1,11 +1,5 @@
-import { z } from "zod";
-import { publicProcedure } from "../../../create-context";
+import { publicProcedure } from '../../create-context';
 
-export const hiProcedure = publicProcedure
-  .input(z.object({ name: z.string() }))
-  .mutation(({ input }) => {
-    return {
-      hello: input.name,
-      date: new Date(),
-    };
-  });
+export const hiProcedure = publicProcedure.query(() => {
+  return { message: 'Hello from tRPC!' };
+});

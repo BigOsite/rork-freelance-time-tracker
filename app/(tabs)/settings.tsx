@@ -29,6 +29,7 @@ import {
   X
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useJobsStore } from '@/store/jobsStore';
 import { useBusinessStore } from '@/store/businessStore';
 import { useInvoiceStore } from '@/store/invoiceStore';
@@ -36,6 +37,7 @@ import { useInvoiceStore } from '@/store/invoiceStore';
 export default function SettingsScreen() {
   const router = useRouter();
   const { colors, isDarkMode, toggleDarkMode } = useTheme();
+  const { isAuthenticated, user } = useAuth();
   const [notifications, setNotifications] = useState(true);
   const [showRatingModal, setShowRatingModal] = useState(false);
   const [selectedRating, setSelectedRating] = useState(0);
@@ -69,6 +71,10 @@ export default function SettingsScreen() {
         }
       ]
     );
+  };
+
+  const navigateToProfile = () => {
+    router.push('/settings/account');
   };
 
   const navigateToBusinessInfo = () => {
@@ -179,14 +185,19 @@ export default function SettingsScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Account</Text>
           
-          <TouchableOpacity style={styles.settingItem}>
+          <TouchableOpacity style={styles.settingItem} onPress={navigateToProfile}>
             <View style={styles.settingContent}>
               <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight }]}>
                 <User size={22} color={colors.primary} />
               </View>
               <View style={styles.settingTextContainer}>
                 <Text style={styles.settingLabel}>Profile</Text>
-                <Text style={styles.settingDescription}>Manage your account details</Text>
+                <Text style={styles.settingDescription}>
+                  {isAuthenticated && user 
+                    ? `Signed in as ${user.displayName || user.email}`
+                    : 'Sign in to sync your data'
+                  }
+                </Text>
               </View>
             </View>
             <View style={styles.chevronContainer}>

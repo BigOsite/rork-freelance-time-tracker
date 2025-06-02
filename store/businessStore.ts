@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BusinessInfo, PaymentOptions, TaxSettings, UserAccount } from '@/types';
+import { BusinessInfo, PaymentOptions, TaxSettings, UserAccount, AuthState } from '@/types';
 
 interface AppRating {
   rating: number;
@@ -13,6 +13,7 @@ interface BusinessState {
   paymentOptions: PaymentOptions | null;
   taxSettings: TaxSettings;
   userAccount: UserAccount | null;
+  authState: AuthState;
   appRatings: AppRating[];
   isDarkMode: boolean;
   updateBusinessInfo: (info: BusinessInfo) => void;
@@ -21,6 +22,9 @@ interface BusinessState {
   updateCurrency: (currency: string, currencySymbol: string) => void;
   updateTaxRate: (taxRate: number) => void;
   setUserAccount: (account: UserAccount) => void;
+  setAuthState: (state: Partial<AuthState>) => void;
+  setAuthToken: (token: string) => void;
+  clearAuth: () => void;
   submitAppRating: (rating: number) => void;
   getLatestRating: () => AppRating | null;
   toggleDarkMode: () => void;
@@ -43,6 +47,13 @@ export const useBusinessStore = create<BusinessState>()(
         currencySymbol: '$'
       },
       userAccount: null,
+      authState: {
+        isAuthenticated: false,
+        user: null,
+        token: null,
+        isLoading: false,
+        error: null,
+      },
       appRatings: [],
       isDarkMode: false,
       
@@ -86,6 +97,37 @@ export const useBusinessStore = create<BusinessState>()(
         set({ userAccount: account });
       },
       
+      setAuthState: (newState) => {
+        set(state => ({
+          authState: {
+            ...state.authState,
+            ...newState,
+          }
+        }));
+      },
+      
+      setAuthToken: (token) => {
+        set(state => ({
+          authState: {
+            ...state.authState,
+            token,
+          }
+        }));
+      },
+      
+      clearAuth: () => {
+        set({
+          userAccount: null,
+          authState: {
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            isLoading: false,
+            error: null,
+          }
+        });
+      },
+      
       submitAppRating: (rating) => {
         const newRating: AppRating = {
           rating,
@@ -108,10 +150,13 @@ export const useBusinessStore = create<BusinessState>()(
       
       signOut: () => {
         set({ 
-          userAccount: {
-            uid: '',
-            email: '',
-            isLoggedIn: false
+          userAccount: null,
+          authState: {
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            isLoading: false,
+            error: null,
           }
         });
       },
@@ -130,6 +175,13 @@ export const useBusinessStore = create<BusinessState>()(
             currencySymbol: '$'
           },
           userAccount: null,
+          authState: {
+            isAuthenticated: false,
+            user: null,
+            token: null,
+            isLoading: false,
+            error: null,
+          },
           appRatings: [],
           isDarkMode: false
         });

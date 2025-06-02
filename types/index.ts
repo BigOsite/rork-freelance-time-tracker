@@ -33,6 +33,30 @@ export interface UserAccount {
   isLoggedIn: boolean;
   accessToken?: string;
   idToken?: string;
+  createdAt?: number;
+}
+
+export interface AuthCredentials {
+  email: string;
+  password: string;
+}
+
+export interface RegisterCredentials extends AuthCredentials {
+  displayName: string;
+}
+
+export interface AuthResponse {
+  success: boolean;
+  user: UserAccount;
+  token: string;
+}
+
+export interface AuthState {
+  isAuthenticated: boolean;
+  user: UserAccount | null;
+  token: string | null;
+  isLoading: boolean;
+  error: string | null;
 }
 
 export type PayPeriodType = 'weekly' | 'biweekly' | 'monthly' | 'custom';

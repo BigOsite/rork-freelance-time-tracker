@@ -1,7 +1,7 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../../create-context';
+import { publicProcedure } from '../../create-context';
 
-const submitSupportSchema = z.object({
+const supportInputSchema = z.object({
   message: z.string().min(1, 'Message is required'),
   userEmail: z.string().email().optional(),
   deviceInfo: z.string().optional(),
@@ -9,23 +9,16 @@ const submitSupportSchema = z.object({
 });
 
 export const submitSupportProcedure = publicProcedure
-  .input(submitSupportSchema)
+  .input(supportInputSchema)
   .mutation(async ({ input }) => {
-    // In a real app, you would save this to a database
-    // For now, we'll just log it and return a success message
-    console.log('Support message received:', {
-      message: input.message,
-      userEmail: input.userEmail,
-      deviceInfo: input.deviceInfo,
-      appVersion: input.appVersion,
-      timestamp: new Date().toISOString(),
-    });
-
-    // Simulate saving to database
-    // await db.supportMessages.create({ data: input });
-
+    // In a real app, you'd save this to a database
+    console.log('Support message received:', input);
+    
+    // Simulate processing
+    await new Promise(resolve => setTimeout(resolve, 1000));
+    
     return {
       success: true,
-      message: 'Your message has been sent successfully! We will review it and respond if you provided an email address.',
+      message: 'Your support request has been submitted successfully. We will get back to you soon.',
     };
   });

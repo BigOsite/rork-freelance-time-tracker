@@ -7,71 +7,58 @@ import {
   TextInput,
   ScrollView,
   Alert,
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, Send, MessageCircle } from 'lucide-react-native';
+import { ChevronLeft, MessageCircle, Send, Mail, Smartphone } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { trpc } from '@/lib/trpc';
-
-interface SubmitResponse {
-  success: boolean;
-  message: string;
-}
 
 export default function SupportScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [message, setMessage] = useState('');
-  const [email, setEmail] = useState('');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [email, setEmail] = useState(user?.email || '');
   
-  const submitMessage = trpc.support.submit.useMutation({
-    onSuccess: (data: SubmitResponse) => {
-      setIsSubmitting(false);
-      Alert.alert(
-        'Message Sent',
-        data.message,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              setMessage('');
-              setEmail('');
-            }
-          }
-        ]
-      );
+  const submitSupportMutation = trpc.support.submit.useMutation({
+    onSuccess: (data) => {
+      Alert.alert('Success', data.message);
+      setMessage('');
+      if (!user) setEmail('');
     },
-    onError: (error: any) => {
-      setIsSubmitting(false);
-      Alert.alert(
-        'Error',
-        'Failed to send message. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
+    onError: (error) => {
+      Alert.alert('Error', error.message || 'Failed to submit support request. Please try again.');
+    },
   });
-
+  
   const handleSubmit = async () => {
     if (!message.trim()) {
-      Alert.alert('Error', 'Please enter a message before submitting.');
+      Alert.alert('Error', 'Please enter your message');
       return;
     }
-
-    setIsSubmitting(true);
     
-    try {
-      await submitMessage.mutateAsync({
-        message: message.trim(),
-        userEmail: email.trim() || undefined,
-        deviceInfo: Platform.OS,
-        appVersion: '1.0.0',
-      });
-    } catch (error) {
-      // Error handling is done in onError callback
+    if (!user && !email.trim()) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
     }
+    
+    const deviceInfo = Platform.select({
+      ios: `iOS ${Platform.Version}`,
+      android: `Android ${Platform.Version}`,
+      web: 'Web',
+      default: 'Unknown'
+    });
+    
+    submitSupportMutation.mutate({
+      message: message.trim(),
+      userEmail: user?.email || email.trim(),
+      deviceInfo,
+      appVersion: '1.0.0',
+    });
   };
   
   const styles = createStyles(colors);
@@ -97,70 +84,101 @@ export default function SupportScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        <View style={styles.headerSection}>
-          <View style={styles.iconContainer}>
+        <View style={styles.header}>
+          <View style={styles.headerIcon}>
             <MessageCircle size={32} color={colors.primary} />
           </View>
           <Text style={styles.title}>How can we help?</Text>
           <Text style={styles.subtitle}>
-            Send us your questions, feedback, or report any issues you are experiencing.
+            Send us a message and we will get back to you as soon as possible.
           </Text>
         </View>
-
-        <View style={styles.formCard}>
+        
+        <View style={styles.form}>
+          {!user && (
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Email Address</Text>
+              <View style={styles.inputContainer}>
+                <Mail size={20} color={colors.subtext} style={styles.inputIcon} />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="Enter your email"
+                  placeholderTextColor={colors.placeholder}
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+              </View>
+            </View>
+          )}
+          
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>Email (Optional)</Text>
-            <TextInput
-              style={styles.emailInput}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="your.email@example.com"
-              placeholderTextColor={colors.inactive}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-            />
-            <Text style={styles.inputHint}>
-              Provide your email if you would like a response
-            </Text>
+            <Text style={styles.inputLabel}>Message</Text>
+            <View style={[styles.inputContainer, styles.messageContainer]}>
+              <TextInput
+                style={[styles.textInput, styles.messageInput]}
+                placeholder="Describe your issue or question..."
+                placeholderTextColor={colors.placeholder}
+                value={message}
+                onChangeText={setMessage}
+                multiline
+                numberOfLines={6}
+                textAlignVertical="top"
+              />
+            </View>
           </View>
-
-          <View style={styles.inputGroup}>
-            <Text style={styles.label}>Message *</Text>
-            <TextInput
-              style={styles.messageInput}
-              value={message}
-              onChangeText={setMessage}
-              placeholder="Describe your question, feedback, or issue in detail..."
-              placeholderTextColor={colors.inactive}
-              multiline
-              numberOfLines={6}
-              textAlignVertical="top"
-            />
-          </View>
-
+          
           <TouchableOpacity 
-            style={[
-              styles.submitButton,
-              (!message.trim() || isSubmitting) && styles.submitButtonDisabled
-            ]}
+            style={[styles.submitButton, { opacity: submitSupportMutation.isLoading ? 0.7 : 1 }]}
             onPress={handleSubmit}
-            disabled={!message.trim() || isSubmitting}
+            disabled={submitSupportMutation.isLoading}
           >
-            <Send size={20} color="#FFFFFF" style={styles.submitIcon} />
-            <Text style={styles.submitButtonText}>
-              {isSubmitting ? 'Sending...' : 'Send Message'}
-            </Text>
+            {submitSupportMutation.isLoading ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <>
+                <Send size={20} color="#FFFFFF" style={styles.buttonIcon} />
+                <Text style={styles.submitButtonText}>Send Message</Text>
+              </>
+            )}
           </TouchableOpacity>
         </View>
-
+        
         <View style={styles.infoCard}>
-          <Text style={styles.infoTitle}>What happens next?</Text>
+          <View style={styles.infoHeader}>
+            <Smartphone size={24} color={colors.primary} />
+            <Text style={styles.infoTitle}>Device Information</Text>
+          </View>
           <Text style={styles.infoText}>
-            • Your message will be reviewed by our support team{'\n'}
-            • If you provided an email, we will respond within 24-48 hours{'\n'}
-            • For urgent issues, please include as much detail as possible
+            Platform: {Platform.OS === 'ios' ? 'iOS' : Platform.OS === 'android' ? 'Android' : 'Web'}
           </Text>
+          <Text style={styles.infoText}>
+            Version: {Platform.Version}
+          </Text>
+          <Text style={styles.infoText}>
+            App Version: 1.0.0
+          </Text>
+          <Text style={styles.infoDescription}>
+            This information helps us provide better support.
+          </Text>
+        </View>
+        
+        <View style={styles.tipsCard}>
+          <Text style={styles.tipsTitle}>Common Issues</Text>
+          <View style={styles.tipItem}>
+            <Text style={styles.tipTitle}>• Data not syncing</Text>
+            <Text style={styles.tipDescription}>Make sure you are signed in to sync data across devices.</Text>
+          </View>
+          <View style={styles.tipItem}>
+            <Text style={styles.tipTitle}>• Time tracking issues</Text>
+            <Text style={styles.tipDescription}>Check your device time settings and app permissions.</Text>
+          </View>
+          <View style={styles.tipItem}>
+            <Text style={styles.tipTitle}>• Invoice generation problems</Text>
+            <Text style={styles.tipDescription}>Ensure all required business information is filled out.</Text>
+          </View>
         </View>
       </ScrollView>
     </KeyboardAvoidingView>
@@ -186,89 +204,89 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  headerSection: {
+  header: {
     alignItems: 'center',
     marginBottom: 32,
   },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.background,
-    alignItems: 'center',
+  headerIcon: {
+    width: 80,
+    height: 80,
+    borderRadius: 24,
+    backgroundColor: colors.primaryLight,
     justifyContent: 'center',
-    marginBottom: 16,
-    shadowColor: '#000',
+    alignItems: 'center',
+    marginBottom: 24,
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
+    shadowOpacity: 0.15,
     shadowRadius: 12,
-    elevation: 4,
+    elevation: 6,
   },
   title: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
-    marginBottom: 8,
-    textAlign: 'center',
+    marginBottom: 12,
+    letterSpacing: -0.6,
   },
   subtitle: {
     fontSize: 16,
     color: colors.subtext,
     textAlign: 'center',
     lineHeight: 24,
-    paddingHorizontal: 16,
   },
-  formCard: {
+  form: {
     backgroundColor: colors.background,
     borderRadius: 24,
-    padding: 24,
-    marginBottom: 24,
+    padding: 32,
     shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 6,
-    },
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
-    shadowRadius: 20,
-    elevation: 8,
+    shadowRadius: 16,
+    elevation: 6,
+    marginBottom: 24,
   },
   inputGroup: {
     marginBottom: 24,
   },
-  label: {
+  inputLabel: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.text,
-    marginBottom: 8,
+    marginBottom: 12,
+    letterSpacing: -0.2,
   },
-  emailInput: {
-    borderWidth: 2,
-    borderColor: colors.border,
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.inputBg,
     borderRadius: 16,
-    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+  },
+  messageContainer: {
+    alignItems: 'flex-start',
+    paddingVertical: 8,
+  },
+  inputIcon: {
+    marginRight: 12,
+  },
+  textInput: {
+    flex: 1,
     fontSize: 16,
     color: colors.text,
-    backgroundColor: colors.surface,
+    paddingVertical: 16,
   },
   messageInput: {
-    borderWidth: 2,
-    borderColor: colors.border,
-    borderRadius: 16,
-    padding: 16,
-    fontSize: 16,
-    color: colors.text,
-    backgroundColor: colors.surface,
     minHeight: 120,
-  },
-  inputHint: {
-    fontSize: 14,
-    color: colors.subtext,
-    marginTop: 6,
+    paddingVertical: 12,
   },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: 16,
-    padding: 18,
+    paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -278,35 +296,80 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowRadius: 8,
     elevation: 6,
   },
-  submitButtonDisabled: {
-    backgroundColor: colors.inactive,
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  submitIcon: {
+  buttonIcon: {
     marginRight: 8,
   },
   submitButtonText: {
-    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
   infoCard: {
-    backgroundColor: colors.primaryLight,
-    borderRadius: 16,
-    padding: 20,
-    borderWidth: 1,
-    borderColor: colors.primary + '20',
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  infoHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   infoTitle: {
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: '600',
-    color: colors.primary,
-    marginBottom: 8,
+    color: colors.text,
+    marginLeft: 12,
+    letterSpacing: -0.3,
   },
   infoText: {
+    fontSize: 15,
+    color: colors.text,
+    marginBottom: 4,
+    fontWeight: '500',
+  },
+  infoDescription: {
     fontSize: 14,
-    color: colors.primary,
+    color: colors.subtext,
+    marginTop: 8,
+    fontStyle: 'italic',
+  },
+  tipsCard: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  tipsTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+    letterSpacing: -0.3,
+  },
+  tipItem: {
+    marginBottom: 16,
+  },
+  tipTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 4,
+  },
+  tipDescription: {
+    fontSize: 14,
+    color: colors.subtext,
     lineHeight: 20,
+    paddingLeft: 12,
   },
 });
