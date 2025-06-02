@@ -15,6 +15,11 @@ import { ChevronLeft, Send, MessageCircle } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { trpc } from '@/lib/trpc';
 
+interface SubmitResponse {
+  success: boolean;
+  message: string;
+}
+
 export default function SupportScreen() {
   const router = useRouter();
   const { colors } = useTheme();
@@ -23,7 +28,7 @@ export default function SupportScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const submitMessage = trpc.support.submit.useMutation({
-    onSuccess: (data: { success: boolean; message: string }) => {
+    onSuccess: (data: SubmitResponse) => {
       setIsSubmitting(false);
       Alert.alert(
         'Message Sent',
@@ -39,7 +44,7 @@ export default function SupportScreen() {
         ]
       );
     },
-    onError: (error: any) => {
+    onError: (error: Error) => {
       setIsSubmitting(false);
       Alert.alert(
         'Error',
