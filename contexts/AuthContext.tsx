@@ -4,6 +4,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
+import { supabase } from '@/lib/supabase';
 import { AuthState, UserAccount } from '@/types';
 
 interface AuthContextType extends AuthState {
@@ -11,6 +12,9 @@ interface AuthContextType extends AuthState {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (newPassword: string) => Promise<void>;
+  changePassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -187,6 +191,74 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const forgotPassword = async (email: string) => {
+    try {
+      setAuthState({ isLoading: true, error: null });
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: Platform.OS === 'web' 
+          ? `${window.location.origin}/settings/reset-password`
+          : 'timetracker://reset-password'
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setAuthState({ isLoading: false, error: null });
+    } catch (error: any) {
+      setAuthState({ 
+        isLoading: false, 
+        error: error.message || 'Failed to send reset email' 
+      });
+      throw error;
+    }
+  };
+
+  const resetPassword = async (newPassword: string) => {
+    try {
+      setAuthState({ isLoading: true, error: null });
+      
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setAuthState({ isLoading: false, error: null });
+    } catch (error: any) {
+      setAuthState({ 
+        isLoading: false, 
+        error: error.message || 'Failed to reset password' 
+      });
+      throw error;
+    }
+  };
+
+  const changePassword = async (newPassword: string) => {
+    try {
+      setAuthState({ isLoading: true, error: null });
+      
+      const { error } = await supabase.auth.updateUser({
+        password: newPassword
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setAuthState({ isLoading: false, error: null });
+    } catch (error: any) {
+      setAuthState({ 
+        isLoading: false, 
+        error: error.message || 'Failed to change password' 
+      });
+      throw error;
+    }
+  };
+
   // Initialize auth state on app start
   useEffect(() => {
     const initializeAuth = async () => {
@@ -238,6 +310,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     refreshProfile,
+    forgotPassword,
+    resetPassword,
+    changePassword,
   };
 
   return (

@@ -9,23 +9,44 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus } from 'lucide-react-native';
+import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, Key, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { isAuthenticated, user, login, register, logout, isLoading, error } = useAuth();
+  const { 
+    isAuthenticated, 
+    user, 
+    login, 
+    register, 
+    logout, 
+    isLoading, 
+    error,
+    forgotPassword,
+    changePassword
+  } = useAuth();
   
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+  
+  // Forgot password modal state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
+  
+  // Change password modal state
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
   
   const handleSubmit = async () => {
     if (isLoginMode) {
@@ -93,6 +114,53 @@ export default function ProfileScreen() {
       ]
     );
   };
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail) {
+      Alert.alert('Error', 'Please enter your email address');
+      return;
+    }
+
+    try {
+      await forgotPassword(forgotEmail);
+      setForgotPasswordSent(true);
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to send reset email');
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!newPassword || !confirmNewPassword) {
+      Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    if (newPassword !== confirmNewPassword) {
+      Alert.alert('Error', 'Passwords do not match');
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      Alert.alert('Error', 'Password must be at least 6 characters long');
+      return;
+    }
+
+    try {
+      await changePassword(newPassword);
+      setShowChangePassword(false);
+      setNewPassword('');
+      setConfirmNewPassword('');
+      Alert.alert('Success', 'Password changed successfully');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to change password');
+    }
+  };
+
+  const resetForgotPasswordModal = () => {
+    setShowForgotPassword(false);
+    setForgotEmail('');
+    setForgotPasswordSent(false);
+  };
   
   const styles = createStyles(colors);
   
@@ -140,6 +208,18 @@ export default function ProfileScreen() {
             
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Account Actions</Text>
+              
+              <TouchableOpacity 
+                style={styles.actionButton} 
+                onPress={() => setShowChangePassword(true)}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, { backgroundColor: colors.primary + '15' }]}>
+                    <Key size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.actionText}>Change Password</Text>
+                </View>
+              </TouchableOpacity>
               
               <TouchableOpacity style={styles.actionButton} onPress={handleLogout}>
                 <View style={styles.actionContent}>
@@ -268,6 +348,15 @@ export default function ProfileScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {isLoginMode && (
+                <TouchableOpacity 
+                  style={styles.forgotPasswordButton}
+                  onPress={() => setShowForgotPassword(true)}
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity 
                 style={styles.switchModeButton}
@@ -306,6 +395,164 @@ export default function ProfileScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        visible={showForgotPassword}
+        transparent
+        animationType="fade"
+        onRequestClose={resetForgotPasswordModal}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {forgotPasswordSent ? 'Check Your Email' : 'Reset Password'}
+                </Text>
+                <TouchableOpacity 
+                  onPress={resetForgotPasswordModal}
+                  style={styles.modalCloseButton}
+                >
+                  <X size={24} color={colors.subtext} />
+                </TouchableOpacity>
+              </View>
+
+              {forgotPasswordSent ? (
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalDescription}>
+                    We have sent a password reset link to {forgotEmail}. 
+                    Please check your email and follow the instructions to reset your password.
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.modalButton}
+                    onPress={resetForgotPasswordModal}
+                  >
+                    <Text style={styles.modalButtonText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalDescription}>
+                    Enter your email address and we will send you a link to reset your password.
+                  </Text>
+                  
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Email Address</Text>
+                    <View style={styles.inputContainer}>
+                      <Mail size={20} color={colors.subtext} style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Enter your email"
+                        placeholderTextColor={colors.placeholder}
+                        value={forgotEmail}
+                        onChangeText={setForgotEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={[styles.modalButton, { opacity: isLoading ? 0.7 : 1 }]}
+                    onPress={handleForgotPassword}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.modalButtonText}>Send Reset Link</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Change Password Modal */}
+      <Modal
+        visible={showChangePassword}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowChangePassword(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Change Password</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowChangePassword(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <X size={24} color={colors.subtext} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.modalDescription}>
+                  Enter your new password below. Make sure it is at least 6 characters long.
+                </Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>New Password</Text>
+                  <View style={styles.inputContainer}>
+                    <Lock size={20} color={colors.subtext} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Enter new password"
+                      placeholderTextColor={colors.placeholder}
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Confirm New Password</Text>
+                  <View style={styles.inputContainer}>
+                    <Lock size={20} color={colors.subtext} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Confirm new password"
+                      placeholderTextColor={colors.placeholder}
+                      value={confirmNewPassword}
+                      onChangeText={setConfirmNewPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.modalButton, { opacity: isLoading ? 0.7 : 1 }]}
+                  onPress={handleChangePassword}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.modalButtonText}>Change Password</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -403,6 +650,7 @@ const createStyles = (colors: any) => StyleSheet.create({
   actionButton: {
     borderRadius: 16,
     overflow: 'hidden',
+    marginBottom: 12,
   },
   actionContent: {
     flexDirection: 'row',
@@ -421,6 +669,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     letterSpacing: -0.2,
+    color: colors.text,
   },
   infoCard: {
     backgroundColor: colors.background,
@@ -538,7 +787,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -550,6 +799,16 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+  },
+  forgotPasswordButton: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 8,
+  },
+  forgotPasswordText: {
+    fontSize: 15,
+    color: colors.primary,
+    fontWeight: '500',
   },
   switchModeButton: {
     alignItems: 'center',
@@ -603,5 +862,71 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 24,
+    paddingBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.4,
+  },
+  modalCloseButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+  },
+  modalBody: {
+    padding: 24,
+    paddingTop: 0,
+  },
+  modalDescription: {
+    fontSize: 15,
+    color: colors.subtext,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 });
