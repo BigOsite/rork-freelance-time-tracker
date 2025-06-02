@@ -24,7 +24,6 @@ export default function SettingsLayout() {
       <Stack.Screen name="whats-new" />
       <Stack.Screen name="upgrade" />
       <Stack.Screen name="support" />
-      <Stack.Screen name="profile" />
     </Stack>
   );
 }
