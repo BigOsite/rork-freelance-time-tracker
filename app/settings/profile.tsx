@@ -13,7 +13,7 @@ import {
   Modal
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, Key, X } from 'lucide-react-native';
+import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, Key, X, Edit } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -29,7 +29,8 @@ export default function ProfileScreen() {
     isLoading, 
     error,
     forgotPassword,
-    changePassword
+    changePassword,
+    updateDisplayName
   } = useAuth();
   
   const [isLoginMode, setIsLoginMode] = useState(true);
@@ -47,6 +48,10 @@ export default function ProfileScreen() {
   const [showChangePassword, setShowChangePassword] = useState(false);
   const [newPassword, setNewPassword] = useState('');
   const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  
+  // Change display name modal state
+  const [showChangeDisplayName, setShowChangeDisplayName] = useState(false);
+  const [newDisplayName, setNewDisplayName] = useState(user?.displayName || '');
   
   const handleSubmit = async () => {
     if (isLoginMode) {
@@ -156,6 +161,21 @@ export default function ProfileScreen() {
     }
   };
 
+  const handleUpdateDisplayName = async () => {
+    if (!newDisplayName.trim()) {
+      Alert.alert('Error', 'Please enter a display name');
+      return;
+    }
+
+    try {
+      await updateDisplayName(newDisplayName.trim());
+      setShowChangeDisplayName(false);
+      Alert.alert('Success', 'Display name updated successfully');
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'Failed to update display name');
+    }
+  };
+
   const resetForgotPasswordModal = () => {
     setShowForgotPassword(false);
     setForgotEmail('');
@@ -207,7 +227,22 @@ export default function ProfileScreen() {
             </View>
             
             <View style={styles.section}>
-              <Text style={styles.sectionTitle}>Account Actions</Text>
+              <Text style={styles.sectionTitle}>Account Settings</Text>
+              
+              <TouchableOpacity 
+                style={styles.actionButton} 
+                onPress={() => {
+                  setNewDisplayName(user.displayName || '');
+                  setShowChangeDisplayName(true);
+                }}
+              >
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, { backgroundColor: colors.primary + '15' }]}>
+                    <Edit size={20} color={colors.primary} />
+                  </View>
+                  <Text style={styles.actionText}>Change Display Name</Text>
+                </View>
+              </TouchableOpacity>
               
               <TouchableOpacity 
                 style={styles.actionButton} 
@@ -546,6 +581,67 @@ export default function ProfileScreen() {
                     <ActivityIndicator color="#FFFFFF" size="small" />
                   ) : (
                     <Text style={styles.modalButtonText}>Change Password</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
+
+      {/* Change Display Name Modal */}
+      <Modal
+        visible={showChangeDisplayName}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowChangeDisplayName(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>Change Display Name</Text>
+                <TouchableOpacity 
+                  onPress={() => setShowChangeDisplayName(false)}
+                  style={styles.modalCloseButton}
+                >
+                  <X size={24} color={colors.subtext} />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.modalBody}>
+                <Text style={styles.modalDescription}>
+                  Enter your new display name. This is how your name will appear in the app.
+                </Text>
+                
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Display Name</Text>
+                  <View style={styles.inputContainer}>
+                    <User size={20} color={colors.subtext} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Enter display name"
+                      placeholderTextColor={colors.placeholder}
+                      value={newDisplayName}
+                      onChangeText={setNewDisplayName}
+                      autoCapitalize="words"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
+
+                <TouchableOpacity 
+                  style={[styles.modalButton, { opacity: isLoading ? 0.7 : 1 }]}
+                  onPress={handleUpdateDisplayName}
+                  disabled={isLoading}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator color="#FFFFFF" size="small" />
+                  ) : (
+                    <Text style={styles.modalButtonText}>Update Display Name</Text>
                   )}
                 </TouchableOpacity>
               </View>

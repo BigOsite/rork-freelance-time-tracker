@@ -15,6 +15,7 @@ interface AuthContextType extends AuthState {
   forgotPassword: (email: string) => Promise<void>;
   resetPassword: (newPassword: string) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
+  updateDisplayName: (displayName: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -259,6 +260,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  const updateDisplayName = async (displayName: string) => {
+    try {
+      setAuthState({ isLoading: true, error: null });
+      
+      const { error } = await supabase.auth.updateUser({
+        data: { display_name: displayName }
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      // Update local user state
+      if (userAccount) {
+        const updatedUser: UserAccount = {
+          ...userAccount,
+          displayName,
+        };
+        setUserAccount(updatedUser);
+      }
+
+      setAuthState({ isLoading: false, error: null });
+    } catch (error: any) {
+      setAuthState({ 
+        isLoading: false, 
+        error: error.message || 'Failed to update display name' 
+      });
+      throw error;
+    }
+  };
+
   // Initialize auth state on app start
   useEffect(() => {
     const initializeAuth = async () => {
@@ -313,6 +345,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     forgotPassword,
     resetPassword,
     changePassword,
+    updateDisplayName,
   };
 
   return (
