@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
+import { supabase } from '@/lib/supabase';
 
 const loginInputSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -9,30 +10,40 @@ const loginInputSchema = z.object({
 export const loginProcedure = publicProcedure
   .input(loginInputSchema)
   .mutation(async ({ input }: { input: z.infer<typeof loginInputSchema> }) => {
-    // In a real app, you'd validate credentials against a database
-    // This is a mock implementation
-    const { email, password } = input;
-    
-    // Simulate database lookup
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock validation - in production, hash and compare passwords
-    if (email === 'demo@example.com' && password === 'password123') {
-      // Generate a mock JWT token (in production, use proper JWT library)
-      const token = `mock_token_${Date.now()}_${Math.random()}`;
+    try {
+      const { email, password } = input;
       
+      // Sign in with Supabase Auth
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (authError) {
+        throw new Error('Invalid email or password');
+      }
+
+      if (!authData.user || !authData.session) {
+        throw new Error('Login failed');
+      }
+
+      const displayName = authData.user.user_metadata?.display_name || 
+                         authData.user.email?.split('@')[0] || 
+                         'User';
+
       return {
         success: true,
         user: {
-          uid: 'user_123',
-          email,
-          displayName: 'Demo User',
+          uid: authData.user.id,
+          email: authData.user.email!,
+          displayName,
           isLoggedIn: true,
-          createdAt: Date.now() - 86400000, // 1 day ago
+          createdAt: new Date(authData.user.created_at).getTime(),
         },
-        token,
+        token: authData.session.access_token,
       };
+    } catch (error: any) {
+      console.error('Login error:', error);
+      throw new Error(error.message || 'Login failed');
     }
-    
-    throw new Error('Invalid email or password');
   });

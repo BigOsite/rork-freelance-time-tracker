@@ -13,7 +13,7 @@
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.3.0",
     "@react-navigation/native": "^7.1.6",
-    "@supabase/supabase-js": "^2.49.8",
+    "@supabase/supabase-js": "^2.49.9",
     "@tanstack/react-query": "^5.79.2",
     "@trpc/client": "^11.2.0",
     "@trpc/react-query": "^11.2.0",

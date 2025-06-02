@@ -2,6 +2,7 @@ import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useBusinessStore } from '@/store/businessStore';
+import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
 import { AuthState, UserAccount } from '@/types';
 
@@ -57,6 +58,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearAuth 
   } = useBusinessStore();
 
+  const { syncWithSupabase } = useJobsStore();
+
   const login = async (email: string, password: string) => {
     try {
       setAuthState({ isLoading: true, error: null });
@@ -82,6 +85,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoading: false, 
         error: null 
       });
+
+      // Sync data with Supabase after successful login
+      try {
+        await syncWithSupabase(response.user.uid);
+      } catch (syncError) {
+        console.log('Data sync failed, but login successful:', syncError);
+      }
 
     } catch (error: any) {
       setAuthState({ 
@@ -119,6 +129,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null 
       });
 
+      // Sync data with Supabase after successful registration
+      try {
+        await syncWithSupabase(response.user.uid);
+      } catch (syncError) {
+        console.log('Data sync failed, but registration successful:', syncError);
+      }
+
     } catch (error: any) {
       setAuthState({ 
         isLoading: false, 
@@ -153,6 +170,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         isLoggedIn: true,
       };
       setUserAccount(loggedInUser);
+
+      // Sync data after profile refresh
+      try {
+        await syncWithSupabase(profile.uid);
+      } catch (syncError) {
+        console.log('Data sync failed during profile refresh:', syncError);
+      }
     } catch (error) {
       console.log('Failed to refresh profile:', error);
       // If profile fetch fails, user might be logged out
@@ -176,6 +200,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
               isLoggedIn: true,
             };
             setUserAccount(loggedInUser);
+
+            // Sync data on app start if user is authenticated
+            try {
+              await syncWithSupabase(profile.uid);
+            } catch (syncError) {
+              console.log('Data sync failed on app start:', syncError);
+            }
           } catch (error) {
             console.log('Failed to refresh profile on init:', error);
             // If profile fetch fails, clear auth

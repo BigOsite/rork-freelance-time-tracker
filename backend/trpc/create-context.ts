@@ -1,6 +1,7 @@
 import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { initTRPC } from "@trpc/server";
 import superjson from "superjson";
+import { supabase } from "@/lib/supabase";
 
 // Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
@@ -25,14 +26,27 @@ const t = initTRPC.context<Context>().create({
 export const router = t.router;
 export const publicProcedure = t.procedure;
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
-  // Simple auth check - in production you'd validate the JWT token
+  // Validate the JWT token with Supabase
   if (!ctx.token) {
     throw new Error('Unauthorized');
   }
-  return next({
-    ctx: {
-      ...ctx,
-      userId: ctx.token, // In production, extract user ID from validated JWT
-    },
-  });
+
+  try {
+    // Verify token with Supabase
+    const { data: { user }, error } = await supabase.auth.getUser(ctx.token);
+    
+    if (error || !user) {
+      throw new Error('Invalid token');
+    }
+
+    return next({
+      ctx: {
+        ...ctx,
+        userId: user.id,
+        user,
+      },
+    });
+  } catch (error) {
+    throw new Error('Unauthorized');
+  }
 });
