@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../create-context';
+import { publicProcedure } from '../../../create-context';
 
 const supportInputSchema = z.object({
   message: z.string().min(1, 'Message is required'),
