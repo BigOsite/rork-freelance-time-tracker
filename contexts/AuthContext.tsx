@@ -27,6 +27,7 @@ interface AuthProviderProps {
 }
 
 const TOKEN_KEY = 'auth_token';
+const SUPABASE_SESSION_KEY = 'supabase_session';
 
 // Secure storage wrapper that works on all platforms
 const secureStorage = {
@@ -67,6 +68,52 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const { syncWithSupabase } = useJobsStore();
 
+  // Helper function to establish Supabase session
+  const establishSupabaseSession = async (email: string, password: string) => {
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.log('Supabase session establishment failed:', error);
+        return false;
+      }
+
+      if (data.session) {
+        // Store session for persistence
+        await secureStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(data.session));
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.log('Error establishing Supabase session:', error);
+      return false;
+    }
+  };
+
+  // Helper function to restore Supabase session
+  const restoreSupabaseSession = async () => {
+    try {
+      const sessionData = await secureStorage.getItem(SUPABASE_SESSION_KEY);
+      if (sessionData) {
+        const session = JSON.parse(sessionData);
+        const { error } = await supabase.auth.setSession(session);
+        if (error) {
+          console.log('Failed to restore Supabase session:', error);
+          await secureStorage.removeItem(SUPABASE_SESSION_KEY);
+          return false;
+        }
+        return true;
+      }
+      return false;
+    } catch (error) {
+      console.log('Error restoring Supabase session:', error);
+      return false;
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
       setAuthState({ isLoading: true, error: null });
@@ -78,6 +125,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
+      
+      // Establish Supabase session for profile operations
+      await establishSupabaseSession(email, password);
       
       // Update state - make sure user is marked as logged in
       const loggedInUser: UserAccount = {
@@ -124,6 +174,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
       
+      // Establish Supabase session for profile operations
+      await establishSupabaseSession(email, password);
+      
       // Update state - make sure user is marked as logged in
       const loggedInUser: UserAccount = {
         ...response.user,
@@ -162,11 +215,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (authState.isAuthenticated) {
         await trpcClient.auth.logout.mutate();
       }
+      
+      // Sign out from Supabase
+      await supabase.auth.signOut();
     } catch (error) {
       console.log('Logout API call failed:', error);
     } finally {
       // Clear local auth data regardless of API call result
       await secureStorage.removeItem(TOKEN_KEY);
+      await secureStorage.removeItem(SUPABASE_SESSION_KEY);
       clearAuth();
     }
   };
@@ -248,6 +305,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setAuthState({ isLoading: true, error: null });
       
+      // Ensure we have an active Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session. Please sign in again.');
+      }
+      
       const { error } = await supabase.auth.updateUser({
         password: newPassword
       });
@@ -270,6 +333,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const updateDisplayName = async (displayName: string) => {
     try {
       setAuthState({ isLoading: true, error: null });
+      
+      // Ensure we have an active Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session. Please sign in again.');
+      }
       
       const { error } = await supabase.auth.updateUser({
         data: { display_name: displayName }
@@ -305,6 +374,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       if (!userAccount?.uid) {
         throw new Error('User not authenticated');
+      }
+
+      // Ensure we have an active Supabase session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No active session. Please sign in again.');
       }
 
       // Read the image file
@@ -425,6 +500,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('Image file not found')) {
       return 'Selected image could not be found. Please try selecting another image.';
     }
+    if (message.includes('No active session')) {
+      return 'Session expired. Please sign in again.';
+    }
+    if (message.includes('Auth session missing')) {
+      return 'Session expired. Please sign in again.';
+    }
     
     // Return the original message if it's already user-friendly
     return message || 'An unexpected error occurred. Please try again.';
@@ -437,6 +518,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
         const token = await secureStorage.getItem(TOKEN_KEY);
         if (token) {
           setAuthToken(token);
+          
+          // Try to restore Supabase session
+          await restoreSupabaseSession();
+          
           setAuthState({ isAuthenticated: true, isLoading: false, error: null });
           // Try to refresh profile to get latest user data
           try {
