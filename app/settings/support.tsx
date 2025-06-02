@@ -44,7 +44,7 @@ export default function SupportScreen() {
         ]
       );
     },
-    onError: (error: Error) => {
+    onError: (error: any) => {
       setIsSubmitting(false);
       Alert.alert(
         'Error',
