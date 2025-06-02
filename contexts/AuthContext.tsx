@@ -198,7 +198,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
         redirectTo: Platform.OS === 'web' 
           ? `${window.location.origin}/settings/reset-password`
-          : 'timetracker://reset-password'
+          : 'myapp://reset-password'
       });
 
       if (error) {

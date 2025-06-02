@@ -1,5 +1,5 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
@@ -24,9 +24,10 @@ export default function RootLayout() {
 
     // Handle deep linking for password reset
     const handleDeepLink = (url: string) => {
+      console.log('Deep link received:', url);
       if (url.includes('reset-password')) {
         // Navigate to reset password screen
-        // This will be handled by Expo Router automatically
+        // The router will handle this automatically based on the URL structure
       }
     };
 
