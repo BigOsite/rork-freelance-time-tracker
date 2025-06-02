@@ -23,7 +23,7 @@ export default function SupportScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const submitMessage = trpc.support.submit.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: { success: boolean; message: string }) => {
       setIsSubmitting(false);
       Alert.alert(
         'Message Sent',
@@ -39,7 +39,7 @@ export default function SupportScreen() {
         ]
       );
     },
-    onError: (error) => {
+    onError: (error: any) => {
       setIsSubmitting(false);
       Alert.alert(
         'Error',
