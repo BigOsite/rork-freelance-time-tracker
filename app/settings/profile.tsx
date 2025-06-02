@@ -15,98 +15,84 @@ import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
-import { trpc } from '@/lib/trpc';
 
 export default function ProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { user, login, logout } = useAuth();
+  const { isAuthenticated, user, login, register, logout, isLoading, error } = useAuth();
+  
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [displayName, setDisplayName] = useState('');
-  
-  const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: (data: any) => {
-      login(data.user, data.token);
-      Alert.alert('Success', 'Logged in successfully!');
-      setEmail('');
-      setPassword('');
-    },
-    onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to log in. Please try again.');
-    },
-  });
-  
-  const registerMutation = trpc.auth.register.useMutation({
-    onSuccess: (data: any) => {
-      login(data.user, data.token);
-      Alert.alert('Success', 'Account created successfully!');
-      setEmail('');
-      setPassword('');
-      setDisplayName('');
-    },
-    onError: (error: any) => {
-      Alert.alert('Error', error.message || 'Failed to create account. Please try again.');
-    },
-  });
-  
-  const logoutMutation = trpc.auth.logout.useMutation({
-    onSuccess: () => {
-      logout();
-      Alert.alert('Success', 'Logged out successfully!');
-    },
-    onError: (error: any) => {
-      // Even if the server request fails, we should still log out locally
-      logout();
-      console.warn('Logout error:', error.message);
-    },
-  });
+  const [confirmPassword, setConfirmPassword] = useState('');
   
   const handleSubmit = async () => {
-    if (!email.trim() || !password.trim()) {
-      Alert.alert('Error', 'Please fill in all required fields');
-      return;
-    }
-    
-    if (!isLoginMode && !displayName.trim()) {
-      Alert.alert('Error', 'Please enter your display name');
-      return;
-    }
-    
     if (isLoginMode) {
-      loginMutation.mutate({
-        email: email.trim(),
-        password: password.trim(),
-      });
+      // Login
+      if (!email || !password) {
+        Alert.alert('Error', 'Please fill in all fields');
+        return;
+      }
+      
+      try {
+        await login(email, password);
+        // Clear form after successful login
+        setEmail('');
+        setPassword('');
+      } catch (error: any) {
+        Alert.alert('Login Failed', error.message || 'Please check your credentials and try again.');
+      }
     } else {
-      registerMutation.mutate({
-        email: email.trim(),
-        password: password.trim(),
-        displayName: displayName.trim(),
-      });
+      // Register
+      if (!email || !password || !displayName || !confirmPassword) {
+        Alert.alert('Error', 'Please fill in all fields');
+        return;
+      }
+      
+      if (password !== confirmPassword) {
+        Alert.alert('Error', 'Passwords do not match');
+        return;
+      }
+      
+      if (password.length < 6) {
+        Alert.alert('Error', 'Password must be at least 6 characters long');
+        return;
+      }
+      
+      try {
+        await register(email, password, displayName);
+        // Clear form after successful registration
+        setEmail('');
+        setPassword('');
+        setDisplayName('');
+        setConfirmPassword('');
+      } catch (error: any) {
+        Alert.alert('Registration Failed', error.message || 'Please try again.');
+      }
     }
   };
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
     Alert.alert(
-      'Logout',
-      'Are you sure you want to log out?',
+      'Sign Out',
+      'Are you sure you want to sign out?',
       [
+        { text: 'Cancel', style: 'cancel' },
         {
-          text: 'Cancel',
-          style: 'cancel'
-        },
-        {
-          text: 'Logout',
-          onPress: () => logoutMutation.mutate(),
-          style: 'destructive'
+          text: 'Sign Out',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await logout();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to sign out. Please try again.');
+            }
+          }
         }
       ]
     );
   };
-  
-  const isLoading = loginMutation.isLoading || registerMutation.isLoading || logoutMutation.isLoading;
   
   const styles = createStyles(colors);
   
@@ -131,70 +117,62 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
       >
-        {user ? (
-          // Logged in state
-          <View style={styles.loggedInContainer}>
-            <View style={styles.header}>
-              <View style={styles.headerIcon}>
-                <User size={32} color={colors.primary} />
-              </View>
-              <Text style={styles.title}>Welcome back!</Text>
-              <Text style={styles.subtitle}>You are signed in to your account</Text>
-            </View>
-            
-            <View style={styles.userCard}>
-              <View style={styles.userInfo}>
-                <Text style={styles.userLabel}>Display Name</Text>
-                <Text style={styles.userValue}>{user.displayName}</Text>
+        {isAuthenticated && user?.isLoggedIn ? (
+          // Authenticated User View
+          <View style={styles.authenticatedContainer}>
+            <View style={styles.profileCard}>
+              <View style={styles.avatarContainer}>
+                <View style={styles.avatar}>
+                  <User size={40} color={colors.primary} />
+                </View>
               </View>
               
               <View style={styles.userInfo}>
-                <Text style={styles.userLabel}>Email</Text>
-                <Text style={styles.userValue}>{user.email}</Text>
-              </View>
-              
-              <View style={styles.userInfo}>
-                <Text style={styles.userLabel}>User ID</Text>
-                <Text style={styles.userValue}>{user.uid}</Text>
+                <Text style={styles.userName}>{user.displayName || 'User'}</Text>
+                <Text style={styles.userEmail}>{user.email}</Text>
+                {user.createdAt && (
+                  <Text style={styles.memberSince}>
+                    Member since {new Date(user.createdAt).toLocaleDateString()}
+                  </Text>
+                )}
               </View>
             </View>
             
-            <TouchableOpacity 
-              style={[styles.logoutButton, { opacity: isLoading ? 0.7 : 1 }]}
-              onPress={handleLogout}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" size="small" />
-              ) : (
-                <>
-                  <LogOut size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                  <Text style={styles.logoutButtonText}>Sign Out</Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Account Actions</Text>
+              
+              <TouchableOpacity style={styles.actionButton} onPress={handleLogout}>
+                <View style={styles.actionContent}>
+                  <View style={[styles.actionIcon, { backgroundColor: colors.danger + '15' }]}>
+                    <LogOut size={20} color={colors.danger} />
+                  </View>
+                  <Text style={[styles.actionText, { color: colors.danger }]}>Sign Out</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
             
             <View style={styles.infoCard}>
               <Text style={styles.infoTitle}>Data Sync</Text>
-              <Text style={styles.infoText}>
-                Your data is automatically synced across all your devices when you are signed in.
+              <Text style={styles.infoDescription}>
+                Your data is automatically synced across all your devices when you are signed in. 
+                When you sign out, your data remains on this device but will not sync until you sign in again.
               </Text>
             </View>
           </View>
         ) : (
-          // Not logged in state
+          // Authentication Form
           <View style={styles.authContainer}>
-            <View style={styles.header}>
-              <View style={styles.headerIcon}>
-                <UserPlus size={32} color={colors.primary} />
+            <View style={styles.authHeader}>
+              <View style={styles.authIcon}>
+                <User size={32} color={colors.primary} />
               </View>
-              <Text style={styles.title}>
-                {isLoginMode ? 'Sign In' : 'Create Account'}
+              <Text style={styles.authTitle}>
+                {isLoginMode ? 'Welcome Back' : 'Create Account'}
               </Text>
-              <Text style={styles.subtitle}>
+              <Text style={styles.authSubtitle}>
                 {isLoginMode 
-                  ? 'Sign in to sync your data across devices' 
-                  : 'Create an account to backup and sync your data'
+                  ? 'Sign in to sync your data across devices'
+                  : 'Join to backup and sync your data'
                 }
               </Text>
             </View>
@@ -204,7 +182,7 @@ export default function ProfileScreen() {
                 <View style={styles.inputGroup}>
                   <Text style={styles.inputLabel}>Display Name</Text>
                   <View style={styles.inputContainer}>
-                    <User size={20} color={colors.subtext} style={styles.inputIcon} />
+                    <UserPlus size={20} color={colors.subtext} style={styles.inputIcon} />
                     <TextInput
                       style={styles.textInput}
                       placeholder="Enter your name"
@@ -219,7 +197,7 @@ export default function ProfileScreen() {
               )}
               
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Email Address</Text>
+                <Text style={styles.inputLabel}>Email</Text>
                 <View style={styles.inputContainer}>
                   <Mail size={20} color={colors.subtext} style={styles.inputIcon} />
                   <TextInput
@@ -252,6 +230,31 @@ export default function ProfileScreen() {
                 </View>
               </View>
               
+              {!isLoginMode && (
+                <View style={styles.inputGroup}>
+                  <Text style={styles.inputLabel}>Confirm Password</Text>
+                  <View style={styles.inputContainer}>
+                    <Lock size={20} color={colors.subtext} style={styles.inputIcon} />
+                    <TextInput
+                      style={styles.textInput}
+                      placeholder="Confirm your password"
+                      placeholderTextColor={colors.placeholder}
+                      value={confirmPassword}
+                      onChangeText={setConfirmPassword}
+                      secureTextEntry
+                      autoCapitalize="none"
+                      autoCorrect={false}
+                    />
+                  </View>
+                </View>
+              )}
+              
+              {error && (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
+              
               <TouchableOpacity 
                 style={[styles.submitButton, { opacity: isLoading ? 0.7 : 1 }]}
                 onPress={handleSubmit}
@@ -273,20 +276,21 @@ export default function ProfileScreen() {
                   setEmail('');
                   setPassword('');
                   setDisplayName('');
+                  setConfirmPassword('');
                 }}
               >
                 <Text style={styles.switchModeText}>
                   {isLoginMode 
-                    ? "Don't have an account? Create one" 
+                    ? "Don't have an account? Create one"
                     : 'Already have an account? Sign in'
                   }
                 </Text>
               </TouchableOpacity>
             </View>
             
-            <View style={styles.infoCard}>
-              <Text style={styles.infoTitle}>Optional Sign In</Text>
-              <Text style={styles.infoText}>
+            <View style={styles.disclaimerCard}>
+              <Text style={styles.disclaimerTitle}>Optional Sign In</Text>
+              <Text style={styles.disclaimerText}>
                 You can use this app without signing in. Your data will be stored locally on your device. 
                 Sign in to backup and sync your data across multiple devices.
               </Text>
@@ -325,11 +329,132 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  header: {
-    alignItems: 'center',
-    marginBottom: 32,
+  
+  // Authenticated User Styles
+  authenticatedContainer: {
+    flex: 1,
   },
-  headerIcon: {
+  profileCard: {
+    backgroundColor: colors.background,
+    borderRadius: 24,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+    marginBottom: 24,
+  },
+  avatarContainer: {
+    marginBottom: 20,
+  },
+  avatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  userInfo: {
+    alignItems: 'center',
+  },
+  userName: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: 8,
+    letterSpacing: -0.5,
+  },
+  userEmail: {
+    fontSize: 16,
+    color: colors.subtext,
+    marginBottom: 4,
+  },
+  memberSince: {
+    fontSize: 14,
+    color: colors.subtext,
+    fontWeight: '500',
+  },
+  section: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 16,
+    letterSpacing: -0.3,
+  },
+  actionButton: {
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  actionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  actionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    letterSpacing: -0.2,
+  },
+  infoCard: {
+    backgroundColor: colors.background,
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
+    marginBottom: 16,
+  },
+  infoTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: colors.text,
+    marginBottom: 12,
+    letterSpacing: -0.3,
+  },
+  infoDescription: {
+    fontSize: 15,
+    color: colors.subtext,
+    lineHeight: 22,
+  },
+  
+  // Authentication Form Styles
+  authContainer: {
+    flex: 1,
+  },
+  authHeader: {
+    alignItems: 'center',
+    marginBottom: 40,
+  },
+  authIcon: {
     width: 80,
     height: 80,
     borderRadius: 24,
@@ -343,73 +468,18 @@ const createStyles = (colors: any) => StyleSheet.create({
     shadowRadius: 12,
     elevation: 6,
   },
-  title: {
+  authTitle: {
     fontSize: 28,
     fontWeight: '700',
     color: colors.text,
     marginBottom: 12,
     letterSpacing: -0.6,
   },
-  subtitle: {
+  authSubtitle: {
     fontSize: 16,
     color: colors.subtext,
     textAlign: 'center',
     lineHeight: 24,
-  },
-  // Logged in styles
-  loggedInContainer: {
-    flex: 1,
-  },
-  userCard: {
-    backgroundColor: colors.background,
-    borderRadius: 24,
-    padding: 32,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
-    marginBottom: 24,
-  },
-  userInfo: {
-    marginBottom: 20,
-  },
-  userLabel: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: colors.subtext,
-    marginBottom: 4,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  userValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: colors.text,
-  },
-  logoutButton: {
-    backgroundColor: colors.danger,
-    borderRadius: 16,
-    paddingVertical: 18,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.danger,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-    marginBottom: 24,
-  },
-  logoutButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#FFFFFF',
-    letterSpacing: -0.2,
-  },
-  // Auth form styles
-  authContainer: {
-    flex: 1,
   },
   form: {
     backgroundColor: colors.background,
@@ -451,18 +521,29 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.text,
     paddingVertical: 16,
   },
+  errorContainer: {
+    backgroundColor: colors.danger + '15',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24,
+  },
+  errorText: {
+    fontSize: 14,
+    color: colors.danger,
+    fontWeight: '500',
+    textAlign: 'center',
+  },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
-    justifyContent: 'center',
+    marginBottom: 20,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 6,
-    marginBottom: 16,
   },
   submitButtonText: {
     fontSize: 16,
@@ -475,33 +556,29 @@ const createStyles = (colors: any) => StyleSheet.create({
     paddingVertical: 12,
   },
   switchModeText: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.primary,
     fontWeight: '500',
   },
-  buttonIcon: {
-    marginRight: 8,
-  },
-  // Info cards
-  infoCard: {
+  disclaimerCard: {
     backgroundColor: colors.background,
     borderRadius: 20,
     padding: 24,
-    marginBottom: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
+    marginBottom: 16,
   },
-  infoTitle: {
-    fontSize: 18,
+  disclaimerTitle: {
+    fontSize: 16,
     fontWeight: '600',
     color: colors.text,
     marginBottom: 12,
-    letterSpacing: -0.3,
+    letterSpacing: -0.2,
   },
-  infoText: {
+  disclaimerText: {
     fontSize: 14,
     color: colors.subtext,
     lineHeight: 20,

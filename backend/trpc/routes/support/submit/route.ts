@@ -2,10 +2,10 @@ import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
 
 const supportInputSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  subject: z.string().min(1, 'Subject is required'),
   message: z.string().min(10, 'Message must be at least 10 characters'),
+  userEmail: z.string().email('Invalid email address'),
+  deviceInfo: z.string().optional(),
+  appVersion: z.string().optional(),
 });
 
 export const submitSupportProcedure = publicProcedure
