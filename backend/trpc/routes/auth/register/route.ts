@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../create-context';
+import { publicProcedure } from '../../../trpc/create-context';
 
 const registerInputSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -9,7 +9,7 @@ const registerInputSchema = z.object({
 
 export const registerProcedure = publicProcedure
   .input(registerInputSchema)
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input }: { input: z.infer<typeof registerInputSchema> }) => {
     // In a real app, you'd save user to database
     const { email, password, displayName } = input;
     

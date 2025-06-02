@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../create-context';
+import { publicProcedure } from '../../../trpc/create-context';
 
 const loginInputSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -8,7 +8,7 @@ const loginInputSchema = z.object({
 
 export const loginProcedure = publicProcedure
   .input(loginInputSchema)
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input }: { input: z.infer<typeof loginInputSchema> }) => {
     // In a real app, you'd validate credentials against a database
     // This is a mock implementation
     const { email, password } = input;

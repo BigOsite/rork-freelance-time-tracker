@@ -1,7 +1,7 @@
-import { protectedProcedure } from '../../create-context';
+import { protectedProcedure } from '../../../trpc/create-context';
 
 export const getProfileProcedure = protectedProcedure
-  .query(async ({ ctx }) => {
+  .query(async ({ ctx }: { ctx: any }) => {
     // In a real app, you'd fetch user data from database
     // Mock user data based on token
     return {

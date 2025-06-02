@@ -25,12 +25,12 @@ export default function SupportScreen() {
   const [email, setEmail] = useState(user?.email || '');
   
   const submitSupportMutation = trpc.support.submit.useMutation({
-    onSuccess: (data) => {
+    onSuccess: (data: { message: string }) => {
       Alert.alert('Success', data.message);
       setMessage('');
       if (!user) setEmail('');
     },
-    onError: (error) => {
+    onError: (error: any) => {
       Alert.alert('Error', error.message || 'Failed to submit support request. Please try again.');
     },
   });

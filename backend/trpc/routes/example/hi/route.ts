@@ -1,5 +1,5 @@
-import { publicProcedure } from '../../create-context';
+import { protectedProcedure } from '../../../trpc/create-context';
 
-export const hiProcedure = publicProcedure.query(() => {
-  return { message: 'Hello from tRPC!' };
+export const hiProcedure = protectedProcedure.query(() => {
+  return 'hello tRPC v10!';
 });

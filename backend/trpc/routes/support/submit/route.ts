@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../create-context';
+import { publicProcedure } from '../../../trpc/create-context';
 
 const supportInputSchema = z.object({
   message: z.string().min(1, 'Message is required'),
@@ -10,7 +10,7 @@ const supportInputSchema = z.object({
 
 export const submitSupportProcedure = publicProcedure
   .input(supportInputSchema)
-  .mutation(async ({ input }) => {
+  .mutation(async ({ input }: { input: z.infer<typeof supportInputSchema> }) => {
     // In a real app, you'd save this to a database
     console.log('Support message received:', input);
     
