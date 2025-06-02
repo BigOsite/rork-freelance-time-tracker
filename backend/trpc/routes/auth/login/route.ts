@@ -37,6 +37,7 @@ export const loginProcedure = publicProcedure
           uid: authData.user.id,
           email: authData.user.email!,
           displayName,
+          photoURL: authData.user.user_metadata?.avatar_url || null,
           isLoggedIn: true,
           createdAt: new Date(authData.user.created_at).getTime(),
         },
