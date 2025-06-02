@@ -458,6 +458,7 @@ export default function ProfileScreen() {
                 )}
               </TouchableOpacity>
 
+              {/* FORGOT PASSWORD BUTTON - ALWAYS VISIBLE IN LOGIN MODE */}
               {isLoginMode && (
                 <TouchableOpacity 
                   style={styles.forgotPasswordButton}
