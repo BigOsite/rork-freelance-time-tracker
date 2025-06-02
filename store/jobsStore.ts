@@ -156,119 +156,139 @@ export const useJobsStore = create<JobsState>()(
         try {
           set({ isLoading: true });
           
-          // Sync jobs
-          const { data: jobsData, error: jobsError } = await supabase
-            .from('jobs')
-            .select('*')
-            .eq('user_id', userId);
+          // Check if user is authenticated
+          const { data: { user }, error: authError } = await supabase.auth.getUser();
+          if (authError || !user) {
+            console.log('User not authenticated, skipping sync');
+            set({ isLoading: false });
+            return;
+          }
           
-          if (jobsError) {
-            console.error('Error syncing jobs:', jobsError);
-          } else if (jobsData) {
-            const supabaseJobs: Job[] = jobsData.map(job => ({
-              id: job.id,
-              name: job.name,
-              hourlyRate: job.hourly_rate,
-              color: job.color,
-              settings: job.settings,
-              createdAt: new Date(job.created_at).getTime(),
-            }));
+          // Sync jobs
+          try {
+            const { data: jobsData, error: jobsError } = await supabase
+              .from('jobs')
+              .select('*')
+              .eq('user_id', userId);
             
-            // Merge with local jobs (keep local if newer)
-            const localJobs = get().jobs;
-            const mergedJobs = [...supabaseJobs];
-            
-            localJobs.forEach(localJob => {
-              const existingIndex = mergedJobs.findIndex(j => j.id === localJob.id);
-              if (existingIndex === -1) {
-                // Local job doesn't exist in Supabase, upload it
-                mergedJobs.push(localJob);
-                supabase.from('jobs').insert({
-                  id: localJob.id,
-                  user_id: userId,
-                  name: localJob.name,
-                  hourly_rate: localJob.hourlyRate,
-                  color: localJob.color,
-                  settings: localJob.settings,
-                  created_at: new Date(localJob.createdAt).toISOString(),
-                });
-              }
-            });
-            
-            set({ jobs: mergedJobs });
+            if (jobsError) {
+              console.error('Error syncing jobs:', jobsError);
+            } else if (jobsData) {
+              const supabaseJobs: Job[] = jobsData.map(job => ({
+                id: job.id,
+                name: job.name,
+                hourlyRate: job.hourly_rate,
+                color: job.color,
+                settings: job.settings,
+                createdAt: new Date(job.created_at).getTime(),
+              }));
+              
+              // Merge with local jobs (keep local if newer)
+              const localJobs = get().jobs;
+              const mergedJobs = [...supabaseJobs];
+              
+              localJobs.forEach(localJob => {
+                const existingIndex = mergedJobs.findIndex(j => j.id === localJob.id);
+                if (existingIndex === -1) {
+                  // Local job doesn't exist in Supabase, upload it
+                  mergedJobs.push(localJob);
+                  supabase.from('jobs').insert({
+                    id: localJob.id,
+                    user_id: userId,
+                    name: localJob.name,
+                    hourly_rate: localJob.hourlyRate,
+                    color: localJob.color,
+                    settings: localJob.settings,
+                    created_at: new Date(localJob.createdAt).toISOString(),
+                  });
+                }
+              });
+              
+              set({ jobs: mergedJobs });
+            }
+          } catch (error) {
+            console.error('Jobs sync error:', error);
           }
           
           // Sync time entries
-          const { data: entriesData, error: entriesError } = await supabase
-            .from('time_entries')
-            .select('*')
-            .eq('user_id', userId);
-          
-          if (entriesError) {
-            console.error('Error syncing time entries:', entriesError);
-          } else if (entriesData) {
-            const supabaseEntries: TimeEntry[] = entriesData.map(entry => ({
-              id: entry.id,
-              jobId: entry.job_id,
-              startTime: new Date(entry.start_time).getTime(),
-              endTime: entry.end_time ? new Date(entry.end_time).getTime() : null,
-              note: entry.note,
-              breaks: entry.breaks,
-              isOnBreak: entry.is_on_break,
-              paidInPeriodId: entry.paid_in_period_id,
-              createdAt: new Date(entry.created_at).getTime(),
-            }));
+          try {
+            const { data: entriesData, error: entriesError } = await supabase
+              .from('time_entries')
+              .select('*')
+              .eq('user_id', userId);
             
-            // Merge with local entries
-            const localEntries = get().timeEntries;
-            const mergedEntries = [...supabaseEntries];
-            
-            localEntries.forEach(localEntry => {
-              const existingIndex = mergedEntries.findIndex(e => e.id === localEntry.id);
-              if (existingIndex === -1) {
-                // Local entry doesn't exist in Supabase, upload it
-                mergedEntries.push(localEntry);
-                supabase.from('time_entries').insert({
-                  id: localEntry.id,
-                  user_id: userId,
-                  job_id: localEntry.jobId,
-                  start_time: new Date(localEntry.startTime).toISOString(),
-                  end_time: localEntry.endTime ? new Date(localEntry.endTime).toISOString() : null,
-                  note: localEntry.note,
-                  breaks: localEntry.breaks,
-                  is_on_break: localEntry.isOnBreak,
-                  paid_in_period_id: localEntry.paidInPeriodId,
-                  created_at: new Date(localEntry.createdAt).toISOString(),
-                });
-              }
-            });
-            
-            set({ timeEntries: mergedEntries });
+            if (entriesError) {
+              console.error('Error syncing time entries:', entriesError);
+            } else if (entriesData) {
+              const supabaseEntries: TimeEntry[] = entriesData.map(entry => ({
+                id: entry.id,
+                jobId: entry.job_id,
+                startTime: new Date(entry.start_time).getTime(),
+                endTime: entry.end_time ? new Date(entry.end_time).getTime() : null,
+                note: entry.note,
+                breaks: entry.breaks,
+                isOnBreak: entry.is_on_break,
+                paidInPeriodId: entry.paid_in_period_id,
+                createdAt: new Date(entry.created_at).getTime(),
+              }));
+              
+              // Merge with local entries
+              const localEntries = get().timeEntries;
+              const mergedEntries = [...supabaseEntries];
+              
+              localEntries.forEach(localEntry => {
+                const existingIndex = mergedEntries.findIndex(e => e.id === localEntry.id);
+                if (existingIndex === -1) {
+                  // Local entry doesn't exist in Supabase, upload it
+                  mergedEntries.push(localEntry);
+                  supabase.from('time_entries').insert({
+                    id: localEntry.id,
+                    user_id: userId,
+                    job_id: localEntry.jobId,
+                    start_time: new Date(localEntry.startTime).toISOString(),
+                    end_time: localEntry.endTime ? new Date(localEntry.endTime).toISOString() : null,
+                    note: localEntry.note,
+                    breaks: localEntry.breaks,
+                    is_on_break: localEntry.isOnBreak,
+                    paid_in_period_id: localEntry.paidInPeriodId,
+                    created_at: new Date(localEntry.createdAt).toISOString(),
+                  });
+                }
+              });
+              
+              set({ timeEntries: mergedEntries });
+            }
+          } catch (error) {
+            console.error('Time entries sync error:', error);
           }
           
           // Sync pay periods
-          const { data: periodsData, error: periodsError } = await supabase
-            .from('pay_periods')
-            .select('*')
-            .eq('user_id', userId);
-          
-          if (periodsError) {
-            console.error('Error syncing pay periods:', periodsError);
-          } else if (periodsData) {
-            const supabasePeriods: PayPeriod[] = periodsData.map(period => ({
-              id: period.id,
-              jobId: period.job_id,
-              startDate: new Date(period.start_date).getTime(),
-              endDate: new Date(period.end_date).getTime(),
-              totalDuration: period.total_duration,
-              totalEarnings: period.total_earnings,
-              isPaid: period.is_paid,
-              paidDate: period.paid_date ? new Date(period.paid_date).getTime() : undefined,
-              timeEntryIds: period.time_entry_ids,
-              createdAt: new Date(period.created_at).getTime(),
-            }));
+          try {
+            const { data: periodsData, error: periodsError } = await supabase
+              .from('pay_periods')
+              .select('*')
+              .eq('user_id', userId);
             
-            set({ payPeriods: supabasePeriods });
+            if (periodsError) {
+              console.error('Error syncing pay periods:', periodsError);
+            } else if (periodsData) {
+              const supabasePeriods: PayPeriod[] = periodsData.map(period => ({
+                id: period.id,
+                jobId: period.job_id,
+                startDate: new Date(period.start_date).getTime(),
+                endDate: new Date(period.end_date).getTime(),
+                totalDuration: period.total_duration,
+                totalEarnings: period.total_earnings,
+                isPaid: period.is_paid,
+                paidDate: period.paid_date ? new Date(period.paid_date).getTime() : undefined,
+                timeEntryIds: period.time_entry_ids,
+                createdAt: new Date(period.created_at).getTime(),
+              }));
+              
+              set({ payPeriods: supabasePeriods });
+            }
+          } catch (error) {
+            console.error('Pay periods sync error:', error);
           }
           
           set({ lastSyncTime: Date.now() });
