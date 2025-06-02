@@ -458,7 +458,7 @@ export default function ProfileScreen() {
                 )}
               </TouchableOpacity>
 
-              {/* FORGOT PASSWORD BUTTON - ALWAYS VISIBLE IN LOGIN MODE */}
+              {/* FORGOT PASSWORD BUTTON - PROMINENTLY DISPLAYED IN LOGIN MODE */}
               {isLoginMode && (
                 <TouchableOpacity 
                   style={styles.forgotPasswordButton}
@@ -967,13 +967,15 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   forgotPasswordButton: {
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 16,
     marginBottom: 8,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 12,
   },
   forgotPasswordText: {
-    fontSize: 15,
+    fontSize: 16,
     color: colors.primary,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   switchModeButton: {
     alignItems: 'center',

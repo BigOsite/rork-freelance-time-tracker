@@ -9,17 +9,27 @@ import {
   Alert,
   ActivityIndicator,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Modal
 } from 'react-native';
 import { Stack, useRouter } from 'expo-router';
-import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus } from 'lucide-react-native';
+import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, X } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function AccountScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const { isAuthenticated, user, login, register, logout, isLoading, error } = useAuth();
+  const { 
+    isAuthenticated, 
+    user, 
+    login, 
+    register, 
+    logout, 
+    isLoading, 
+    error,
+    forgotPassword
+  } = useAuth();
   
   const [isLoginMode, setIsLoginMode] = useState(true);
   const [email, setEmail] = useState('');
@@ -27,48 +37,104 @@ export default function AccountScreen() {
   const [displayName, setDisplayName] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
+  // Forgot password modal state
+  const [showForgotPassword, setShowForgotPassword] = useState(false);
+  const [forgotEmail, setForgotEmail] = useState('');
+  const [forgotPasswordSent, setForgotPasswordSent] = useState(false);
+  
+  // Local error state for better error handling
+  const [localError, setLocalError] = useState('');
+
+  const getCleanErrorMessage = (error: any): string => {
+    if (!error) return '';
+    
+    const message = typeof error === 'string' ? error : error.message || '';
+    
+    // Handle common Supabase/auth errors with user-friendly messages
+    if (message.includes('Invalid login credentials')) {
+      return 'Invalid email or password. Please check your credentials and try again.';
+    }
+    if (message.includes('User already registered')) {
+      return 'An account with this email already exists. Please sign in instead.';
+    }
+    if (message.includes('Password should be at least 6 characters')) {
+      return 'Password must be at least 6 characters long.';
+    }
+    if (message.includes('Unable to validate email address')) {
+      return 'Please enter a valid email address.';
+    }
+    if (message.includes('Email not confirmed')) {
+      return 'Please check your email and confirm your account before signing in.';
+    }
+    if (message.includes('Too many requests')) {
+      return 'Too many attempts. Please wait a moment before trying again.';
+    }
+    if (message.includes('Network request failed')) {
+      return 'Network error. Please check your connection and try again.';
+    }
+    
+    // Return the original message if it's already user-friendly
+    return message || 'An unexpected error occurred. Please try again.';
+  };
+  
   const handleSubmit = async () => {
+    setLocalError('');
+    
     if (isLoginMode) {
-      // Login
-      if (!email || !password) {
-        Alert.alert('Error', 'Please fill in all fields');
+      // Login validation
+      if (!email.trim()) {
+        setLocalError('Please enter your email address.');
+        return;
+      }
+      if (!password) {
+        setLocalError('Please enter your password.');
         return;
       }
       
       try {
-        await login(email, password);
+        await login(email.trim(), password);
         // Clear form after successful login
         setEmail('');
         setPassword('');
       } catch (error: any) {
-        Alert.alert('Login Failed', error.message || 'Please check your credentials and try again.');
+        setLocalError(getCleanErrorMessage(error));
       }
     } else {
-      // Register
-      if (!email || !password || !displayName || !confirmPassword) {
-        Alert.alert('Error', 'Please fill in all fields');
+      // Register validation
+      if (!email.trim()) {
+        setLocalError('Please enter your email address.');
         return;
       }
-      
-      if (password !== confirmPassword) {
-        Alert.alert('Error', 'Passwords do not match');
+      if (!displayName.trim()) {
+        setLocalError('Please enter your display name.');
         return;
       }
-      
+      if (!password) {
+        setLocalError('Please enter a password.');
+        return;
+      }
       if (password.length < 6) {
-        Alert.alert('Error', 'Password must be at least 6 characters long');
+        setLocalError('Password must be at least 6 characters long.');
+        return;
+      }
+      if (!confirmPassword) {
+        setLocalError('Please confirm your password.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setLocalError('Passwords do not match. Please try again.');
         return;
       }
       
       try {
-        await register(email, password, displayName);
+        await register(email.trim(), password, displayName.trim());
         // Clear form after successful registration
         setEmail('');
         setPassword('');
         setDisplayName('');
         setConfirmPassword('');
       } catch (error: any) {
-        Alert.alert('Registration Failed', error.message || 'Please try again.');
+        setLocalError(getCleanErrorMessage(error));
       }
     }
   };
@@ -93,6 +159,42 @@ export default function AccountScreen() {
       ]
     );
   };
+
+  const handleForgotPassword = async () => {
+    if (!forgotEmail.trim()) {
+      Alert.alert('Error', 'Please enter your email address.');
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(forgotEmail.trim())) {
+      Alert.alert('Error', 'Please enter a valid email address.');
+      return;
+    }
+
+    try {
+      await forgotPassword(forgotEmail.trim());
+      setForgotPasswordSent(true);
+    } catch (error: any) {
+      Alert.alert('Error', getCleanErrorMessage(error));
+    }
+  };
+
+  const resetForgotPasswordModal = () => {
+    setShowForgotPassword(false);
+    setForgotEmail('');
+    setForgotPasswordSent(false);
+  };
+
+  const switchMode = () => {
+    setIsLoginMode(!isLoginMode);
+    setEmail('');
+    setPassword('');
+    setDisplayName('');
+    setConfirmPassword('');
+    setLocalError('');
+  };
   
   const styles = createStyles(colors);
   
@@ -103,7 +205,7 @@ export default function AccountScreen() {
     >
       <Stack.Screen 
         options={{
-          title: 'Profile',
+          title: 'Account',
           headerLeft: () => (
             <TouchableOpacity onPress={() => router.back()} style={styles.headerButton}>
               <ChevronLeft size={24} color={colors.primary} />
@@ -249,9 +351,9 @@ export default function AccountScreen() {
                 </View>
               )}
               
-              {error && (
+              {(localError || error) && (
                 <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
+                  <Text style={styles.errorText}>{localError || getCleanErrorMessage(error)}</Text>
                 </View>
               )}
               
@@ -268,16 +370,20 @@ export default function AccountScreen() {
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {/* FORGOT PASSWORD BUTTON - PROMINENTLY DISPLAYED IN LOGIN MODE */}
+              {isLoginMode && (
+                <TouchableOpacity 
+                  style={styles.forgotPasswordButton}
+                  onPress={() => setShowForgotPassword(true)}
+                >
+                  <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity 
                 style={styles.switchModeButton}
-                onPress={() => {
-                  setIsLoginMode(!isLoginMode);
-                  setEmail('');
-                  setPassword('');
-                  setDisplayName('');
-                  setConfirmPassword('');
-                }}
+                onPress={switchMode}
               >
                 <Text style={styles.switchModeText}>
                   {isLoginMode 
@@ -306,6 +412,84 @@ export default function AccountScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Forgot Password Modal */}
+      <Modal
+        visible={showForgotPassword}
+        transparent
+        animationType="fade"
+        onRequestClose={resetForgotPasswordModal}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.modalContainer}
+          >
+            <View style={styles.modalContent}>
+              <View style={styles.modalHeader}>
+                <Text style={styles.modalTitle}>
+                  {forgotPasswordSent ? 'Check Your Email' : 'Reset Password'}
+                </Text>
+                <TouchableOpacity 
+                  onPress={resetForgotPasswordModal}
+                  style={styles.modalCloseButton}
+                >
+                  <X size={24} color={colors.subtext} />
+                </TouchableOpacity>
+              </View>
+
+              {forgotPasswordSent ? (
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalDescription}>
+                    Password reset link sent to {forgotEmail}. Please check your inbox and follow the instructions to reset your password.
+                  </Text>
+                  <TouchableOpacity 
+                    style={styles.modalButton}
+                    onPress={resetForgotPasswordModal}
+                  >
+                    <Text style={styles.modalButtonText}>Done</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <View style={styles.modalBody}>
+                  <Text style={styles.modalDescription}>
+                    Enter your email address and we will send you a link to reset your password.
+                  </Text>
+                  
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.inputLabel}>Email Address</Text>
+                    <View style={styles.inputContainer}>
+                      <Mail size={20} color={colors.subtext} style={styles.inputIcon} />
+                      <TextInput
+                        style={styles.textInput}
+                        placeholder="Enter your email"
+                        placeholderTextColor={colors.placeholder}
+                        value={forgotEmail}
+                        onChangeText={setForgotEmail}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
+                  </View>
+
+                  <TouchableOpacity 
+                    style={[styles.modalButton, { opacity: isLoading ? 0.7 : 1 }]}
+                    onPress={handleForgotPassword}
+                    disabled={isLoading}
+                  >
+                    {isLoading ? (
+                      <ActivityIndicator color="#FFFFFF" size="small" />
+                    ) : (
+                      <Text style={styles.modalButtonText}>Send Reset Link</Text>
+                    )}
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+          </KeyboardAvoidingView>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -532,13 +716,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     color: colors.danger,
     fontWeight: '500',
     textAlign: 'center',
+    lineHeight: 20,
   },
   submitButton: {
     backgroundColor: colors.primary,
     borderRadius: 16,
     paddingVertical: 18,
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -550,6 +735,18 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontWeight: '600',
     color: '#FFFFFF',
     letterSpacing: -0.2,
+  },
+  forgotPasswordButton: {
+    alignItems: 'center',
+    paddingVertical: 16,
+    marginBottom: 8,
+    backgroundColor: colors.primaryLight,
+    borderRadius: 12,
+  },
+  forgotPasswordText: {
+    fontSize: 16,
+    color: colors.primary,
+    fontWeight: '600',
   },
   switchModeButton: {
     alignItems: 'center',
@@ -603,5 +800,71 @@ const createStyles = (colors: any) => StyleSheet.create({
     fontSize: 14,
     color: colors.primary,
     fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
+  },
+
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContainer: {
+    width: '90%',
+    maxWidth: 400,
+  },
+  modalContent: {
+    backgroundColor: colors.background,
+    borderRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.2,
+    shadowRadius: 24,
+    elevation: 12,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 24,
+    paddingBottom: 16,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.text,
+    letterSpacing: -0.4,
+  },
+  modalCloseButton: {
+    padding: 8,
+    borderRadius: 12,
+    backgroundColor: colors.surface,
+  },
+  modalBody: {
+    padding: 24,
+    paddingTop: 0,
+  },
+  modalDescription: {
+    fontSize: 15,
+    color: colors.subtext,
+    lineHeight: 22,
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: colors.primary,
+    borderRadius: 16,
+    paddingVertical: 18,
+    alignItems: 'center',
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  modalButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
+    letterSpacing: -0.2,
   },
 });
