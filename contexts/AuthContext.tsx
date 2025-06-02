@@ -147,7 +147,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       if (!authState.isAuthenticated) return;
       
-      const profile = await trpcClient.auth.getProfile.query();
+      const profile = await trpcClient.auth.profile.query();
       const loggedInUser = {
         ...profile,
         isLoggedIn: true,
@@ -170,7 +170,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           setAuthState({ isAuthenticated: true, isLoading: false, error: null });
           // Try to refresh profile to get latest user data
           try {
-            const profile = await trpcClient.auth.getProfile.query();
+            const profile = await trpcClient.auth.profile.query();
             const loggedInUser = {
               ...profile,
               isLoggedIn: true,
