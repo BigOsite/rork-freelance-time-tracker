@@ -30,7 +30,7 @@ export default function SupportScreen() {
       setMessage('');
       if (!user) setEmail('');
     },
-    onError: (error: any) => {
+    onError: (error: { message: string }) => {
       Alert.alert('Error', error.message || 'Failed to submit support request. Please try again.');
     },
   });
