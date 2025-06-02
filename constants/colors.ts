@@ -14,6 +14,7 @@ const Colors = {
     danger: '#EF4444',
     inactive: '#9CA3AF',
     placeholder: '#9CA3AF',
+    inputBg: '#F9FAFB',
   },
   dark: {
     text: '#F9FAFB',
@@ -30,6 +31,7 @@ const Colors = {
     danger: '#F87171',
     inactive: '#6B7280',
     placeholder: '#6B7280',
+    inputBg: '#374151',
   },
 };
 
