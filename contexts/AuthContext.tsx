@@ -99,6 +99,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const sessionData = await secureStorage.getItem(SUPABASE_SESSION_KEY);
       if (sessionData) {
         const session = JSON.parse(sessionData);
+        
+        // Check if session is still valid (not expired)
+        const now = Math.round(Date.now() / 1000);
+        if (session.expires_at && session.expires_at < now) {
+          console.log('Stored session is expired, removing it');
+          await secureStorage.removeItem(SUPABASE_SESSION_KEY);
+          return false;
+        }
+        
         const { error } = await supabase.auth.setSession(session);
         if (error) {
           console.log('Failed to restore Supabase session:', error);
@@ -110,6 +119,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
       return false;
     } catch (error) {
       console.log('Error restoring Supabase session:', error);
+      return false;
+    }
+  };
+
+  // Helper function to ensure we have an active Supabase session
+  const ensureSupabaseSession = async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session && session.user) {
+        return true;
+      }
+
+      // Try to restore session from storage
+      const restored = await restoreSupabaseSession();
+      if (restored) {
+        const { data: { session: newSession } } = await supabase.auth.getSession();
+        return newSession && newSession.user;
+      }
+
+      return false;
+    } catch (error) {
+      console.log('Error ensuring Supabase session:', error);
       return false;
     }
   };
@@ -306,9 +337,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthState({ isLoading: true, error: null });
       
       // Ensure we have an active Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session. Please sign in again.');
+      const hasSession = await ensureSupabaseSession();
+      if (!hasSession) {
+        throw new Error('Session expired. Please sign in again.');
       }
       
       const { error } = await supabase.auth.updateUser({
@@ -335,9 +366,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthState({ isLoading: true, error: null });
       
       // Ensure we have an active Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session. Please sign in again.');
+      const hasSession = await ensureSupabaseSession();
+      if (!hasSession) {
+        throw new Error('Session expired. Please sign in again.');
       }
       
       const { error } = await supabase.auth.updateUser({
@@ -377,9 +408,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       }
 
       // Ensure we have an active Supabase session
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No active session. Please sign in again.');
+      const hasSession = await ensureSupabaseSession();
+      if (!hasSession) {
+        throw new Error('Session expired. Please sign in again.');
       }
 
       // Read the image file
@@ -398,22 +429,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      // Convert base64 to blob for upload
-      const byteCharacters = atob(base64);
-      const byteNumbers = new Array(byteCharacters.length);
-      for (let i = 0; i < byteCharacters.length; i++) {
-        byteNumbers[i] = byteCharacters.charCodeAt(i);
-      }
-      const byteArray = new Uint8Array(byteNumbers);
-      const blob = new Blob([byteArray], { type: `image/${fileExt}` });
+      // For React Native Web compatibility, we need to handle file upload differently
+      let uploadData;
+      let uploadError;
 
-      // Upload to Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('avatars')
-        .upload(filePath, blob, {
-          cacheControl: '3600',
-          upsert: true
-        });
+      if (Platform.OS === 'web') {
+        // On web, convert base64 to File object
+        const response = await fetch(`data:image/${fileExt};base64,${base64}`);
+        const blob = await response.blob();
+        const file = new File([blob], fileName, { type: `image/${fileExt}` });
+        
+        const result = await supabase.storage
+          .from('avatars')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: true
+          });
+        
+        uploadData = result.data;
+        uploadError = result.error;
+      } else {
+        // On native platforms, use base64 directly
+        const byteCharacters = atob(base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        
+        const result = await supabase.storage
+          .from('avatars')
+          .upload(filePath, byteArray, {
+            cacheControl: '3600',
+            upsert: true,
+            contentType: `image/${fileExt}`
+          });
+        
+        uploadData = result.data;
+        uploadError = result.error;
+      }
 
       if (uploadError) {
         throw uploadError;
@@ -500,11 +554,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('Image file not found')) {
       return 'Selected image could not be found. Please try selecting another image.';
     }
-    if (message.includes('No active session')) {
+    if (message.includes('Session expired')) {
       return 'Session expired. Please sign in again.';
     }
-    if (message.includes('Auth session missing')) {
+    if (message.includes('Auth session missing') || message.includes('No active session')) {
       return 'Session expired. Please sign in again.';
+    }
+    if (message.includes('Creating blobs from')) {
+      return 'Upload failed. Please try again.';
     }
     
     // Return the original message if it's already user-friendly
