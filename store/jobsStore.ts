@@ -238,12 +238,13 @@ const syncTimeEntryToSupabase = async (entry: TimeEntry, userId: string, operati
   }
 };
 
-// Helper function to sync a single pay period to Supabase
-const syncPayPeriodToSupabase = async (period: PayPeriod, userId: string, operation: 'insert' | 'update' | 'delete') => {
+// Helper function to sync a single pay period to Supabase with upsert logic
+const syncPayPeriodToSupabase = async (period: PayPeriod, userId: string, operation: 'upsert' | 'delete') => {
   try {
     switch (operation) {
-      case 'insert':
-        const { error: insertError } = await supabase.from('pay_periods').insert({
+      case 'upsert':
+        // Use upsert to handle both insert and update cases
+        const { error: upsertError } = await supabase.from('pay_periods').upsert({
           id: period.id,
           user_id: userId,
           job_id: period.jobId,
@@ -255,22 +256,10 @@ const syncPayPeriodToSupabase = async (period: PayPeriod, userId: string, operat
           paid_date: period.paidDate ? new Date(period.paidDate).toISOString() : null,
           time_entry_ids: period.timeEntryIds,
           created_at: new Date(period.createdAt).toISOString(),
+        }, {
+          onConflict: 'id'
         });
-        if (insertError) throw insertError;
-        break;
-        
-      case 'update':
-        const { error: updateError } = await supabase.from('pay_periods').update({
-          job_id: period.jobId,
-          start_date: new Date(period.startDate).toISOString(),
-          end_date: new Date(period.endDate).toISOString(),
-          total_duration: period.totalDuration,
-          total_earnings: period.totalEarnings,
-          is_paid: period.isPaid,
-          paid_date: period.paidDate ? new Date(period.paidDate).toISOString() : null,
-          time_entry_ids: period.timeEntryIds,
-        }).eq('id', period.id).eq('user_id', userId);
-        if (updateError) throw updateError;
+        if (upsertError) throw upsertError;
         break;
         
       case 'delete':
@@ -972,7 +961,7 @@ export const useJobsStore = create<JobsState>()(
       },
       
       generatePayPeriods: () => {
-        const { jobs, timeEntries } = get();
+        const { jobs, timeEntries, payPeriods: existingPayPeriods } = get();
         const newPayPeriods: PayPeriod[] = [];
         
         jobs.forEach(job => {
@@ -1027,14 +1016,14 @@ export const useJobsStore = create<JobsState>()(
               }
             });
             
-            // Check if any entry in this period is already paid
-            const isPaid = entries.some(entry => entry.paidInPeriodId);
-            const existingPeriod = get().payPeriods.find(period => 
+            // Check if this period already exists
+            const existingPeriod = existingPayPeriods.find(period => 
               period.jobId === job.id && 
               period.startDate === sunday.getTime() &&
               period.endDate === saturday.getTime()
             );
             
+            // Use existing period ID if it exists, otherwise generate new one
             const periodId = existingPeriod?.id || generateId();
             
             newPayPeriods.push({
@@ -1044,7 +1033,7 @@ export const useJobsStore = create<JobsState>()(
               endDate: saturday.getTime(),
               totalDuration,
               totalEarnings,
-              isPaid: existingPeriod?.isPaid || isPaid,
+              isPaid: existingPeriod?.isPaid || false,
               paidDate: existingPeriod?.paidDate,
               timeEntryIds: entries.map(e => e.id),
               createdAt: existingPeriod?.createdAt || Date.now()
@@ -1054,21 +1043,31 @@ export const useJobsStore = create<JobsState>()(
         
         set({ payPeriods: newPayPeriods });
         
-        // Sync pay periods to Supabase
+        // Sync pay periods to Supabase using upsert
         const syncToSupabase = async () => {
           try {
             const userId = await getCurrentUserId();
             if (userId) {
-              // Delete existing pay periods for this user and recreate them
-              await supabase.from('pay_periods').delete().eq('user_id', userId);
+              // Use upsert for all pay periods to handle both new and existing ones
+              for (const period of newPayPeriods) {
+                try {
+                  await syncPayPeriodToSupabase(period, userId, 'upsert');
+                } catch (error) {
+                  console.error('Error syncing individual pay period:', error);
+                }
+              }
               
-              if (newPayPeriods.length > 0) {
-                for (const period of newPayPeriods) {
-                  try {
-                    await syncPayPeriodToSupabase(period, userId, 'insert');
-                  } catch (error) {
-                    console.error('Error syncing individual pay period:', error);
-                  }
+              // Clean up any pay periods that no longer exist
+              const currentPeriodIds = newPayPeriods.map(p => p.id);
+              const periodsToDelete = existingPayPeriods.filter(p => 
+                !currentPeriodIds.includes(p.id)
+              );
+              
+              for (const periodToDelete of periodsToDelete) {
+                try {
+                  await syncPayPeriodToSupabase(periodToDelete, userId, 'delete');
+                } catch (error) {
+                  console.error('Error deleting obsolete pay period:', error);
                 }
               }
             }
@@ -1108,7 +1107,7 @@ export const useJobsStore = create<JobsState>()(
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncPayPeriodToSupabase(periodToSync, userId, 'update');
+                  await syncPayPeriodToSupabase(periodToSync, userId, 'upsert');
                   
                   // Update related time entries
                   const period = get().payPeriods.find(p => p.id === periodId);
@@ -1163,7 +1162,7 @@ export const useJobsStore = create<JobsState>()(
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncPayPeriodToSupabase(periodToSync, userId, 'update');
+                  await syncPayPeriodToSupabase(periodToSync, userId, 'upsert');
                   
                   // Update related time entries
                   const period = get().payPeriods.find(p => p.id === periodId);
