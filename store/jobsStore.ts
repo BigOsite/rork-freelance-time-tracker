@@ -874,7 +874,7 @@ export const useJobsStore = create<JobsState>()(
             let updatedPayPeriods = state.payPeriods;
             if (deletedEntry?.paidInPeriodId) {
               updatedPayPeriods = state.payPeriods.map(period => {
-                if (period.id === deletedEntry.paidInPeriodId) {
+                if (period.id === deletedEntry!.paidInPeriodId) {
                   // Remove the entry ID from the period's timeEntryIds
                   const updatedEntryIds = period.timeEntryIds.filter(entryId => entryId !== id);
                   
