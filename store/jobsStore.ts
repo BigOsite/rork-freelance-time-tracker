@@ -931,17 +931,17 @@ export const useJobsStore = create<JobsState>()(
             return false;
           }
           
-          const syncToSupabase = async () => {
+          const syncToSupabase = async (entryToDelete: TimeEntry) => {
             try {
               const userId = await getCurrentUserId();
               if (userId) {
-                await syncTimeEntryToSupabase(deletedEntry!, userId, 'delete');
+                await syncTimeEntryToSupabase(entryToDelete, userId, 'delete');
               }
             } catch (error) {
               console.error('Error syncing time entry deletion to Supabase:', error);
             }
           };
-          syncToSupabase();
+          syncToSupabase(deletedEntry);
           
           // Regenerate pay periods after deleting entry to ensure consistency
           setTimeout(() => {
