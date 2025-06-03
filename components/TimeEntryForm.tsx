@@ -62,6 +62,7 @@ export default function TimeEntryForm({
     setEndTime(currentValues.endTime);
     setNote(currentValues.note);
     setOriginalValues(currentValues);
+    // Reset submitting state when form is reset
     setIsSubmitting(false);
   }, [initialValues, defaultValues]);
 
@@ -107,11 +108,26 @@ export default function TimeEntryForm({
       
       if (success) {
         // Update original values to reflect the new state after successful submission
-        setOriginalValues({
+        const newOriginalValues = {
           startTime,
           endTime,
           note: note.trim(),
-        });
+        };
+        setOriginalValues(newOriginalValues);
+        
+        // For new entries, reset the form after successful submission
+        if (isNewEntry) {
+          // Reset form to default state for next entry
+          const newDefaults = {
+            startTime: Date.now(),
+            endTime: null as number | null,
+            note: '',
+          };
+          setStartTime(newDefaults.startTime);
+          setEndTime(newDefaults.endTime);
+          setNote(newDefaults.note);
+          setOriginalValues(newDefaults);
+        }
       } else {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
       }

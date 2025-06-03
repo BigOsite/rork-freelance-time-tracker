@@ -257,7 +257,7 @@ const syncPayPeriodToSupabase = async (period: PayPeriod, userId: string, operat
           time_entry_ids: period.timeEntryIds,
           created_at: new Date(period.createdAt).toISOString(),
         }, {
-          onConflict: 'id'
+          onConflict: 'id,user_id'
         });
         if (upsertError) throw upsertError;
         break;
