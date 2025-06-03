@@ -421,56 +421,69 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       // Create a unique filename
       const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `${userAccount.uid}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      const fileName = `avatar-${Date.now()}.${fileExt}`;
+      const filePath = `${userAccount.uid}/${fileName}`;
 
-      // Read file as base64
-      const base64 = await FileSystem.readAsStringAsync(imageUri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-
-      // For React Native Web compatibility, we need to handle file upload differently
       let uploadData;
       let uploadError;
 
       if (Platform.OS === 'web') {
-        // On web, convert base64 to File object
-        const response = await fetch(`data:image/${fileExt};base64,${base64}`);
-        const blob = await response.blob();
-        const file = new File([blob], fileName, { type: `image/${fileExt}` });
-        
-        const result = await supabase.storage
-          .from('avatars')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: true
-          });
-        
-        uploadData = result.data;
-        uploadError = result.error;
-      } else {
-        // On native platforms, use base64 directly
-        const byteCharacters = atob(base64);
-        const byteNumbers = new Array(byteCharacters.length);
-        for (let i = 0; i < byteCharacters.length; i++) {
-          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        // On web, convert image URI to File object
+        try {
+          const response = await fetch(imageUri);
+          const blob = await response.blob();
+          const file = new File([blob], fileName, { type: `image/${fileExt}` });
+          
+          const result = await supabase.storage
+            .from('avatars')
+            .upload(filePath, file, {
+              cacheControl: '3600',
+              upsert: true
+            });
+          
+          uploadData = result.data;
+          uploadError = result.error;
+        } catch (fetchError) {
+          console.log('Web file conversion error:', fetchError);
+          throw new Error('Failed to process image file');
         }
-        const byteArray = new Uint8Array(byteNumbers);
-        
-        const result = await supabase.storage
-          .from('avatars')
-          .upload(filePath, byteArray, {
-            cacheControl: '3600',
-            upsert: true,
-            contentType: `image/${fileExt}`
+      } else {
+        // On native platforms, read as base64 and convert to ArrayBuffer
+        try {
+          const base64 = await FileSystem.readAsStringAsync(imageUri, {
+            encoding: FileSystem.EncodingType.Base64,
           });
-        
-        uploadData = result.data;
-        uploadError = result.error;
+
+          // Convert base64 to ArrayBuffer
+          const binaryString = atob(base64);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
+          }
+          
+          const result = await supabase.storage
+            .from('avatars')
+            .upload(filePath, bytes.buffer, {
+              cacheControl: '3600',
+              upsert: true,
+              contentType: `image/${fileExt}`
+            });
+          
+          uploadData = result.data;
+          uploadError = result.error;
+        } catch (conversionError) {
+          console.log('Native file conversion error:', conversionError);
+          throw new Error('Failed to process image file');
+        }
       }
 
       if (uploadError) {
+        console.log('Upload error:', uploadError);
         throw uploadError;
+      }
+
+      if (!uploadData) {
+        throw new Error('Upload failed - no data returned');
       }
 
       // Get public URL
@@ -560,8 +573,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('Auth session missing') || message.includes('No active session')) {
       return 'Session expired. Please sign in again.';
     }
-    if (message.includes('Creating blobs from')) {
+    if (message.includes('Creating blobs from') || message.includes('ArrayBuffer')) {
       return 'Upload failed. Please try again.';
+    }
+    if (message.includes('Failed to process image file')) {
+      return 'Failed to process image file. Please try selecting another image.';
+    }
+    if (message.includes('Upload failed - no data returned')) {
+      return 'Upload failed. Please check your connection and try again.';
     }
     
     // Return the original message if it's already user-friendly
