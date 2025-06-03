@@ -40,7 +40,7 @@ export default function EditTimeEntryScreen() {
       });
 
       if (updated) {
-        router.push(`/tabs/job/${timeEntry.jobId}`);
+        router.push(`/(tabs)/job/${timeEntry.jobId}`);
         return true;
       } else {
         return false;
@@ -53,7 +53,7 @@ export default function EditTimeEntryScreen() {
 
   const handleCancel = () => {
     if (timeEntry) {
-      router.push(`/tabs/job/${timeEntry.jobId}`);
+      router.push(`/(tabs)/job/${timeEntry.jobId}`);
     } else {
       router.back();
     }
@@ -62,7 +62,7 @@ export default function EditTimeEntryScreen() {
   const handleDelete = () => {
     if (timeEntry) {
       deleteTimeEntry(timeEntry.id);
-      router.push(`/tabs/job/${timeEntry.jobId}`);
+      router.push(`/(tabs)/job/${timeEntry.jobId}`);
     }
   };
 
@@ -116,4 +116,3 @@ const styles = (colors: any) =>
       backgroundColor: colors.surface,
     },
   });
-

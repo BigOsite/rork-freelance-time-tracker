@@ -92,19 +92,28 @@ export default function TimeEntryForm({
         endTime,
         note: note.trim(),
       });
+      
+      // If the result is true, the parent component will handle navigation
+      // Don't reset isSubmitting in this case as the component may unmount
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
+        setIsSubmitting(false);
       }
+      // If result is true, let the parent handle navigation and don't reset isSubmitting
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
-    } finally {
       setIsSubmitting(false);
     }
   };
 
+  const handleCancel = () => {
+    if (isSubmitting) return;
+    onCancel();
+  };
+
   const handleDelete = () => {
-    if (!onDelete) return;
+    if (!onDelete || isSubmitting) return;
     Alert.alert('Delete Time Entry', 'Are you sure you want to delete this time entry?', [
       { text: 'Cancel', style: 'cancel' },
       { text: 'Delete', style: 'destructive', onPress: onDelete },
@@ -197,7 +206,11 @@ export default function TimeEntryForm({
         </View>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onCancel} disabled={isSubmitting}>
+          <TouchableOpacity 
+            style={[styles.button, styles.cancelButton]} 
+            onPress={handleCancel} 
+            disabled={isSubmitting}
+          >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
 
@@ -213,7 +226,11 @@ export default function TimeEntryForm({
         </View>
 
         {onDelete && (
-          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete} disabled={isSubmitting}>
+          <TouchableOpacity 
+            style={styles.deleteButton} 
+            onPress={handleDelete} 
+            disabled={isSubmitting}
+          >
             <Trash2 size={20} color={colors.danger} />
             <Text style={styles.deleteButtonText}>Delete Time Entry</Text>
           </TouchableOpacity>
