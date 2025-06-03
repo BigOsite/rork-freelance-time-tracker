@@ -113,15 +113,15 @@ export default function TimeEntryForm({
       // Check if submission was successful
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
+        setIsSubmitting(false); // Reset only on error
       }
-      // If result is true or undefined (success), the parent component will handle navigation
+      // If result is true or undefined (success), don't reset isSubmitting
+      // because the parent component will handle navigation and this component will unmount
       
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
-    } finally {
-      // Always reset isSubmitting to false
-      setIsSubmitting(false);
+      setIsSubmitting(false); // Reset only on error
     }
   };
 
@@ -160,7 +160,7 @@ export default function TimeEntryForm({
   };
 
   // Simplified button disabled logic
-  const isButtonDisabled = isSubmitting || !isFormValid;
+  const isButtonDisabled = isSubmitting || !isFormValid || (!isNewEntry && !hasChanges);
 
   const styles = createStyles(colors);
 

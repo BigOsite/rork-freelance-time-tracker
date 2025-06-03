@@ -27,8 +27,9 @@ export default function EditTimeEntryScreen() {
       });
       
       if (success) {
-        // Navigate back immediately after successful update
-        router.back();
+        // Navigate back to the job details page immediately after successful update
+        // Use replace to avoid navigation stack issues
+        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
         return true;
       } else {
         return false;
@@ -40,7 +41,12 @@ export default function EditTimeEntryScreen() {
   };
   
   const handleCancel = () => {
-    router.back();
+    // Navigate back to the job details page
+    if (timeEntry) {
+      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+    } else {
+      router.back();
+    }
   };
   
   const handleDelete = () => {
@@ -48,8 +54,9 @@ export default function EditTimeEntryScreen() {
     
     try {
       const success = deleteTimeEntry(id);
-      if (success) {
-        router.back();
+      if (success && timeEntry) {
+        // Navigate back to the job details page after deletion
+        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
       }
     } catch (error) {
       console.error('Error deleting time entry:', error);
