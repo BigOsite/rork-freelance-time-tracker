@@ -52,6 +52,7 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
+          client: string | null;
           hourly_rate: number;
           color: string;
           settings: any | null;
@@ -61,6 +62,7 @@ export interface Database {
           id?: string;
           user_id: string;
           name: string;
+          client?: string | null;
           hourly_rate: number;
           color: string;
           settings?: any | null;
@@ -70,6 +72,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           name?: string;
+          client?: string | null;
           hourly_rate?: number;
           color?: string;
           settings?: any | null;
@@ -156,5 +159,126 @@ export interface Database {
         };
       };
     };
+    Views: {
+      [_ in never]: never;
+    };
+    Functions: {
+      [_ in never]: never;
+    };
+    Enums: {
+      [_ in never]: never;
+    };
   };
 }
+
+// Helper function to check if user is authenticated
+export const getCurrentUser = async () => {
+  try {
+    const { data: { user }, error } = await supabase.auth.getUser();
+    if (error) {
+      console.error('Error getting current user:', error);
+      return null;
+    }
+    return user;
+  } catch (error) {
+    console.error('Error in getCurrentUser:', error);
+    return null;
+  }
+};
+
+// Helper function to get current session
+export const getCurrentSession = async () => {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    if (error) {
+      console.error('Error getting current session:', error);
+      return null;
+    }
+    return session;
+  } catch (error) {
+    console.error('Error in getCurrentSession:', error);
+    return null;
+  }
+};
+
+// Helper function to ensure user is authenticated before operations
+export const ensureAuthenticated = async () => {
+  const user = await getCurrentUser();
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+  return user;
+};
+
+// Storage bucket helpers
+export const uploadToAvatars = async (filePath: string, file: File | Uint8Array, options?: any) => {
+  const user = await ensureAuthenticated();
+  const userFilePath = `${user.id}/${filePath}`;
+  
+  return await supabase.storage
+    .from('avatars')
+    .upload(userFilePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+      ...options
+    });
+};
+
+export const uploadToDocuments = async (filePath: string, file: File | Uint8Array, options?: any) => {
+  const user = await ensureAuthenticated();
+  const userFilePath = `${user.id}/${filePath}`;
+  
+  return await supabase.storage
+    .from('documents')
+    .upload(userFilePath, file, {
+      cacheControl: '3600',
+      upsert: true,
+      ...options
+    });
+};
+
+export const getAvatarUrl = (filePath: string) => {
+  return supabase.storage
+    .from('avatars')
+    .getPublicUrl(filePath);
+};
+
+export const getDocumentUrl = (filePath: string) => {
+  return supabase.storage
+    .from('documents')
+    .getPublicUrl(filePath);
+};
+
+export const deleteFromAvatars = async (filePath: string) => {
+  const user = await ensureAuthenticated();
+  const userFilePath = `${user.id}/${filePath}`;
+  
+  return await supabase.storage
+    .from('avatars')
+    .remove([userFilePath]);
+};
+
+export const deleteFromDocuments = async (filePath: string) => {
+  const user = await ensureAuthenticated();
+  const userFilePath = `${user.id}/${filePath}`;
+  
+  return await supabase.storage
+    .from('documents')
+    .remove([userFilePath]);
+};
+
+export const listAvatars = async () => {
+  const user = await ensureAuthenticated();
+  
+  return await supabase.storage
+    .from('avatars')
+    .list(user.id);
+};
+
+export const listDocuments = async () => {
+  const user = await ensureAuthenticated();
+  
+  return await supabase.storage
+    .from('documents')
+    .list(user.id);
+};

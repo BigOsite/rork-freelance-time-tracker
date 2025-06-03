@@ -2,6 +2,7 @@ import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
+import * as ImagePicker from 'expo-image-picker';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
@@ -17,7 +18,7 @@ interface AuthContextType extends AuthState {
   resetPassword: (newPassword: string) => Promise<void>;
   changePassword: (newPassword: string) => Promise<void>;
   updateDisplayName: (displayName: string) => Promise<void>;
-  updateProfilePhoto: (imageUri: string) => Promise<void>;
+  updateProfilePhoto: (imageUri?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -145,6 +146,49 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
+  // Helper function to refresh session if needed
+  const refreshSessionIfNeeded = async () => {
+    try {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        console.log('Error getting session:', error);
+        return false;
+      }
+      
+      if (!session) {
+        console.log('No active session found');
+        return false;
+      }
+      
+      // Check if session is close to expiring (within 5 minutes)
+      const now = Math.round(Date.now() / 1000);
+      const expiresAt = session.expires_at || 0;
+      const timeUntilExpiry = expiresAt - now;
+      
+      if (timeUntilExpiry < 300) { // Less than 5 minutes
+        console.log('Session expiring soon, refreshing...');
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          console.log('Failed to refresh session:', refreshError);
+          return false;
+        }
+        
+        if (refreshData.session) {
+          // Update stored session
+          await secureStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(refreshData.session));
+          return true;
+        }
+      }
+      
+      return true;
+    } catch (error) {
+      console.log('Error refreshing session:', error);
+      return false;
+    }
+  };
+
   const login = async (email: string, password: string) => {
     try {
       setAuthState({ isLoading: true, error: null });
@@ -263,11 +307,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       if (!authState.isAuthenticated) return;
       
+      // Refresh session if needed
+      await refreshSessionIfNeeded();
+      
       const profile = await trpcClient.auth.profile.query();
+      
+      // Get updated profile data from Supabase auth
+      const { data: { user } } = await supabase.auth.getUser();
+      const photoURL = user?.user_metadata?.avatar_url || user?.user_metadata?.photo_url || profile.photoURL;
+      
       const loggedInUser: UserAccount = {
         ...profile,
         isLoggedIn: true,
-        photoURL: profile.photoURL || null,
+        photoURL: photoURL || null,
       };
       setUserAccount(loggedInUser);
 
@@ -399,9 +451,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const updateProfilePhoto = async (imageUri: string) => {
+  const updateProfilePhoto = async (imageUri?: string) => {
     try {
       setAuthState({ isLoading: true, error: null });
+
+      // If no imageUri provided, launch image picker
+      let finalImageUri = imageUri;
+      if (!finalImageUri) {
+        const result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true,
+          aspect: [1, 1],
+          quality: 0.8,
+        });
+
+        if (result.canceled || !result.assets || result.assets.length === 0) {
+          setAuthState({ isLoading: false, error: null });
+          return;
+        }
+
+        finalImageUri = result.assets[0].uri;
+      }
 
       // Ensure we have an active Supabase session
       const session = await ensureSupabaseSession();
@@ -412,13 +482,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const userId = session.user.id;
 
       // Read the image file
-      const fileInfo = await FileSystem.getInfoAsync(imageUri);
+      const fileInfo = await FileSystem.getInfoAsync(finalImageUri);
       if (!fileInfo.exists) {
         throw new Error('Image file not found');
       }
 
       // Create a unique filename
-      const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
+      const fileExt = finalImageUri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `avatar-${Date.now()}.${fileExt}`;
       const filePath = `${userId}/${fileName}`;
 
@@ -428,7 +498,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (Platform.OS === 'web') {
         // On web, convert image URI to File object
         try {
-          const response = await fetch(imageUri);
+          const response = await fetch(finalImageUri);
           const blob = await response.blob();
           const file = new File([blob], fileName, { type: `image/${fileExt}` });
           
@@ -448,11 +518,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
       } else {
         // On native platforms, read as base64 and convert to Uint8Array
         try {
-          const base64 = await FileSystem.readAsStringAsync(imageUri, {
+          const base64 = await FileSystem.readAsStringAsync(finalImageUri, {
             encoding: FileSystem.EncodingType.Base64,
           });
 
-          // Convert base64 to Uint8Array (not ArrayBuffer)
+          // Convert base64 to Uint8Array
           const binaryString = atob(base64);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
@@ -603,10 +673,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Try to refresh profile to get latest user data
           try {
             const profile = await trpcClient.auth.profile.query();
+            
+            // Get updated profile data from Supabase auth
+            const { data: { user } } = await supabase.auth.getUser();
+            const photoURL = user?.user_metadata?.avatar_url || user?.user_metadata?.photo_url || profile.photoURL;
+            
             const loggedInUser: UserAccount = {
               ...profile,
               isLoggedIn: true,
-              photoURL: profile.photoURL || null,
+              photoURL: photoURL || null,
             };
             setUserAccount(loggedInUser);
 
@@ -631,6 +706,25 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     initializeAuth();
+  }, []);
+
+  // Set up auth state change listener
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        if (event === 'SIGNED_OUT' || !session) {
+          // Handle sign out
+          await secureStorage.removeItem(SUPABASE_SESSION_KEY);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // Handle sign in or token refresh
+          if (session) {
+            await secureStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(session));
+          }
+        }
+      }
+    );
+
+    return () => subscription.unsubscribe();
   }, []);
 
   const contextValue: AuthContextType = {
