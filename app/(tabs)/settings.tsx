@@ -138,7 +138,7 @@ export default function SettingsScreen() {
         ))}
         
         <View style={styles.footer}>
-          <Text style={styles.footerText}>TimeTracker Pro v1.0.0</Text>
+          <Text style={styles.footerText}>Freelance Time Tracker v1.0.0</Text>
           <Text style={styles.footerSubtext}>
             Made with ❤️ for freelancers and contractors
           </Text>
