@@ -678,10 +678,8 @@ export const useJobsStore = create<JobsState>()(
             syncToSupabase(updatedEntry);
           }
           
-          // Regenerate pay periods after clocking out
-          setTimeout(() => {
-            get().generatePayPeriods();
-          }, 100);
+          // Regenerate pay periods after clocking out - use immediate call instead of setTimeout
+          get().generatePayPeriods();
           
           return true;
         } catch (error) {
@@ -807,10 +805,8 @@ export const useJobsStore = create<JobsState>()(
         };
         syncToSupabase();
         
-        // Regenerate pay periods after adding entry
-        setTimeout(() => {
-          get().generatePayPeriods();
-        }, 100);
+        // Regenerate pay periods after adding entry - use immediate call instead of setTimeout
+        get().generatePayPeriods();
         
         return id;
       },
@@ -836,10 +832,8 @@ export const useJobsStore = create<JobsState>()(
           };
           syncToSupabase();
           
-          // Regenerate pay periods after updating entry
-          setTimeout(() => {
-            get().generatePayPeriods();
-          }, 100);
+          // Regenerate pay periods after updating entry - use immediate call instead of setTimeout
+          get().generatePayPeriods();
           
           return true;
         } catch (error) {
@@ -932,10 +926,8 @@ export const useJobsStore = create<JobsState>()(
           };
           syncToSupabase(deletedEntry);
           
-          // Regenerate pay periods after deleting entry to ensure consistency
-          setTimeout(() => {
-            get().generatePayPeriods();
-          }, 100);
+          // Regenerate pay periods after deleting entry to ensure consistency - use immediate call instead of setTimeout
+          get().generatePayPeriods();
           
           return true;
         } catch (error) {
@@ -1023,8 +1015,8 @@ export const useJobsStore = create<JobsState>()(
               period.endDate === saturday.getTime()
             );
             
-            // Use existing period ID if it exists, otherwise generate new one
-            const periodId = existingPeriod?.id || generateId();
+            // Create a deterministic ID based on job and week to avoid duplicates
+            const periodId = existingPeriod?.id || `${job.id}-${sunday.getTime()}`;
             
             newPayPeriods.push({
               id: periodId,
