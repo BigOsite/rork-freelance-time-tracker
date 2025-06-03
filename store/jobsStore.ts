@@ -489,17 +489,17 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (updatedJob) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (jobToSync: Job) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncJobToSupabase(updatedJob!, userId, 'update');
+                  await syncJobToSupabase(jobToSync, userId, 'update');
                 }
               } catch (error) {
                 console.error('Error syncing job update to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(updatedJob);
           }
           
           return true;
@@ -524,7 +524,7 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (deletedJob) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (jobToDelete: Job) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
@@ -532,13 +532,13 @@ export const useJobsStore = create<JobsState>()(
                   await supabase.from('time_entries').delete().eq('job_id', id).eq('user_id', userId);
                   await supabase.from('pay_periods').delete().eq('job_id', id).eq('user_id', userId);
                   // Then delete the job
-                  await syncJobToSupabase(deletedJob!, userId, 'delete');
+                  await syncJobToSupabase(jobToDelete, userId, 'delete');
                 }
               } catch (error) {
                 console.error('Error syncing job deletion to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(deletedJob);
           }
           
           return true;
@@ -676,17 +676,17 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (updatedEntry) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncTimeEntryToSupabase(updatedEntry!, userId, 'update');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
                 }
               } catch (error) {
                 console.error('Error syncing clock out to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(updatedEntry);
           }
           
           // Regenerate pay periods after clocking out
@@ -726,17 +726,17 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (updatedEntry) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncTimeEntryToSupabase(updatedEntry!, userId, 'update');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
                 }
               } catch (error) {
                 console.error('Error syncing break start to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(updatedEntry);
           }
           
           return true;
@@ -774,17 +774,17 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (updatedEntry) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncTimeEntryToSupabase(updatedEntry!, userId, 'update');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
                 }
               } catch (error) {
                 console.error('Error syncing break end to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(updatedEntry);
           }
           
           return true;
@@ -927,17 +927,17 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (deletedEntry) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (entryToDelete: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncTimeEntryToSupabase(deletedEntry!, userId, 'delete');
+                  await syncTimeEntryToSupabase(entryToDelete, userId, 'delete');
                 }
               } catch (error) {
                 console.error('Error syncing time entry deletion to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(deletedEntry);
           }
           
           // Regenerate pay periods after deleting entry to ensure consistency
@@ -1101,11 +1101,11 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (updatedPeriod) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (periodToSync: PayPeriod) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncPayPeriodToSupabase(updatedPeriod!, userId, 'update');
+                  await syncPayPeriodToSupabase(periodToSync, userId, 'update');
                   
                   // Update related time entries
                   const period = get().payPeriods.find(p => p.id === periodId);
@@ -1122,7 +1122,7 @@ export const useJobsStore = create<JobsState>()(
                 console.error('Error syncing pay period payment to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(updatedPeriod);
           }
           
           return true;
@@ -1156,11 +1156,11 @@ export const useJobsStore = create<JobsState>()(
           
           // Sync to Supabase
           if (updatedPeriod) {
-            const syncToSupabase = async () => {
+            const syncToSupabase = async (periodToSync: PayPeriod) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncPayPeriodToSupabase(updatedPeriod!, userId, 'update');
+                  await syncPayPeriodToSupabase(periodToSync, userId, 'update');
                   
                   // Update related time entries
                   const period = get().payPeriods.find(p => p.id === periodId);
@@ -1177,7 +1177,7 @@ export const useJobsStore = create<JobsState>()(
                 console.error('Error syncing pay period unpayment to Supabase:', error);
               }
             };
-            syncToSupabase();
+            syncToSupabase(updatedPeriod);
           }
           
           return true;
