@@ -4,18 +4,25 @@ import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useJobsStore } from '@/store/jobsStore';
 import TimeEntryForm from '@/components/TimeEntryForm';
 import EmptyState from '@/components/EmptyState';
+import { useTheme } from '@/contexts/ThemeContext';
 
 export default function EditTimeEntryScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const { timeEntries, updateTimeEntry, getJobById, deleteTimeEntry } = useJobsStore();
-  
-  const timeEntry = timeEntries.find(entry => entry?.id === id);
+  const {
+    timeEntries,
+    updateTimeEntry,
+    getJobById,
+    deleteTimeEntry
+  } = useJobsStore();
+  const { colors } = useTheme();
+
+  const timeEntry = timeEntries.find(entry => entry.id === id);
   const job = timeEntry ? getJobById(timeEntry.jobId) : undefined;
-  
-  const handleSubmit = async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
+
+  const handleSubmit = async (values: { startTime: number; endTime: number | null; note: string }) => {
     if (!timeEntry) return false;
-    
+
     try {
       const success = updateTimeEntry({
         ...timeEntry,
@@ -23,10 +30,9 @@ export default function EditTimeEntryScreen() {
         endTime: values.endTime,
         note: values.note,
       });
-      
+
       if (success) {
-        // Navigate back immediately after successful update
-        router.back();
+        router.push(`/tabs/job/${timeEntry.jobId}`);
         return true;
       } else {
         return false;
@@ -36,47 +42,39 @@ export default function EditTimeEntryScreen() {
       return false;
     }
   };
-  
+
   const handleCancel = () => {
-    router.back();
+    if (timeEntry) {
+      router.push(`/tabs/job/${timeEntry.jobId}`);
+    } else {
+      router.back();
+    }
   };
-  
+
   const handleDelete = () => {
-    if (!id || typeof id !== 'string') return;
-    
+    if (!timeEntry) return;
+
     try {
-      const success = deleteTimeEntry(id);
+      const success = deleteTimeEntry(timeEntry.id);
       if (success) {
-        router.back();
+        router.push(`/tabs/job/${timeEntry.jobId}`);
       }
     } catch (error) {
       console.error('Error deleting time entry:', error);
     }
   };
-  
-  // Render error states
-  if (!id || typeof id !== 'string') {
-    return (
-      <EmptyState
-        title="Invalid Entry"
-        message="No time entry ID provided"
-        actionLabel="Go Back"
-        onAction={() => router.back()}
-      />
-    );
-  }
-  
+
   if (!timeEntry) {
     return (
       <EmptyState
-        title="Time entry not found"
+        title="Time Entry not found"
         message="The time entry you are trying to edit does not exist"
         actionLabel="Go Back"
         onAction={() => router.back()}
       />
     );
   }
-  
+
   if (!job) {
     return (
       <EmptyState
@@ -87,29 +85,33 @@ export default function EditTimeEntryScreen() {
       />
     );
   }
-  
+
+  const styles = createStyles(colors);
+
   return (
-    <View style={styles.container}>
-      <Stack.Screen options={{ title: "Edit Time Entry" }} />
-      <TimeEntryForm
-        initialValues={{
-          startTime: timeEntry.startTime,
-          endTime: timeEntry.endTime,
-          note: timeEntry.note || '',
-        }}
-        onSubmit={handleSubmit}
-        onCancel={handleCancel}
-        onDelete={handleDelete}
-        jobName={job.title}
-        isNewEntry={false}
-      />
-    </View>
+    <>
+      <Stack.Screen options={{ title: 'Edit Time Entry' }} />
+      <View style={styles.container}>
+        <TimeEntryForm
+          initialValues={{
+            startTime: timeEntry.startTime,
+            endTime: timeEntry.endTime,
+            note: timeEntry.note || '',
+          }}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          onDelete={handleDelete}
+          jobName={job.title}
+          isNewEntry={false}
+        />
+      </View>
+    </>
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: any) => StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F7F9FC',
+    backgroundColor: colors.surface,
   },
 });
