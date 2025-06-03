@@ -128,20 +128,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) {
-        return true;
+        return session;
       }
 
       // Try to restore session from storage
       const restored = await restoreSupabaseSession();
       if (restored) {
         const { data: { session: newSession } } = await supabase.auth.getSession();
-        return newSession && newSession.user;
+        return newSession;
       }
 
-      return false;
+      return null;
     } catch (error) {
       console.log('Error ensuring Supabase session:', error);
-      return false;
+      return null;
     }
   };
 
@@ -337,8 +337,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthState({ isLoading: true, error: null });
       
       // Ensure we have an active Supabase session
-      const hasSession = await ensureSupabaseSession();
-      if (!hasSession) {
+      const session = await ensureSupabaseSession();
+      if (!session) {
         throw new Error('Session expired. Please sign in again.');
       }
       
@@ -366,8 +366,8 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthState({ isLoading: true, error: null });
       
       // Ensure we have an active Supabase session
-      const hasSession = await ensureSupabaseSession();
-      if (!hasSession) {
+      const session = await ensureSupabaseSession();
+      if (!session) {
         throw new Error('Session expired. Please sign in again.');
       }
       
@@ -403,15 +403,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setAuthState({ isLoading: true, error: null });
 
-      if (!userAccount?.uid) {
-        throw new Error('User not authenticated');
-      }
-
       // Ensure we have an active Supabase session
-      const hasSession = await ensureSupabaseSession();
-      if (!hasSession) {
+      const session = await ensureSupabaseSession();
+      if (!session || !session.user) {
         throw new Error('Session expired. Please sign in again.');
       }
+
+      const userId = session.user.id;
 
       // Read the image file
       const fileInfo = await FileSystem.getInfoAsync(imageUri);
@@ -422,7 +420,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Create a unique filename
       const fileExt = imageUri.split('.').pop()?.toLowerCase() || 'jpg';
       const fileName = `avatar-${Date.now()}.${fileExt}`;
-      const filePath = `${userAccount.uid}/${fileName}`;
+      const filePath = `${userId}/${fileName}`;
 
       let uploadData;
       let uploadError;
@@ -448,13 +446,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
           throw new Error('Failed to process image file');
         }
       } else {
-        // On native platforms, read as base64 and convert to ArrayBuffer
+        // On native platforms, read as base64 and convert to Uint8Array
         try {
           const base64 = await FileSystem.readAsStringAsync(imageUri, {
             encoding: FileSystem.EncodingType.Base64,
           });
 
-          // Convert base64 to ArrayBuffer
+          // Convert base64 to Uint8Array (not ArrayBuffer)
           const binaryString = atob(base64);
           const bytes = new Uint8Array(binaryString.length);
           for (let i = 0; i < binaryString.length; i++) {
@@ -463,7 +461,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           
           const result = await supabase.storage
             .from('avatars')
-            .upload(filePath, bytes.buffer, {
+            .upload(filePath, bytes, {
               cacheControl: '3600',
               upsert: true,
               contentType: `image/${fileExt}`
@@ -572,6 +570,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     if (message.includes('Auth session missing') || message.includes('No active session')) {
       return 'Session expired. Please sign in again.';
+    }
+    if (message.includes('new row violates row-level security policy')) {
+      return 'Upload permission denied. Please try signing out and back in.';
     }
     if (message.includes('Creating blobs from') || message.includes('ArrayBuffer')) {
       return 'Upload failed. Please try again.';
