@@ -12,7 +12,6 @@ import { Calendar, Clock, Trash2 } from 'lucide-react-native';
 import TimePickerModal from '@/components/TimePickerModal';
 import { useTheme } from '@/contexts/ThemeContext';
 import { formatTime, formatDate } from '@/utils/time';
-import { useRouter } from 'expo-router';
 
 type TimeEntryFormProps = {
   initialValues?: {
@@ -36,7 +35,6 @@ export default function TimeEntryForm({
   isNewEntry = false,
 }: TimeEntryFormProps) {
   const { colors } = useTheme();
-  const router = useRouter();
 
   const defaultValues = useMemo(() => ({
     startTime: Date.now(),
@@ -81,61 +79,52 @@ export default function TimeEntryForm({
       Alert.alert('Invalid Entry', 'Please check your time entry details.');
       return;
     }
-
     if (!isNewEntry && !hasChanges) {
       Alert.alert('No Changes', 'No changes were made to this time entry.');
       return;
     }
 
     setIsSubmitting(true);
+
     try {
       const result = await onSubmit({
         startTime,
         endTime,
         note: note.trim(),
       });
-
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
-        setIsSubmitting(false);
-      } else {
-        // Let the parent handle redirect, or do it here if needed
-        router.back();
       }
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
+    } finally {
       setIsSubmitting(false);
     }
   };
 
-  const handleCancel = () => {
-    router.back(); // Go back without saving changes
-  };
-
   const handleDelete = () => {
     if (!onDelete) return;
-    Alert.alert(
-      'Delete Time Entry',
-      'Are you sure you want to delete this time entry? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: onDelete },
-      ]
-    );
+    Alert.alert('Delete Time Entry', 'Are you sure you want to delete this time entry?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: onDelete },
+    ]);
   };
 
   const clearEndTime = () => setEndTime(null);
+
   const handleStartTimeConfirm = (timestamp: number) => {
     setStartTime(timestamp);
     setShowStartTimePicker(false);
   };
+
   const handleEndTimeConfirm = (timestamp: number) => {
     setEndTime(timestamp);
     setShowEndTimePicker(false);
   };
 
   const isButtonDisabled = isSubmitting || !isFormValid || (!isNewEntry && !hasChanges);
+
   const styles = createStyles(colors);
 
   return (
@@ -151,9 +140,7 @@ export default function TimeEntryForm({
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Start Time</Text>
           <TouchableOpacity style={styles.timeButton} onPress={() => setShowStartTimePicker(true)}>
-            <Text style={styles.timeButtonText}>
-              {formatDate(startTime)} at {formatTime(startTime)}
-            </Text>
+            <Text style={styles.timeButtonText}>{formatDate(startTime)} at {formatTime(startTime)}</Text>
           </TouchableOpacity>
           <View style={styles.timePickerButtons}>
             <TouchableOpacity style={styles.pickerButton} onPress={() => setShowStartTimePicker(true)}>
@@ -170,18 +157,12 @@ export default function TimeEntryForm({
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>End Time</Text>
-            {endTime && (
-              <TouchableOpacity onPress={clearEndTime}>
-                <Text style={styles.clearButton}>Clear (still running)</Text>
-              </TouchableOpacity>
-            )}
+            {endTime && <TouchableOpacity onPress={clearEndTime}><Text style={styles.clearButton}>Clear (still running)</Text></TouchableOpacity>}
           </View>
           {endTime ? (
             <>
               <TouchableOpacity style={styles.timeButton} onPress={() => setShowEndTimePicker(true)}>
-                <Text style={styles.timeButtonText}>
-                  {formatDate(endTime)} at {formatTime(endTime)}
-                </Text>
+                <Text style={styles.timeButtonText}>{formatDate(endTime)} at {formatTime(endTime)}</Text>
               </TouchableOpacity>
               <View style={styles.timePickerButtons}>
                 <TouchableOpacity style={styles.pickerButton} onPress={() => setShowEndTimePicker(true)}>
@@ -216,40 +197,23 @@ export default function TimeEntryForm({
         </View>
 
         <View style={styles.buttonContainer}>
-          <TouchableOpacity
-            style={[styles.button, styles.cancelButton]}
-            onPress={handleCancel}
-            disabled={isSubmitting}
-          >
+          <TouchableOpacity style={[styles.button, styles.cancelButton]} onPress={onCancel} disabled={isSubmitting}>
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[
-              styles.button,
-              styles.submitButton,
-              isButtonDisabled && styles.submitButtonDisabled,
-            ]}
+            style={[styles.button, styles.submitButton, isButtonDisabled && styles.submitButtonDisabled]}
             onPress={handleSubmit}
             disabled={isButtonDisabled}
           >
-            <Text
-              style={[
-                styles.submitButtonText,
-                isButtonDisabled && styles.submitButtonTextDisabled,
-              ]}
-            >
-              {isSubmitting ? (isNewEntry ? 'Creating...' : 'Updating...') : isNewEntry ? 'Create Entry' : 'Update Entry'}
+            <Text style={[styles.submitButtonText, isButtonDisabled && styles.submitButtonTextDisabled]}>
+              {isSubmitting ? (isNewEntry ? 'Creating...' : 'Updating...') : (isNewEntry ? 'Create Entry' : 'Update Entry')}
             </Text>
           </TouchableOpacity>
         </View>
 
         {onDelete && (
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={handleDelete}
-            disabled={isSubmitting}
-          >
+          <TouchableOpacity style={styles.deleteButton} onPress={handleDelete} disabled={isSubmitting}>
             <Trash2 size={20} color={colors.danger} />
             <Text style={styles.deleteButtonText}>Delete Time Entry</Text>
           </TouchableOpacity>
@@ -263,6 +227,7 @@ export default function TimeEntryForm({
         onClose={() => setShowStartTimePicker(false)}
         title="Set Start Time"
       />
+
       <TimePickerModal
         visible={showEndTimePicker}
         initialTime={endTime || Date.now()}
@@ -275,8 +240,13 @@ export default function TimeEntryForm({
 }
 
 const createStyles = (colors: any) => StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.surface },
-  formContainer: { padding: 20 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.surface,
+  },
+  formContainer: {
+    padding: 20,
+  },
   section: {
     backgroundColor: colors.background,
     borderRadius: 20,

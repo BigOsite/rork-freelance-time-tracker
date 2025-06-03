@@ -12,26 +12,34 @@ export default function EditTimeEntryScreen() {
   const {
     timeEntries,
     updateTimeEntry,
+    deleteTimeEntry,
     getJobById,
-    deleteTimeEntry
   } = useJobsStore();
   const { colors } = useTheme();
 
   const timeEntry = timeEntries.find(entry => entry.id === id);
   const job = timeEntry ? getJobById(timeEntry.jobId) : undefined;
 
-  const handleSubmit = async (values: { startTime: number; endTime: number | null; note: string }) => {
+  const handleSubmit = async ({
+    startTime,
+    endTime,
+    note,
+  }: {
+    startTime: number;
+    endTime: number | null;
+    note: string;
+  }): Promise<boolean> => {
     if (!timeEntry) return false;
 
     try {
-      const success = updateTimeEntry({
+      const updated = updateTimeEntry({
         ...timeEntry,
-        startTime: values.startTime,
-        endTime: values.endTime,
-        note: values.note,
+        startTime,
+        endTime,
+        note,
       });
 
-      if (success) {
+      if (updated) {
         router.push(`/tabs/job/${timeEntry.jobId}`);
         return true;
       } else {
@@ -52,22 +60,16 @@ export default function EditTimeEntryScreen() {
   };
 
   const handleDelete = () => {
-    if (!timeEntry) return;
-
-    try {
-      const success = deleteTimeEntry(timeEntry.id);
-      if (success) {
-        router.push(`/tabs/job/${timeEntry.jobId}`);
-      }
-    } catch (error) {
-      console.error('Error deleting time entry:', error);
+    if (timeEntry) {
+      deleteTimeEntry(timeEntry.id);
+      router.push(`/tabs/job/${timeEntry.jobId}`);
     }
   };
 
   if (!timeEntry) {
     return (
       <EmptyState
-        title="Time Entry not found"
+        title="Time entry not found"
         message="The time entry you are trying to edit does not exist"
         actionLabel="Go Back"
         onAction={() => router.back()}
@@ -86,12 +88,10 @@ export default function EditTimeEntryScreen() {
     );
   }
 
-  const styles = createStyles(colors);
-
   return (
     <>
       <Stack.Screen options={{ title: 'Edit Time Entry' }} />
-      <View style={styles.container}>
+      <View style={styles(colors).container}>
         <TimeEntryForm
           initialValues={{
             startTime: timeEntry.startTime,
@@ -109,9 +109,11 @@ export default function EditTimeEntryScreen() {
   );
 }
 
-const createStyles = (colors: any) => StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.surface,
-  },
-});
+const styles = (colors: any) =>
+  StyleSheet.create({
+    container: {
+      flex: 1,
+      backgroundColor: colors.surface,
+    },
+  });
+
