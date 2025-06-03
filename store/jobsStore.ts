@@ -663,13 +663,15 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase using delete+insert for complete replacement
           if (updatedEntry) {
             const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
+                  // Delete the old entry and insert the new one to ensure complete replacement
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'delete');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'insert');
                 }
               } catch (error) {
                 console.error('Error syncing clock out to Supabase:', error);
@@ -711,13 +713,15 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase using delete+insert for complete replacement
           if (updatedEntry) {
             const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
+                  // Delete the old entry and insert the new one to ensure complete replacement
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'delete');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'insert');
                 }
               } catch (error) {
                 console.error('Error syncing break start to Supabase:', error);
@@ -759,13 +763,15 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase using delete+insert for complete replacement
           if (updatedEntry) {
             const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
+                  // Delete the old entry and insert the new one to ensure complete replacement
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'delete');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'insert');
                 }
               } catch (error) {
                 console.error('Error syncing break end to Supabase:', error);
@@ -819,12 +825,14 @@ export const useJobsStore = create<JobsState>()(
             )
           }));
           
-          // Sync to Supabase
+          // Sync to Supabase using delete+insert for complete replacement
           const syncToSupabase = async () => {
             try {
               const userId = await getCurrentUserId();
               if (userId) {
-                await syncTimeEntryToSupabase(updatedEntry, userId, 'update');
+                // Delete the old entry and insert the new one to ensure complete replacement
+                await syncTimeEntryToSupabase(updatedEntry, userId, 'delete');
+                await syncTimeEntryToSupabase(updatedEntry, userId, 'insert');
               }
             } catch (error) {
               console.error('Error syncing time entry update to Supabase:', error);
@@ -1108,7 +1116,8 @@ export const useJobsStore = create<JobsState>()(
                     for (const entryId of period.timeEntryIds) {
                       const entry = get().timeEntries.find(e => e.id === entryId);
                       if (entry) {
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: periodId }, userId, 'update');
+                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: periodId }, userId, 'delete');
+                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: periodId }, userId, 'insert');
                       }
                     }
                   }
@@ -1163,7 +1172,8 @@ export const useJobsStore = create<JobsState>()(
                     for (const entryId of period.timeEntryIds) {
                       const entry = get().timeEntries.find(e => e.id === entryId);
                       if (entry) {
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: undefined }, userId, 'update');
+                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: undefined }, userId, 'delete');
+                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: undefined }, userId, 'insert');
                       }
                     }
                   }

@@ -110,13 +110,14 @@ export default function TimeEntryForm({
         note: note.trim(),
       });
       
-      // Only reset isSubmitting if the result is false (error case)
-      // If result is true or undefined (success), the parent component will handle navigation
+      // Reset isSubmitting regardless of result
+      // The parent component will handle navigation
+      setIsSubmitting(false);
+      
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
-        setIsSubmitting(false);
       }
-      // Don't reset isSubmitting on success - let the parent handle navigation
+      // If result is true or undefined (success), the parent component handles navigation
       
     } catch (error) {
       console.error('Error submitting time entry:', error);
