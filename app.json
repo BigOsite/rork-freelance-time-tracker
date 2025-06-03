@@ -15,7 +15,10 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "app.rork.freelance-time-tracker-uce14g7"
+      "bundleIdentifier": "app.rork.freelance-time-tracker-uce14g7",
+      "infoPlist": {
+        "NSContactsUsageDescription": "This app uses your contacts only to help sync client-related job data. No data is shared."
+      }
     },
     "android": {
       "adaptiveIcon": {
