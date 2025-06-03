@@ -925,7 +925,7 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase - only if deletedEntry exists
           if (deletedEntry) {
             const syncToSupabase = async (entryToDelete: TimeEntry) => {
               try {
