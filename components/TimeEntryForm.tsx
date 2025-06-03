@@ -52,34 +52,29 @@ export default function TimeEntryForm({
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Store the original values for comparison
-  const [originalValues, setOriginalValues] = useState(values);
-
-  // Update form state and original values when initialValues change
+  // Update form state when initialValues change
   useEffect(() => {
     const currentValues = initialValues || defaultValues;
     setStartTime(currentValues.startTime);
     setEndTime(currentValues.endTime);
     setNote(currentValues.note);
-    setOriginalValues(currentValues);
-    // Reset submitting state when form is reset
-    setIsSubmitting(false);
   }, [initialValues, defaultValues]);
 
-  // Check if form has changes - compare against original values
+  // Check if form has changes - simplified logic
   const hasChanges = useMemo(() => {
     if (isNewEntry) {
-      // For new entries, consider it changed if there's any meaningful data
+      // For new entries, always allow submission if form is valid
       return true;
     }
+    // For existing entries, check if anything changed
     return (
-      startTime !== originalValues.startTime ||
-      endTime !== originalValues.endTime ||
-      note.trim() !== originalValues.note.trim()
+      startTime !== values.startTime ||
+      endTime !== values.endTime ||
+      note.trim() !== values.note.trim()
     );
-  }, [startTime, endTime, note, originalValues, isNewEntry]);
+  }, [startTime, endTime, note, values, isNewEntry]);
 
-  // Check if form is valid
+  // Check if form is valid - simplified logic
   const isFormValid = useMemo(() => {
     // Start time is required
     if (!startTime) return false;
@@ -91,9 +86,20 @@ export default function TimeEntryForm({
   }, [startTime, endTime]);
 
   const handleSubmit = async () => {
-    if (isSubmitting || !isFormValid) return;
+    // Prevent double submission
+    if (isSubmitting) return;
     
-    if (!isNewEntry && !hasChanges) return;
+    // Check if form is valid
+    if (!isFormValid) {
+      Alert.alert('Invalid Entry', 'Please check your time entry details.');
+      return;
+    }
+    
+    // For existing entries, check if there are changes
+    if (!isNewEntry && !hasChanges) {
+      Alert.alert('No Changes', 'No changes were made to this time entry.');
+      return;
+    }
     
     setIsSubmitting(true);
     
@@ -104,38 +110,17 @@ export default function TimeEntryForm({
         note: note.trim(),
       });
       
-      const success = typeof result === 'boolean' ? result : true;
-      
-      if (success) {
-        // Update original values to reflect the new state after successful submission
-        const newOriginalValues = {
-          startTime,
-          endTime,
-          note: note.trim(),
-        };
-        setOriginalValues(newOriginalValues);
-        
-        // For new entries, reset the form after successful submission
-        if (isNewEntry) {
-          // Reset form to default state for next entry
-          const newDefaults = {
-            startTime: Date.now(),
-            endTime: null as number | null,
-            note: '',
-          };
-          setStartTime(newDefaults.startTime);
-          setEndTime(newDefaults.endTime);
-          setNote(newDefaults.note);
-          setOriginalValues(newDefaults);
-        }
-      } else {
+      // Check if submission was successful
+      if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
       }
+      // If result is true or undefined (success), the parent component will handle navigation
+      
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
     } finally {
-      // Always reset isSubmitting to false, regardless of success or failure
+      // Always reset isSubmitting to false
       setIsSubmitting(false);
     }
   };
@@ -174,7 +159,8 @@ export default function TimeEntryForm({
     setShowEndTimePicker(false);
   };
 
-  const isButtonDisabled = isSubmitting || !isFormValid || (!isNewEntry && !hasChanges);
+  // Simplified button disabled logic
+  const isButtonDisabled = isSubmitting || !isFormValid;
 
   const styles = createStyles(colors);
 

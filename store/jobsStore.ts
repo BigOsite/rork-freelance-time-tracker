@@ -257,7 +257,7 @@ const syncPayPeriodToSupabase = async (period: PayPeriod, userId: string, operat
           time_entry_ids: period.timeEntryIds,
           created_at: new Date(period.createdAt).toISOString(),
         }, {
-          onConflict: 'id,user_id'
+          onConflict: 'id'
         });
         if (upsertError) throw upsertError;
         break;
@@ -1043,7 +1043,7 @@ export const useJobsStore = create<JobsState>()(
         
         set({ payPeriods: newPayPeriods });
         
-        // Sync pay periods to Supabase using upsert
+        // Sync pay periods to Supabase using upsert - but only if there are changes
         const syncToSupabase = async () => {
           try {
             const userId = await getCurrentUserId();
@@ -1053,6 +1053,7 @@ export const useJobsStore = create<JobsState>()(
                 try {
                   await syncPayPeriodToSupabase(period, userId, 'upsert');
                 } catch (error) {
+                  // Log but don't throw - continue with other periods
                   console.error('Error syncing individual pay period:', error);
                 }
               }
