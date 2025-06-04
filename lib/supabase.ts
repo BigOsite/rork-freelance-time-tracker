@@ -38,8 +38,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: Platform.OS === 'web',
     flowType: 'pkce',
-    // Increase session refresh threshold to prevent premature logouts
-    sessionRefreshThreshold: 300, // 5 minutes before expiry
   },
   global: {
     headers: {

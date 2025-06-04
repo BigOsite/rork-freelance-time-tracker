@@ -19,7 +19,7 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: NodeJS.Timeout | null;
+  backgroundSyncInterval: ReturnType<typeof setInterval> | null;
   
   // Job actions
   addJob: (job: Omit<Job, 'id' | 'createdAt'>) => void;
@@ -230,6 +230,7 @@ export const useJobsStore = create<JobsState>()(
         const timeEntry: TimeEntry = {
           ...entryData,
           id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          breaks: entryData.breaks || [],
           createdAt: Date.now(),
         };
         
@@ -292,11 +293,12 @@ export const useJobsStore = create<JobsState>()(
         if (!active || active.isOnBreak) return;
         
         const breakStart = Date.now();
+        const breaks = active.breaks || [];
         const updatedEntry: TimeEntry = {
           ...active,
           isOnBreak: true,
           breaks: [
-            ...active.breaks,
+            ...breaks,
             { startTime: breakStart, endTime: null }
           ],
         };
@@ -322,8 +324,9 @@ export const useJobsStore = create<JobsState>()(
         if (!active || !active.isOnBreak) return;
         
         const breakEnd = Date.now();
-        const updatedBreaks = active.breaks.map((breakItem, index) =>
-          index === active.breaks.length - 1 && !breakItem.endTime
+        const breaks = active.breaks || [];
+        const updatedBreaks = breaks.map((breakItem, index) =>
+          index === breaks.length - 1 && !breakItem.endTime
             ? { ...breakItem, endTime: breakEnd }
             : breakItem
         );
@@ -570,7 +573,7 @@ export const useJobsStore = create<JobsState>()(
           } catch (error) {
             console.error('Background sync error:', error);
           }
-        }, 5 * 60 * 1000) as NodeJS.Timeout;
+        }, 5 * 60 * 1000);
         
         set({ backgroundSyncInterval: interval });
       },
@@ -607,7 +610,8 @@ export const useJobsStore = create<JobsState>()(
           if (!entry.endTime) return total;
           
           const duration = entry.endTime - entry.startTime;
-          const breakDuration = entry.breaks.reduce((breakTotal, breakItem) => {
+          const breaks = entry.breaks || [];
+          const breakDuration = breaks.reduce((breakTotal, breakItem) => {
             if (breakItem.endTime) {
               return breakTotal + (breakItem.endTime - breakItem.startTime);
             }
