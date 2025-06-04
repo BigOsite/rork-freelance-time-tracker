@@ -30,8 +30,8 @@ export default function NewTimeEntryScreen() {
       });
       
       if (entryId) {
-        // Navigate back to the previous page (job details)
-        router.back();
+        // Navigate directly to the specific job details page
+        router.replace(`/(tabs)/job/${jobId}`);
         return true;
       } else {
         return false;
@@ -43,8 +43,13 @@ export default function NewTimeEntryScreen() {
   };
   
   const handleCancel = () => {
-    // Navigate back to the previous page
-    router.back();
+    // Navigate directly to the specific job details page
+    if (jobId && typeof jobId === 'string') {
+      router.replace(`/(tabs)/job/${jobId}`);
+    } else {
+      // Fallback to jobs list if no valid jobId
+      router.replace('/(tabs)/jobs');
+    }
   };
   
   // Render error states
@@ -54,7 +59,7 @@ export default function NewTimeEntryScreen() {
         title="Invalid Job"
         message="No job ID provided"
         actionLabel="Go Back"
-        onAction={() => router.back()}
+        onAction={() => router.replace('/(tabs)/jobs')}
       />
     );
   }
@@ -65,7 +70,7 @@ export default function NewTimeEntryScreen() {
         title="Job not found"
         message="The job you are trying to add a time entry for does not exist"
         actionLabel="Go Back"
-        onAction={() => router.back()}
+        onAction={() => router.replace('/(tabs)/jobs')}
       />
     );
   }

@@ -27,8 +27,8 @@ export default function EditTimeEntryScreen() {
       });
       
       if (success) {
-        // Navigate back to the job details page
-        router.back();
+        // Navigate directly to the specific job details page
+        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
         return true;
       } else {
         return false;
@@ -40,8 +40,13 @@ export default function EditTimeEntryScreen() {
   };
   
   const handleCancel = () => {
-    // Navigate back to the previous page
-    router.back();
+    // Navigate directly to the specific job details page
+    if (timeEntry?.jobId) {
+      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+    } else {
+      // Fallback to jobs list if no valid jobId
+      router.replace('/(tabs)/jobs');
+    }
   };
   
   const handleDelete = () => {
@@ -50,8 +55,13 @@ export default function EditTimeEntryScreen() {
     try {
       const success = deleteTimeEntry(id);
       if (success) {
-        // Navigate back after deletion
-        router.back();
+        // Navigate directly to the specific job details page after deletion
+        if (timeEntry?.jobId) {
+          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+        } else {
+          // Fallback to jobs list if no valid jobId
+          router.replace('/(tabs)/jobs');
+        }
       }
     } catch (error) {
       console.error('Error deleting time entry:', error);
@@ -65,7 +75,7 @@ export default function EditTimeEntryScreen() {
         title="Invalid Entry"
         message="No time entry ID provided"
         actionLabel="Go Back"
-        onAction={() => router.back()}
+        onAction={() => router.replace('/(tabs)/jobs')}
       />
     );
   }
@@ -76,7 +86,7 @@ export default function EditTimeEntryScreen() {
         title="Time entry not found"
         message="The time entry you are trying to edit does not exist"
         actionLabel="Go Back"
-        onAction={() => router.back()}
+        onAction={() => router.replace('/(tabs)/jobs')}
       />
     );
   }
@@ -87,7 +97,7 @@ export default function EditTimeEntryScreen() {
         title="Job not found"
         message="The job for this time entry does not exist"
         actionLabel="Go Back"
-        onAction={() => router.back()}
+        onAction={() => router.replace('/(tabs)/jobs')}
       />
     );
   }
