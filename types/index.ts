@@ -9,20 +9,61 @@ export interface Job {
 }
 
 export interface JobSettings {
-  dailyOvertime?: 'none' | 'daily';
-  dailyOvertimeThreshold?: number;
-  dailyOvertimeRate?: number;
-  weeklyOvertime?: 'none' | 'weekly';
-  weeklyOvertimeThreshold?: number;
-  weeklyOvertimeRate?: number;
-  presetBreaks?: PresetBreak[];
+  // Pay period settings
+  payPeriodType?: PayPeriodType;
+  payPeriodStartDay?: number;
+  
+  // Time rounding settings (legacy)
+  roundTime?: RoundTimeType;
+  
+  // New time rounding settings
+  timeRounding?: TimeRoundingSettings;
+  
+  // Organization
   tags?: string[];
   location?: string;
+  
+  // Reminders
+  clockOutReminders?: boolean;
+  dailyReminderThreshold?: number;
+  weeklyReminderThreshold?: number;
+  
+  // Breaks
+  automaticBreaks?: boolean;
+  presetBreaks?: PresetBreak[];
+  
+  // Overtime settings
+  dailyOvertime?: OvertimeType;
+  dailyOvertimeThreshold?: number;
+  dailyOvertimeRate?: number;
+  weeklyOvertime?: OvertimeType;
+  weeklyOvertimeThreshold?: number;
+  weeklyOvertimeRate?: number;
+  
+  // Financial settings
+  estimatedTaxRate?: number;
+  deductions?: number;
 }
+
+export interface TimeRoundingSettings {
+  enabled: boolean;
+  direction: RoundingDirection;
+  interval: RoundingInterval;
+  bufferTime: number;
+}
+
+export type PayPeriodType = 'weekly' | 'biweekly' | 'monthly';
+export type RoundTimeType = 'none' | '15min' | '30min' | '1hour';
+export type OvertimeType = 'none' | 'daily' | 'weekly';
+export type RoundingDirection = 'up' | 'down';
+export type RoundingInterval = '15min' | '30min' | '1hour';
 
 export interface PresetBreak {
   id: string;
   name: string;
+  startTime: string;
+  endTime: string;
+  days: string[];
   duration: number; // in minutes
 }
 

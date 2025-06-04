@@ -81,6 +81,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  client TEXT,
   hourly_rate DECIMAL(10,2) NOT NULL,
   color TEXT NOT NULL,
   settings JSONB,
@@ -139,3 +140,11 @@ CREATE POLICY "Users can only access their own pay periods" ON pay_periods
   FOR ALL USING (auth.uid() = user_id);
 
 -- Support requests don't need RLS as they're public submissions
+
+-- Add client column to existing jobs table if it doesn't exist
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
+    ALTER TABLE jobs ADD COLUMN client TEXT;
+  END IF;
+END $$;

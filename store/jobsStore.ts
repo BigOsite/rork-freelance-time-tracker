@@ -163,6 +163,7 @@ const syncJobToSupabase = async (job: Job, userId: string, operation: 'insert' |
           id: job.id,
           user_id: userId,
           name: job.title,
+          client: job.client,
           hourly_rate: job.hourlyRate,
           color: job.color,
           settings: job.settings,
@@ -174,6 +175,7 @@ const syncJobToSupabase = async (job: Job, userId: string, operation: 'insert' |
       case 'update':
         const { error: updateError } = await supabase.from('jobs').update({
           name: job.title,
+          client: job.client,
           hourly_rate: job.hourlyRate,
           color: job.color,
           settings: job.settings,
