@@ -207,6 +207,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Update state - make sure user is marked as logged in
       const loggedInUser: UserAccount = {
         ...response.user,
+        id: response.user.uid, // Map uid to id for compatibility
         isLoggedIn: true,
         photoURL: response.user.photoURL || null,
       };
@@ -255,6 +256,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Update state - make sure user is marked as logged in
       const loggedInUser: UserAccount = {
         ...response.user,
+        id: response.user.uid, // Map uid to id for compatibility
         isLoggedIn: true,
         photoURL: response.user.photoURL || null,
       };
@@ -318,6 +320,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       const loggedInUser: UserAccount = {
         ...profile,
+        id: profile.uid, // Map uid to id for compatibility
         isLoggedIn: true,
         photoURL: photoURL || null,
       };
@@ -680,6 +683,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             
             const loggedInUser: UserAccount = {
               ...profile,
+              id: profile.uid, // Map uid to id for compatibility
               isLoggedIn: true,
               photoURL: photoURL || null,
             };

@@ -137,6 +137,7 @@ export interface TaxSettings {
 
 export interface UserAccount {
   uid: string;
+  id: string; // Add id property that maps to uid for compatibility
   email: string;
   displayName: string;
   photoURL: string | null;

@@ -64,13 +64,13 @@ export default function HistoryScreen() {
   
   const onRefresh = React.useCallback(async () => {
     try {
-      if (user?.id) {
-        await store.refreshFromSupabase(user.id);
+      if (user?.uid) {
+        await store.refreshFromSupabase(user.uid);
       }
     } catch (error) {
       console.error('Error refreshing data:', error);
     }
-  }, [store, user?.id]);
+  }, [store, user?.uid]);
   
   const renderItem = React.useCallback(({ item }: { item: typeof completedEntries[0] }) => {
     if (!item) return null;

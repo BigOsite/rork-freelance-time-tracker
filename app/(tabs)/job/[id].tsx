@@ -394,13 +394,13 @@ export default function JobDetailScreen() {
   
   const onRefresh = React.useCallback(async () => {
     try {
-      if (user?.id) {
-        await store.refreshFromSupabase(user.id);
+      if (user?.uid) {
+        await store.refreshFromSupabase(user.uid);
       }
     } catch (error) {
       console.error('Error refreshing data:', error);
     }
-  }, [store, user?.id]);
+  }, [store, user?.uid]);
   
   // Calculate current session info if active
   const getCurrentSessionInfo = React.useCallback(() => {

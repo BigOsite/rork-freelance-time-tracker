@@ -292,17 +292,81 @@ export const useJobsStore = create<JobsState>()(
       
       refreshFromSupabase: async (userId) => {
         try {
+          set({ isLoading: true });
+          
           // Get current user ID if not provided
           const currentUserId = userId || await getCurrentUserId();
           if (!currentUserId) {
             console.log('No authenticated user found, skipping refresh');
+            set({ isLoading: false });
             return;
           }
           
-          // Use the existing sync method which already handles everything properly
-          await get().syncWithSupabase(currentUserId);
+          // Fetch fresh data from Supabase
+          const [jobsResult, entriesResult, periodsResult] = await Promise.allSettled([
+            supabase.from('jobs').select('*').eq('user_id', currentUserId).order('created_at', { ascending: false }),
+            supabase.from('time_entries').select('*').eq('user_id', currentUserId).order('start_time', { ascending: false }),
+            supabase.from('pay_periods').select('*').eq('user_id', currentUserId).order('start_date', { ascending: false })
+          ]);
+          
+          // Process jobs
+          if (jobsResult.status === 'fulfilled' && jobsResult.value.data) {
+            const supabaseJobs: Job[] = jobsResult.value.data.map(job => ({
+              id: job.id,
+              title: job.name,
+              client: job.client || '',
+              hourlyRate: job.hourly_rate,
+              color: job.color,
+              settings: job.settings,
+              createdAt: new Date(job.created_at).getTime(),
+            }));
+            set({ jobs: supabaseJobs });
+          } else if (jobsResult.status === 'rejected') {
+            console.error('Error fetching jobs:', jobsResult.reason);
+          }
+          
+          // Process time entries
+          if (entriesResult.status === 'fulfilled' && entriesResult.value.data) {
+            const supabaseEntries: TimeEntry[] = entriesResult.value.data.map(entry => ({
+              id: entry.id,
+              jobId: entry.job_id,
+              startTime: new Date(entry.start_time).getTime(),
+              endTime: entry.end_time ? new Date(entry.end_time).getTime() : null,
+              note: entry.note || '',
+              breaks: entry.breaks || [],
+              isOnBreak: entry.is_on_break || false,
+              paidInPeriodId: entry.paid_in_period_id || undefined,
+              createdAt: new Date(entry.created_at).getTime(),
+            }));
+            set({ timeEntries: supabaseEntries });
+          } else if (entriesResult.status === 'rejected') {
+            console.error('Error fetching time entries:', entriesResult.reason);
+          }
+          
+          // Process pay periods
+          if (periodsResult.status === 'fulfilled' && periodsResult.value.data) {
+            const supabasePeriods: PayPeriod[] = periodsResult.value.data.map(period => ({
+              id: period.id,
+              jobId: period.job_id,
+              startDate: new Date(period.start_date).getTime(),
+              endDate: new Date(period.end_date).getTime(),
+              totalDuration: period.total_duration,
+              totalEarnings: period.total_earnings,
+              isPaid: period.is_paid,
+              paidDate: period.paid_date ? new Date(period.paid_date).getTime() : undefined,
+              timeEntryIds: period.time_entry_ids || [],
+              createdAt: new Date(period.created_at).getTime(),
+            }));
+            set({ payPeriods: supabasePeriods });
+          } else if (periodsResult.status === 'rejected') {
+            console.error('Error fetching pay periods:', periodsResult.reason);
+          }
+          
+          set({ lastSyncTime: Date.now() });
         } catch (error) {
           console.error('Error refreshing from Supabase:', error);
+        } finally {
+          set({ isLoading: false });
         }
       },
       

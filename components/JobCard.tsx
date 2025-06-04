@@ -99,8 +99,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: -DELETE_BUTTON_WIDTH,
             useNativeDriver: true,
-            tension: 200,
-            friction: 12,
+            tension: 300,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         } else {
@@ -108,8 +108,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 200,
-            friction: 12,
+            tension: 300,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         }
@@ -127,8 +127,8 @@ export default function JobCard({
       Animated.spring(translateX, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 200,
-        friction: 12,
+        tension: 300,
+        friction: 8,
       }).start(() => {
         router.push(`/job/${id}`);
       });
@@ -162,8 +162,8 @@ export default function JobCard({
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
-              tension: 200,
-              friction: 12,
+              tension: 300,
+              friction: 8,
             }).start();
           }
         },
@@ -377,12 +377,12 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   deleteButtonContainer: {
     position: 'absolute',
-    right: 0,
+    right: -40, // Extended further left beneath the card
     top: 0,
     bottom: 0,
-    width: DELETE_BUTTON_WIDTH + 20, // Extended further left
+    width: DELETE_BUTTON_WIDTH + 60, // Wider to ensure full coverage
     justifyContent: 'center',
-    alignItems: 'flex-end', // Align to right side
+    alignItems: 'flex-end',
     overflow: 'hidden',
   },
   deleteButton: {
@@ -391,17 +391,17 @@ const createStyles = (colors: any) => StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    // Only round the right corners for "sliding from under" effect
+    // Square off left corners, keep right corners rounded
     borderTopRightRadius: 20,
     borderBottomRightRadius: 20,
     borderTopLeftRadius: 0,
     borderBottomLeftRadius: 0,
-    // Subtle shadow to enhance the "beneath card" appearance
+    // Enhanced shadow for depth effect
     shadowColor: '#000',
-    shadowOffset: { width: -3, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: -4, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
   },
   deleteButtonText: {
     color: '#FFFFFF',

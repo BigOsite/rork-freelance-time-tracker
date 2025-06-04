@@ -159,13 +159,13 @@ export default function JobsScreen() {
   
   const onRefresh = React.useCallback(async () => {
     try {
-      if (user?.id) {
-        await store.refreshFromSupabase(user.id);
+      if (user?.uid) {
+        await store.refreshFromSupabase(user.uid);
       }
     } catch (error) {
       console.error('Error refreshing data:', error);
     }
-  }, [store, user?.id]);
+  }, [store, user?.uid]);
   
   const handleSearchPress = React.useCallback(() => {
     setShowSearchBar(!showSearchBar);
