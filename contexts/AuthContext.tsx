@@ -67,7 +67,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearAuth 
   } = useBusinessStore();
 
-  const { syncWithSupabase } = useJobsStore();
+  const { syncWithSupabase, initializeBackgroundSync, stopBackgroundSync } = useJobsStore();
 
   // Helper function to establish Supabase session
   const establishSupabaseSession = async (email: string, password: string) => {
@@ -220,6 +220,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null 
       });
 
+      // Initialize background sync for the authenticated user
+      initializeBackgroundSync(response.user.uid);
+
       // Sync data with Supabase after successful login
       try {
         await syncWithSupabase(response.user.uid);
@@ -269,6 +272,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null 
       });
 
+      // Initialize background sync for the authenticated user
+      initializeBackgroundSync(response.user.uid);
+
       // Sync data with Supabase after successful registration
       try {
         await syncWithSupabase(response.user.uid);
@@ -288,6 +294,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
+      // Stop background sync
+      stopBackgroundSync();
+      
       // Call logout endpoint if authenticated
       if (authState.isAuthenticated) {
         await trpcClient.auth.logout.mutate();
@@ -688,6 +697,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
               photoURL: photoURL || null,
             };
             setUserAccount(loggedInUser);
+
+            // Initialize background sync for authenticated user
+            initializeBackgroundSync(profile.uid);
 
             // Sync data on app start if user is authenticated
             try {

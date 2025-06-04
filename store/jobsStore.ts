@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Job, TimeEntry, PayPeriod, JobWithDuration, JobWithPayPeriods } from '@/types';
+import { Job, TimeEntry, PayPeriod, JobWithDuration, JobWithPayPeriods, SyncQueueItem, SyncStatus, NetworkInfo } from '@/types';
 import { generateId } from '@/utils/helpers';
 import { getStartOfWeek, getEndOfWeek } from '@/utils/time';
-import { supabase } from '@/lib/supabase';
+import { supabase, fetchAllUserData, batchSyncJobs, batchSyncTimeEntries, batchSyncPayPeriods, checkNetworkConnectivity } from '@/lib/supabase';
 
 interface JobsState {
   jobs: Job[];
@@ -12,6 +12,11 @@ interface JobsState {
   payPeriods: PayPeriod[];
   isLoading: boolean;
   lastSyncTime: number | null;
+  
+  // Sync queue and status
+  syncQueue: SyncQueueItem[];
+  syncStatus: SyncStatus;
+  networkInfo: NetworkInfo;
   
   // Job methods
   addJob: (job: Omit<Job, 'id' | 'createdAt'>) => string;
@@ -49,6 +54,14 @@ interface JobsState {
   syncWithSupabase: (userId: string) => Promise<void>;
   refreshFromSupabase: (userId?: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
+  
+  // Network and sync queue methods
+  setNetworkInfo: (info: NetworkInfo) => void;
+  addToSyncQueue: (item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>) => void;
+  processSyncQueue: (userId: string) => Promise<void>;
+  clearSyncQueue: () => void;
+  initializeBackgroundSync: (userId: string) => void;
+  stopBackgroundSync: () => void;
   
   // Reset method
   resetAllData: () => void;
@@ -155,127 +168,9 @@ const getCurrentUserId = async (): Promise<string | null> => {
   }
 };
 
-// Helper function to sync a single job to Supabase
-const syncJobToSupabase = async (job: Job, userId: string, operation: 'insert' | 'update' | 'delete') => {
-  try {
-    switch (operation) {
-      case 'insert':
-        const { error: insertError } = await supabase.from('jobs').insert({
-          id: job.id,
-          user_id: userId,
-          name: job.title,
-          client: job.client,
-          hourly_rate: job.hourlyRate,
-          color: job.color,
-          settings: job.settings,
-          created_at: new Date(job.createdAt).toISOString(),
-        });
-        if (insertError) throw insertError;
-        break;
-        
-      case 'update':
-        const { error: updateError } = await supabase.from('jobs').update({
-          name: job.title,
-          client: job.client,
-          hourly_rate: job.hourlyRate,
-          color: job.color,
-          settings: job.settings,
-        }).eq('id', job.id).eq('user_id', userId);
-        if (updateError) throw updateError;
-        break;
-        
-      case 'delete':
-        const { error: deleteError } = await supabase.from('jobs').delete()
-          .eq('id', job.id).eq('user_id', userId);
-        if (deleteError) throw deleteError;
-        break;
-    }
-  } catch (error) {
-    console.error(`Error syncing job ${operation}:`, error);
-    throw error;
-  }
-};
-
-// Helper function to sync a single time entry to Supabase
-const syncTimeEntryToSupabase = async (entry: TimeEntry, userId: string, operation: 'insert' | 'update' | 'delete') => {
-  try {
-    switch (operation) {
-      case 'insert':
-        const { error: insertError } = await supabase.from('time_entries').insert({
-          id: entry.id,
-          user_id: userId,
-          job_id: entry.jobId,
-          start_time: new Date(entry.startTime).toISOString(),
-          end_time: entry.endTime ? new Date(entry.endTime).toISOString() : null,
-          note: entry.note || '',
-          breaks: entry.breaks || [],
-          is_on_break: entry.isOnBreak || false,
-          paid_in_period_id: entry.paidInPeriodId || null,
-          created_at: new Date(entry.createdAt).toISOString(),
-        });
-        if (insertError) throw insertError;
-        break;
-        
-      case 'update':
-        const { error: updateError } = await supabase.from('time_entries').update({
-          job_id: entry.jobId,
-          start_time: new Date(entry.startTime).toISOString(),
-          end_time: entry.endTime ? new Date(entry.endTime).toISOString() : null,
-          note: entry.note || '',
-          breaks: entry.breaks || [],
-          is_on_break: entry.isOnBreak || false,
-          paid_in_period_id: entry.paidInPeriodId || null,
-        }).eq('id', entry.id).eq('user_id', userId);
-        if (updateError) throw updateError;
-        break;
-        
-      case 'delete':
-        const { error: deleteError } = await supabase.from('time_entries').delete()
-          .eq('id', entry.id).eq('user_id', userId);
-        if (deleteError) throw deleteError;
-        break;
-    }
-  } catch (error) {
-    console.error(`Error syncing time entry ${operation}:`, error);
-    throw error;
-  }
-};
-
-// Helper function to sync a single pay period to Supabase with upsert logic
-const syncPayPeriodToSupabase = async (period: PayPeriod, userId: string, operation: 'upsert' | 'delete') => {
-  try {
-    switch (operation) {
-      case 'upsert':
-        // Use upsert to handle both insert and update cases
-        const { error: upsertError } = await supabase.from('pay_periods').upsert({
-          id: period.id,
-          user_id: userId,
-          job_id: period.jobId,
-          start_date: new Date(period.startDate).toISOString(),
-          end_date: new Date(period.endDate).toISOString(),
-          total_duration: period.totalDuration,
-          total_earnings: period.totalEarnings,
-          is_paid: period.isPaid,
-          paid_date: period.paidDate ? new Date(period.paidDate).toISOString() : null,
-          time_entry_ids: period.timeEntryIds,
-          created_at: new Date(period.createdAt).toISOString(),
-        }, {
-          onConflict: 'id'
-        });
-        if (upsertError) throw upsertError;
-        break;
-        
-      case 'delete':
-        const { error: deleteError } = await supabase.from('pay_periods').delete()
-          .eq('id', period.id).eq('user_id', userId);
-        if (deleteError) throw deleteError;
-        break;
-    }
-  } catch (error) {
-    console.error(`Error syncing pay period ${operation}:`, error);
-    throw error;
-  }
-};
+// Background sync timer
+let backgroundSyncTimer: NodeJS.Timeout | null = null;
+const BACKGROUND_SYNC_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
 
 export const useJobsStore = create<JobsState>()(
   persist(
@@ -286,8 +181,222 @@ export const useJobsStore = create<JobsState>()(
       isLoading: false,
       lastSyncTime: null,
       
+      // Initialize sync queue and status
+      syncQueue: [],
+      syncStatus: {
+        isOnline: true,
+        isSyncing: false,
+        lastSyncTime: null,
+        pendingOperations: 0,
+      },
+      networkInfo: {
+        isConnected: true,
+        type: null,
+      },
+      
       setLoading: (loading) => {
         set({ isLoading: loading });
+      },
+      
+      setNetworkInfo: (info) => {
+        set(state => ({
+          networkInfo: info,
+          syncStatus: {
+            ...state.syncStatus,
+            isOnline: info.isConnected,
+          }
+        }));
+        
+        // If we just came back online, process sync queue
+        if (info.isConnected && !get().syncStatus.isOnline) {
+          const userId = getCurrentUserId();
+          if (userId) {
+            userId.then(id => {
+              if (id) {
+                get().processSyncQueue(id);
+              }
+            });
+          }
+        }
+      },
+      
+      addToSyncQueue: (item) => {
+        const queueItem: SyncQueueItem = {
+          ...item,
+          id: generateId(),
+          timestamp: Date.now(),
+          retryCount: 0,
+        };
+        
+        set(state => ({
+          syncQueue: [...state.syncQueue, queueItem],
+          syncStatus: {
+            ...state.syncStatus,
+            pendingOperations: state.syncQueue.length + 1,
+          }
+        }));
+      },
+      
+      processSyncQueue: async (userId: string) => {
+        const state = get();
+        if (state.syncStatus.isSyncing || state.syncQueue.length === 0) {
+          return;
+        }
+        
+        set(state => ({
+          syncStatus: {
+            ...state.syncStatus,
+            isSyncing: true,
+            lastError: undefined,
+          }
+        }));
+        
+        try {
+          // Check network connectivity first
+          const isOnline = await checkNetworkConnectivity();
+          if (!isOnline) {
+            set(state => ({
+              syncStatus: {
+                ...state.syncStatus,
+                isSyncing: false,
+                isOnline: false,
+                lastError: 'No network connection',
+              }
+            }));
+            return;
+          }
+          
+          const queue = [...state.syncQueue];
+          const processedItems: string[] = [];
+          const failedItems: SyncQueueItem[] = [];
+          
+          // Group items by entity type and operation for batch processing
+          const jobsToUpsert: Job[] = [];
+          const jobsToDelete: Job[] = [];
+          const entriesToUpsert: TimeEntry[] = [];
+          const entriesToDelete: TimeEntry[] = [];
+          const periodsToUpsert: PayPeriod[] = [];
+          const periodsToDelete: PayPeriod[] = [];
+          
+          for (const item of queue) {
+            try {
+              if (item.entityType === 'job') {
+                if (item.operation === 'delete') {
+                  jobsToDelete.push({ id: item.entityId } as Job);
+                } else {
+                  jobsToUpsert.push(item.data as Job);
+                }
+              } else if (item.entityType === 'timeEntry') {
+                if (item.operation === 'delete') {
+                  entriesToDelete.push({ id: item.entityId } as TimeEntry);
+                } else {
+                  entriesToUpsert.push(item.data as TimeEntry);
+                }
+              } else if (item.entityType === 'payPeriod') {
+                if (item.operation === 'delete') {
+                  periodsToDelete.push({ id: item.entityId } as PayPeriod);
+                } else {
+                  periodsToUpsert.push(item.data as PayPeriod);
+                }
+              }
+              
+              processedItems.push(item.id);
+            } catch (error) {
+              console.error('Error processing sync queue item:', error);
+              failedItems.push({
+                ...item,
+                retryCount: item.retryCount + 1,
+                lastError: error instanceof Error ? error.message : 'Unknown error',
+              });
+            }
+          }
+          
+          // Batch sync operations
+          const syncPromises: Promise<void>[] = [];
+          
+          if (jobsToUpsert.length > 0) {
+            syncPromises.push(batchSyncJobs(jobsToUpsert, userId, 'upsert'));
+          }
+          if (jobsToDelete.length > 0) {
+            syncPromises.push(batchSyncJobs(jobsToDelete, userId, 'delete'));
+          }
+          if (entriesToUpsert.length > 0) {
+            syncPromises.push(batchSyncTimeEntries(entriesToUpsert, userId, 'upsert'));
+          }
+          if (entriesToDelete.length > 0) {
+            syncPromises.push(batchSyncTimeEntries(entriesToDelete, userId, 'delete'));
+          }
+          if (periodsToUpsert.length > 0) {
+            syncPromises.push(batchSyncPayPeriods(periodsToUpsert, userId, 'upsert'));
+          }
+          if (periodsToDelete.length > 0) {
+            syncPromises.push(batchSyncPayPeriods(periodsToDelete, userId, 'delete'));
+          }
+          
+          await Promise.all(syncPromises);
+          
+          // Remove processed items from queue, keep failed items for retry
+          const remainingQueue = failedItems.filter(item => item.retryCount < 3); // Max 3 retries
+          
+          set(state => ({
+            syncQueue: remainingQueue,
+            syncStatus: {
+              ...state.syncStatus,
+              isSyncing: false,
+              lastSyncTime: Date.now(),
+              pendingOperations: remainingQueue.length,
+              isOnline: true,
+            }
+          }));
+          
+        } catch (error) {
+          console.error('Error processing sync queue:', error);
+          set(state => ({
+            syncStatus: {
+              ...state.syncStatus,
+              isSyncing: false,
+              lastError: error instanceof Error ? error.message : 'Sync failed',
+            }
+          }));
+        }
+      },
+      
+      clearSyncQueue: () => {
+        set({
+          syncQueue: [],
+          syncStatus: {
+            isOnline: true,
+            isSyncing: false,
+            lastSyncTime: null,
+            pendingOperations: 0,
+          }
+        });
+      },
+      
+      initializeBackgroundSync: (userId: string) => {
+        // Clear any existing timer
+        if (backgroundSyncTimer) {
+          clearInterval(backgroundSyncTimer);
+        }
+        
+        // Set up background sync timer
+        backgroundSyncTimer = setInterval(async () => {
+          try {
+            const state = get();
+            if (state.syncQueue.length > 0 && state.networkInfo.isConnected) {
+              await get().processSyncQueue(userId);
+            }
+          } catch (error) {
+            console.error('Background sync error:', error);
+          }
+        }, BACKGROUND_SYNC_INTERVAL);
+      },
+      
+      stopBackgroundSync: () => {
+        if (backgroundSyncTimer) {
+          clearInterval(backgroundSyncTimer);
+          backgroundSyncTimer = null;
+        }
       },
       
       refreshFromSupabase: async (userId) => {
@@ -302,70 +411,26 @@ export const useJobsStore = create<JobsState>()(
             return;
           }
           
+          // Process any pending sync queue items first
+          await get().processSyncQueue(currentUserId);
+          
           // Fetch fresh data from Supabase
-          const [jobsResult, entriesResult, periodsResult] = await Promise.allSettled([
-            supabase.from('jobs').select('*').eq('user_id', currentUserId).order('created_at', { ascending: false }),
-            supabase.from('time_entries').select('*').eq('user_id', currentUserId).order('start_time', { ascending: false }),
-            supabase.from('pay_periods').select('*').eq('user_id', currentUserId).order('start_date', { ascending: false })
-          ]);
+          const result = await fetchAllUserData(currentUserId);
           
-          // Process jobs
-          if (jobsResult.status === 'fulfilled' && jobsResult.value.data) {
-            const supabaseJobs: Job[] = jobsResult.value.data.map(job => ({
-              id: job.id,
-              title: job.name,
-              client: job.client || '',
-              hourlyRate: job.hourly_rate,
-              color: job.color,
-              settings: job.settings,
-              createdAt: new Date(job.created_at).getTime(),
-            }));
-            set({ jobs: supabaseJobs });
-          } else if (jobsResult.status === 'rejected') {
-            console.error('Error fetching jobs:', jobsResult.reason);
+          if (result.errors.length > 0) {
+            console.error('Errors during data fetch:', result.errors);
           }
           
-          // Process time entries
-          if (entriesResult.status === 'fulfilled' && entriesResult.value.data) {
-            const supabaseEntries: TimeEntry[] = entriesResult.value.data.map(entry => ({
-              id: entry.id,
-              jobId: entry.job_id,
-              startTime: new Date(entry.start_time).getTime(),
-              endTime: entry.end_time ? new Date(entry.end_time).getTime() : null,
-              note: entry.note || '',
-              breaks: entry.breaks || [],
-              isOnBreak: entry.is_on_break || false,
-              paidInPeriodId: entry.paid_in_period_id || undefined,
-              createdAt: new Date(entry.created_at).getTime(),
-            }));
-            set({ timeEntries: supabaseEntries });
-          } else if (entriesResult.status === 'rejected') {
-            console.error('Error fetching time entries:', entriesResult.reason);
-          }
+          set({ 
+            jobs: result.jobs,
+            timeEntries: result.timeEntries,
+            payPeriods: result.payPeriods,
+            lastSyncTime: Date.now(),
+            isLoading: false,
+          });
           
-          // Process pay periods
-          if (periodsResult.status === 'fulfilled' && periodsResult.value.data) {
-            const supabasePeriods: PayPeriod[] = periodsResult.value.data.map(period => ({
-              id: period.id,
-              jobId: period.job_id,
-              startDate: new Date(period.start_date).getTime(),
-              endDate: new Date(period.end_date).getTime(),
-              totalDuration: period.total_duration,
-              totalEarnings: period.total_earnings,
-              isPaid: period.is_paid,
-              paidDate: period.paid_date ? new Date(period.paid_date).getTime() : undefined,
-              timeEntryIds: period.time_entry_ids || [],
-              createdAt: new Date(period.created_at).getTime(),
-            }));
-            set({ payPeriods: supabasePeriods });
-          } else if (periodsResult.status === 'rejected') {
-            console.error('Error fetching pay periods:', periodsResult.reason);
-          }
-          
-          set({ lastSyncTime: Date.now() });
         } catch (error) {
           console.error('Error refreshing from Supabase:', error);
-        } finally {
           set({ isLoading: false });
         }
       },
@@ -382,133 +447,12 @@ export const useJobsStore = create<JobsState>()(
             return;
           }
           
-          // Sync jobs
-          try {
-            const { data: jobsData, error: jobsError } = await supabase
-              .from('jobs')
-              .select('*')
-              .eq('user_id', userId)
-              .order('created_at', { ascending: false });
-            
-            if (jobsError) {
-              console.error('Error syncing jobs:', jobsError);
-            } else if (jobsData) {
-              const supabaseJobs: Job[] = jobsData.map(job => ({
-                id: job.id,
-                title: job.name,
-                client: job.client || '',
-                hourlyRate: job.hourly_rate,
-                color: job.color,
-                settings: job.settings,
-                createdAt: new Date(job.created_at).getTime(),
-              }));
-              
-              // Merge with local jobs (prioritize Supabase data for consistency)
-              const localJobs = get().jobs;
-              const mergedJobs = [...supabaseJobs];
-              
-              // Add any local jobs that don't exist in Supabase
-              for (const localJob of localJobs) {
-                const existsInSupabase = supabaseJobs.some(j => j.id === localJob.id);
-                if (!existsInSupabase) {
-                  // Upload local job to Supabase
-                  try {
-                    await syncJobToSupabase(localJob, userId, 'insert');
-                    mergedJobs.push(localJob);
-                  } catch (error) {
-                    console.error('Error uploading local job:', error);
-                    // Keep local job even if upload fails
-                    mergedJobs.push(localJob);
-                  }
-                }
-              }
-              
-              set({ jobs: mergedJobs });
-            }
-          } catch (error) {
-            console.error('Jobs sync error:', error);
-          }
+          // Process sync queue first
+          await get().processSyncQueue(userId);
           
-          // Sync time entries
-          try {
-            const { data: entriesData, error: entriesError } = await supabase
-              .from('time_entries')
-              .select('*')
-              .eq('user_id', userId)
-              .order('start_time', { ascending: false });
-            
-            if (entriesError) {
-              console.error('Error syncing time entries:', entriesError);
-            } else if (entriesData) {
-              const supabaseEntries: TimeEntry[] = entriesData.map(entry => ({
-                id: entry.id,
-                jobId: entry.job_id,
-                startTime: new Date(entry.start_time).getTime(),
-                endTime: entry.end_time ? new Date(entry.end_time).getTime() : null,
-                note: entry.note || '',
-                breaks: entry.breaks || [],
-                isOnBreak: entry.is_on_break || false,
-                paidInPeriodId: entry.paid_in_period_id || undefined,
-                createdAt: new Date(entry.created_at).getTime(),
-              }));
-              
-              // Merge with local entries
-              const localEntries = get().timeEntries;
-              const mergedEntries = [...supabaseEntries];
-              
-              // Add any local entries that don't exist in Supabase
-              for (const localEntry of localEntries) {
-                const existsInSupabase = supabaseEntries.some(e => e.id === localEntry.id);
-                if (!existsInSupabase) {
-                  // Upload local entry to Supabase
-                  try {
-                    await syncTimeEntryToSupabase(localEntry, userId, 'insert');
-                    mergedEntries.push(localEntry);
-                  } catch (error) {
-                    console.error('Error uploading local time entry:', error);
-                    // Keep local entry even if upload fails
-                    mergedEntries.push(localEntry);
-                  }
-                }
-              }
-              
-              set({ timeEntries: mergedEntries });
-            }
-          } catch (error) {
-            console.error('Time entries sync error:', error);
-          }
+          // Then fetch fresh data
+          await get().refreshFromSupabase(userId);
           
-          // Sync pay periods
-          try {
-            const { data: periodsData, error: periodsError } = await supabase
-              .from('pay_periods')
-              .select('*')
-              .eq('user_id', userId)
-              .order('start_date', { ascending: false });
-            
-            if (periodsError) {
-              console.error('Error syncing pay periods:', periodsError);
-            } else if (periodsData) {
-              const supabasePeriods: PayPeriod[] = periodsData.map(period => ({
-                id: period.id,
-                jobId: period.job_id,
-                startDate: new Date(period.start_date).getTime(),
-                endDate: new Date(period.end_date).getTime(),
-                totalDuration: period.total_duration,
-                totalEarnings: period.total_earnings,
-                isPaid: period.is_paid,
-                paidDate: period.paid_date ? new Date(period.paid_date).getTime() : undefined,
-                timeEntryIds: period.time_entry_ids || [],
-                createdAt: new Date(period.created_at).getTime(),
-              }));
-              
-              set({ payPeriods: supabasePeriods });
-            }
-          } catch (error) {
-            console.error('Pay periods sync error:', error);
-          }
-          
-          set({ lastSyncTime: Date.now() });
         } catch (error) {
           console.error('Sync error:', error);
         } finally {
@@ -528,18 +472,13 @@ export const useJobsStore = create<JobsState>()(
           jobs: [...state.jobs, newJob]
         }));
         
-        // Sync to Supabase asynchronously
-        const syncToSupabase = async () => {
-          try {
-            const userId = await getCurrentUserId();
-            if (userId) {
-              await syncJobToSupabase(newJob, userId, 'insert');
-            }
-          } catch (error) {
-            console.error('Error syncing job to Supabase:', error);
-          }
-        };
-        syncToSupabase();
+        // Add to sync queue
+        get().addToSyncQueue({
+          entityType: 'job',
+          entityId: id,
+          operation: 'create',
+          data: newJob,
+        });
         
         return id;
       },
@@ -559,19 +498,14 @@ export const useJobsStore = create<JobsState>()(
             return { jobs: newJobs };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (updatedJob) {
-            const syncToSupabase = async (jobToSync: Job) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  await syncJobToSupabase(jobToSync, userId, 'update');
-                }
-              } catch (error) {
-                console.error('Error syncing job update to Supabase:', error);
-              }
-            };
-            syncToSupabase(updatedJob);
+            get().addToSyncQueue({
+              entityType: 'job',
+              entityId: id,
+              operation: 'update',
+              data: updatedJob,
+            });
           }
           
           return true;
@@ -594,23 +528,14 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (deletedJob) {
-            const syncToSupabase = async (jobToDelete: Job) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  // Delete related data first
-                  await supabase.from('time_entries').delete().eq('job_id', id).eq('user_id', userId);
-                  await supabase.from('pay_periods').delete().eq('job_id', id).eq('user_id', userId);
-                  // Then delete the job
-                  await syncJobToSupabase(jobToDelete, userId, 'delete');
-                }
-              } catch (error) {
-                console.error('Error syncing job deletion to Supabase:', error);
-              }
-            };
-            syncToSupabase(deletedJob);
+            get().addToSyncQueue({
+              entityType: 'job',
+              entityId: id,
+              operation: 'delete',
+              data: deletedJob,
+            });
           }
           
           return true;
@@ -701,18 +626,13 @@ export const useJobsStore = create<JobsState>()(
           timeEntries: [...state.timeEntries, newEntry]
         }));
         
-        // Sync to Supabase asynchronously
-        const syncToSupabase = async () => {
-          try {
-            const userId = await getCurrentUserId();
-            if (userId) {
-              await syncTimeEntryToSupabase(newEntry, userId, 'insert');
-            }
-          } catch (error) {
-            console.error('Error syncing clock in to Supabase:', error);
-          }
-        };
-        syncToSupabase();
+        // Add to sync queue
+        get().addToSyncQueue({
+          entityType: 'timeEntry',
+          entityId: id,
+          operation: 'create',
+          data: newEntry,
+        });
         
         return id;
       },
@@ -746,19 +666,14 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (updatedEntry) {
-            const syncToSupabase = async (entryToSync: TimeEntry) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
-                }
-              } catch (error) {
-                console.error('Error syncing clock out to Supabase:', error);
-              }
-            };
-            syncToSupabase(updatedEntry);
+            get().addToSyncQueue({
+              entityType: 'timeEntry',
+              entityId: entryId,
+              operation: 'update',
+              data: updatedEntry,
+            });
           }
           
           // Regenerate pay periods after clocking out
@@ -794,19 +709,14 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (updatedEntry) {
-            const syncToSupabase = async (entryToSync: TimeEntry) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
-                }
-              } catch (error) {
-                console.error('Error syncing break start to Supabase:', error);
-              }
-            };
-            syncToSupabase(updatedEntry);
+            get().addToSyncQueue({
+              entityType: 'timeEntry',
+              entityId: entryId,
+              operation: 'update',
+              data: updatedEntry,
+            });
           }
           
           return true;
@@ -842,19 +752,14 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (updatedEntry) {
-            const syncToSupabase = async (entryToSync: TimeEntry) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
-                }
-              } catch (error) {
-                console.error('Error syncing break end to Supabase:', error);
-              }
-            };
-            syncToSupabase(updatedEntry);
+            get().addToSyncQueue({
+              entityType: 'timeEntry',
+              entityId: entryId,
+              operation: 'update',
+              data: updatedEntry,
+            });
           }
           
           return true;
@@ -875,18 +780,13 @@ export const useJobsStore = create<JobsState>()(
           timeEntries: [...state.timeEntries, newEntry]
         }));
         
-        // Sync to Supabase asynchronously
-        const syncToSupabase = async () => {
-          try {
-            const userId = await getCurrentUserId();
-            if (userId) {
-              await syncTimeEntryToSupabase(newEntry, userId, 'insert');
-            }
-          } catch (error) {
-            console.error('Error syncing time entry to Supabase:', error);
-          }
-        };
-        syncToSupabase();
+        // Add to sync queue
+        get().addToSyncQueue({
+          entityType: 'timeEntry',
+          entityId: id,
+          operation: 'create',
+          data: newEntry,
+        });
         
         // Regenerate pay periods after adding entry
         get().generatePayPeriods();
@@ -902,18 +802,13 @@ export const useJobsStore = create<JobsState>()(
             )
           }));
           
-          // Sync to Supabase asynchronously
-          const syncToSupabase = async () => {
-            try {
-              const userId = await getCurrentUserId();
-              if (userId) {
-                await syncTimeEntryToSupabase(updatedEntry, userId, 'update');
-              }
-            } catch (error) {
-              console.error('Error syncing time entry update to Supabase:', error);
-            }
-          };
-          syncToSupabase();
+          // Add to sync queue
+          get().addToSyncQueue({
+            entityType: 'timeEntry',
+            entityId: updatedEntry.id,
+            operation: 'update',
+            data: updatedEntry,
+          });
           
           // Regenerate pay periods after updating entry
           get().generatePayPeriods();
@@ -991,19 +886,14 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (deletedEntry) {
-            const syncToSupabase = async (entryToDelete: TimeEntry) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  await syncTimeEntryToSupabase(entryToDelete, userId, 'delete');
-                }
-              } catch (error) {
-                console.error('Error syncing time entry deletion to Supabase:', error);
-              }
-            };
-            syncToSupabase(deletedEntry);
+            get().addToSyncQueue({
+              entityType: 'timeEntry',
+              entityId: id,
+              operation: 'delete',
+              data: deletedEntry,
+            });
           }
           
           // Regenerate pay periods after deleting entry to ensure consistency
@@ -1098,7 +988,7 @@ export const useJobsStore = create<JobsState>()(
             // Create a deterministic ID based on job and week to avoid duplicates
             const periodId = existingPeriod?.id || `${job.id}-${sunday.getTime()}`;
             
-            newPayPeriods.push({
+            const newPeriod: PayPeriod = {
               id: periodId,
               jobId: job.id,
               startDate: sunday.getTime(),
@@ -1109,46 +999,26 @@ export const useJobsStore = create<JobsState>()(
               paidDate: existingPeriod?.paidDate,
               timeEntryIds: entries.map(e => e.id),
               createdAt: existingPeriod?.createdAt || Date.now()
-            });
+            };
+            
+            newPayPeriods.push(newPeriod);
+            
+            // Add to sync queue if it's a new period or has changes
+            if (!existingPeriod || 
+                existingPeriod.totalDuration !== totalDuration ||
+                existingPeriod.totalEarnings !== totalEarnings ||
+                JSON.stringify(existingPeriod.timeEntryIds.sort()) !== JSON.stringify(entries.map(e => e.id).sort())) {
+              get().addToSyncQueue({
+                entityType: 'payPeriod',
+                entityId: periodId,
+                operation: existingPeriod ? 'update' : 'create',
+                data: newPeriod,
+              });
+            }
           });
         });
         
         set({ payPeriods: newPayPeriods });
-        
-        // Sync pay periods to Supabase asynchronously
-        const syncToSupabase = async () => {
-          try {
-            const userId = await getCurrentUserId();
-            if (userId) {
-              // Use upsert for all pay periods to handle both new and existing ones
-              for (const period of newPayPeriods) {
-                try {
-                  await syncPayPeriodToSupabase(period, userId, 'upsert');
-                } catch (error) {
-                  // Log but don't throw - continue with other periods
-                  console.error('Error syncing individual pay period:', error);
-                }
-              }
-              
-              // Clean up any pay periods that no longer exist
-              const currentPeriodIds = newPayPeriods.map(p => p.id);
-              const periodsToDelete = existingPayPeriods.filter(p => 
-                !currentPeriodIds.includes(p.id)
-              );
-              
-              for (const periodToDelete of periodsToDelete) {
-                try {
-                  await syncPayPeriodToSupabase(periodToDelete, userId, 'delete');
-                } catch (error) {
-                  console.error('Error deleting obsolete pay period:', error);
-                }
-              }
-            }
-          } catch (error) {
-            console.error('Error syncing pay periods to Supabase:', error);
-          }
-        };
-        syncToSupabase();
       },
       
       markPayPeriodAsPaid: (periodId) => {
@@ -1174,30 +1044,14 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (updatedPeriod) {
-            const syncToSupabase = async (periodToSync: PayPeriod) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  await syncPayPeriodToSupabase(periodToSync, userId, 'upsert');
-                  
-                  // Update related time entries
-                  const period = get().payPeriods.find(p => p.id === periodId);
-                  if (period) {
-                    for (const entryId of period.timeEntryIds) {
-                      const entry = get().timeEntries.find(e => e.id === entryId);
-                      if (entry) {
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: periodId }, userId, 'update');
-                      }
-                    }
-                  }
-                }
-              } catch (error) {
-                console.error('Error syncing pay period payment to Supabase:', error);
-              }
-            };
-            syncToSupabase(updatedPeriod);
+            get().addToSyncQueue({
+              entityType: 'payPeriod',
+              entityId: periodId,
+              operation: 'update',
+              data: updatedPeriod,
+            });
           }
           
           return true;
@@ -1229,30 +1083,14 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase asynchronously
+          // Add to sync queue
           if (updatedPeriod) {
-            const syncToSupabase = async (periodToSync: PayPeriod) => {
-              try {
-                const userId = await getCurrentUserId();
-                if (userId) {
-                  await syncPayPeriodToSupabase(periodToSync, userId, 'upsert');
-                  
-                  // Update related time entries
-                  const period = get().payPeriods.find(p => p.id === periodId);
-                  if (period) {
-                    for (const entryId of period.timeEntryIds) {
-                      const entry = get().timeEntries.find(e => e.id === entryId);
-                      if (entry) {
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: undefined }, userId, 'update');
-                      }
-                    }
-                  }
-                }
-              } catch (error) {
-                console.error('Error syncing pay period unpayment to Supabase:', error);
-              }
-            };
-            syncToSupabase(updatedPeriod);
+            get().addToSyncQueue({
+              entityType: 'payPeriod',
+              entityId: periodId,
+              operation: 'update',
+              data: updatedPeriod,
+            });
           }
           
           return true;
@@ -1352,18 +1190,39 @@ export const useJobsStore = create<JobsState>()(
       },
       
       resetAllData: () => {
+        // Stop background sync
+        get().stopBackgroundSync();
+        
         set({
           jobs: [],
           timeEntries: [],
           payPeriods: [],
           isLoading: false,
           lastSyncTime: null,
+          syncQueue: [],
+          syncStatus: {
+            isOnline: true,
+            isSyncing: false,
+            lastSyncTime: null,
+            pendingOperations: 0,
+          },
+          networkInfo: {
+            isConnected: true,
+            type: null,
+          },
         });
       },
     }),
     {
       name: 'jobs-storage',
       storage: createJSONStorage(() => AsyncStorage),
+      // Don't persist sync queue and status - they should be fresh on app start
+      partialize: (state) => ({
+        jobs: state.jobs,
+        timeEntries: state.timeEntries,
+        payPeriods: state.payPeriods,
+        lastSyncTime: state.lastSyncTime,
+      }),
     }
   )
 );

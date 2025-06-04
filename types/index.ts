@@ -208,3 +208,31 @@ export interface SupportRequest {
   appVersion?: string;
   createdAt: string;
 }
+
+// Sync Queue Types
+export type SyncOperation = 'create' | 'update' | 'delete';
+export type SyncEntityType = 'job' | 'timeEntry' | 'payPeriod' | 'businessInfo';
+
+export interface SyncQueueItem {
+  id: string;
+  entityType: SyncEntityType;
+  entityId: string;
+  operation: SyncOperation;
+  data: any;
+  timestamp: number;
+  retryCount: number;
+  lastError?: string;
+}
+
+export interface SyncStatus {
+  isOnline: boolean;
+  isSyncing: boolean;
+  lastSyncTime: number | null;
+  pendingOperations: number;
+  lastError?: string;
+}
+
+export interface NetworkInfo {
+  isConnected: boolean;
+  type: string | null;
+}

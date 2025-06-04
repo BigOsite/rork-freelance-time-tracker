@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { BusinessInfo, PaymentOptions, TaxSettings, UserAccount, AuthState } from '@/types';
+import { BusinessInfo, PaymentOptions, TaxSettings, UserAccount, AuthState, SyncQueueItem } from '@/types';
 
 interface AppRating {
   rating: number;
@@ -16,6 +16,8 @@ interface BusinessState {
   authState: AuthState;
   appRatings: AppRating[];
   isDarkMode: boolean;
+  businessSyncQueue: SyncQueueItem[];
+  
   updateBusinessInfo: (info: BusinessInfo) => void;
   updatePaymentOptions: (options: PaymentOptions) => void;
   updateTaxSettings: (settings: Partial<TaxSettings>) => void;
@@ -30,6 +32,11 @@ interface BusinessState {
   toggleDarkMode: () => void;
   signOut: () => void;
   resetAllData: () => void;
+  
+  // Business sync methods
+  addToBusinessSyncQueue: (item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>) => void;
+  processBusinessSyncQueue: (userId: string) => Promise<void>;
+  clearBusinessSyncQueue: () => void;
 }
 
 export const useBusinessStore = create<BusinessState>()(
@@ -56,13 +63,30 @@ export const useBusinessStore = create<BusinessState>()(
       },
       appRatings: [],
       isDarkMode: false,
+      businessSyncQueue: [],
       
       updateBusinessInfo: (info) => {
         set({ businessInfo: info });
+        
+        // Add to sync queue for business data
+        get().addToBusinessSyncQueue({
+          entityType: 'businessInfo',
+          entityId: 'business-info',
+          operation: 'update',
+          data: info,
+        });
       },
       
       updatePaymentOptions: (options) => {
         set({ paymentOptions: options });
+        
+        // Add to sync queue
+        get().addToBusinessSyncQueue({
+          entityType: 'businessInfo',
+          entityId: 'payment-options',
+          operation: 'update',
+          data: { paymentOptions: options },
+        });
       },
       
       updateTaxSettings: (settings) => {
@@ -72,6 +96,14 @@ export const useBusinessStore = create<BusinessState>()(
             ...settings 
           } 
         }));
+        
+        // Add to sync queue
+        get().addToBusinessSyncQueue({
+          entityType: 'businessInfo',
+          entityId: 'tax-settings',
+          operation: 'update',
+          data: { taxSettings: { ...get().taxSettings, ...settings } },
+        });
       },
       
       updateCurrency: (currency, currencySymbol) => {
@@ -82,6 +114,14 @@ export const useBusinessStore = create<BusinessState>()(
             currencySymbol
           }
         }));
+        
+        // Add to sync queue
+        get().addToBusinessSyncQueue({
+          entityType: 'businessInfo',
+          entityId: 'currency',
+          operation: 'update',
+          data: { currency, currencySymbol },
+        });
       },
       
       updateTaxRate: (taxRate) => {
@@ -91,6 +131,14 @@ export const useBusinessStore = create<BusinessState>()(
             defaultTaxRate: taxRate
           }
         }));
+        
+        // Add to sync queue
+        get().addToBusinessSyncQueue({
+          entityType: 'businessInfo',
+          entityId: 'tax-rate',
+          operation: 'update',
+          data: { defaultTaxRate: taxRate },
+        });
       },
       
       setUserAccount: (account) => {
@@ -161,6 +209,43 @@ export const useBusinessStore = create<BusinessState>()(
         });
       },
       
+      addToBusinessSyncQueue: (item) => {
+        const queueItem: SyncQueueItem = {
+          ...item,
+          id: `business-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+          timestamp: Date.now(),
+          retryCount: 0,
+        };
+        
+        set(state => ({
+          businessSyncQueue: [...state.businessSyncQueue, queueItem]
+        }));
+      },
+      
+      processBusinessSyncQueue: async (userId: string) => {
+        const state = get();
+        if (state.businessSyncQueue.length === 0) {
+          return;
+        }
+        
+        try {
+          // For now, we'll just clear the queue since business data sync
+          // is less critical than job/time entry data
+          // In a full implementation, you would sync business data to a backend
+          console.log('Processing business sync queue:', state.businessSyncQueue);
+          
+          // Clear processed items
+          set({ businessSyncQueue: [] });
+          
+        } catch (error) {
+          console.error('Error processing business sync queue:', error);
+        }
+      },
+      
+      clearBusinessSyncQueue: () => {
+        set({ businessSyncQueue: [] });
+      },
+      
       resetAllData: () => {
         set({
           businessInfo: null,
@@ -183,7 +268,8 @@ export const useBusinessStore = create<BusinessState>()(
             error: null,
           },
           appRatings: [],
-          isDarkMode: false
+          isDarkMode: false,
+          businessSyncQueue: [],
         });
       }
     }),
@@ -203,6 +289,7 @@ export const useBusinessStore = create<BusinessState>()(
         },
         appRatings: state.appRatings,
         isDarkMode: state.isDarkMode,
+        // Don't persist sync queue - should be fresh on app start
       }),
     }
   )
