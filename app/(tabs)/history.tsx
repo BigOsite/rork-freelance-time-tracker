@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from 'react
 import { useRouter } from 'expo-router';
 import { Clock, CheckCircle, AlertCircle } from 'lucide-react-native';
 import { useJobsStore } from '@/store/jobsStore';
+import { useAuth } from '@/contexts/AuthContext';
 import TimeEntryCard from '@/components/TimeEntryCard';
 import EmptyState from '@/components/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -10,9 +11,10 @@ import { useTheme } from '@/contexts/ThemeContext';
 export default function HistoryScreen() {
   const router = useRouter();
   const store = useJobsStore();
-  const [refreshing, setRefreshing] = useState(false);
   const [filterPaid, setFilterPaid] = useState<boolean | null>(null); // null = all, true = paid, false = unpaid
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const refreshing = store.isLoading;
   
   // Get all completed time entries (with endTime) sorted by startTime (newest first)
   const completedEntries = React.useMemo(() => {
@@ -60,13 +62,15 @@ export default function HistoryScreen() {
     );
   }, [store]);
   
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    // Just simulate a refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+  const onRefresh = React.useCallback(async () => {
+    try {
+      if (user?.id) {
+        await store.refreshFromSupabase(user.id);
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  }, [store, user?.id]);
   
   const renderItem = React.useCallback(({ item }: { item: typeof completedEntries[0] }) => {
     if (!item) return null;

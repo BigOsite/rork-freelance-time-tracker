@@ -16,11 +16,11 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { isAuthenticated, user } = useAuth();
-  const [refreshing, setRefreshing] = React.useState(false);
   
   // Get store methods and data
   const store = useJobsStore();
   const { taxSettings } = useBusinessStore();
+  const refreshing = store.isLoading;
   
   // Get data with error handling and memoization
   const jobs = React.useMemo(() => {
@@ -103,13 +103,15 @@ export default function DashboardScreen() {
     return null;
   }, [isAuthenticated, user?.displayName]);
   
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    // Just simulate a refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+  const onRefresh = React.useCallback(async () => {
+    try {
+      if (user?.id) {
+        await store.refreshFromSupabase(user.id);
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  }, [store, user?.id]);
   
   const handleClockIn = React.useCallback((jobId: string) => {
     try {

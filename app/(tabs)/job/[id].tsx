@@ -22,6 +22,7 @@ import {
 } from 'lucide-react-native';
 import { useJobsStore } from '@/store/jobsStore';
 import { useBusinessStore } from '@/store/businessStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDuration, formatDateFull, formatTime, getStartOfWeek, getEndOfWeek } from '@/utils/time';
 import { formatCurrency } from '@/utils/helpers';
 import TimeEntryCard from '@/components/TimeEntryCard';
@@ -35,7 +36,6 @@ export default function JobDetailScreen() {
   // ALL HOOKS MUST BE DECLARED FIRST - BEFORE ANY CONDITIONAL LOGIC
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const [refreshing, setRefreshing] = useState(false);
   const [showStartTimePicker, setShowStartTimePicker] = useState(false);
   const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [showBreakStartPicker, setShowBreakStartPicker] = useState(false);
@@ -45,6 +45,8 @@ export default function JobDetailScreen() {
   const store = useJobsStore();
   const { taxSettings } = useBusinessStore();
   const { colors } = useTheme();
+  const { user } = useAuth();
+  const refreshing = store.isLoading;
   
   // Get data with memoization - but still after all hooks
   const jobWithPayPeriods = React.useMemo(() => {
@@ -390,13 +392,15 @@ export default function JobDetailScreen() {
     }
   }, [store]);
   
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    // Just simulate a refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+  const onRefresh = React.useCallback(async () => {
+    try {
+      if (user?.id) {
+        await store.refreshFromSupabase(user.id);
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  }, [store, user?.id]);
   
   // Calculate current session info if active
   const getCurrentSessionInfo = React.useCallback(() => {

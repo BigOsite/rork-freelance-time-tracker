@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput, Modal, S
 import { useRouter } from 'expo-router';
 import { Plus, Briefcase, Search, Filter, X, Check } from 'lucide-react-native';
 import { useJobsStore } from '@/store/jobsStore';
+import { useAuth } from '@/contexts/AuthContext';
 import JobCard from '@/components/JobCard';
 import EmptyState from '@/components/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
@@ -12,7 +13,7 @@ type SortOption = 'dateNewest' | 'dateOldest' | 'titleAZ' | 'titleZA' | 'clientA
 export default function JobsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
-  const [refreshing, setRefreshing] = useState(false);
+  const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
@@ -20,6 +21,7 @@ export default function JobsScreen() {
   
   // Get store instance
   const store = useJobsStore();
+  const refreshing = store.isLoading;
   
   const allJobs = React.useMemo(() => {
     try {
@@ -155,13 +157,15 @@ export default function JobsScreen() {
     router.push('/job/new');
   }, [router]);
   
-  const onRefresh = React.useCallback(() => {
-    setRefreshing(true);
-    // Just simulate a refresh
-    setTimeout(() => {
-      setRefreshing(false);
-    }, 1000);
-  }, []);
+  const onRefresh = React.useCallback(async () => {
+    try {
+      if (user?.id) {
+        await store.refreshFromSupabase(user.id);
+      }
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  }, [store, user?.id]);
   
   const handleSearchPress = React.useCallback(() => {
     setShowSearchBar(!showSearchBar);

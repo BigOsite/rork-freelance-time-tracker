@@ -47,6 +47,7 @@ interface JobsState {
   
   // Sync methods
   syncWithSupabase: (userId: string) => Promise<void>;
+  refreshFromSupabase: (userId?: string) => Promise<void>;
   setLoading: (loading: boolean) => void;
   
   // Reset method
@@ -287,6 +288,22 @@ export const useJobsStore = create<JobsState>()(
       
       setLoading: (loading) => {
         set({ isLoading: loading });
+      },
+      
+      refreshFromSupabase: async (userId) => {
+        try {
+          // Get current user ID if not provided
+          const currentUserId = userId || await getCurrentUserId();
+          if (!currentUserId) {
+            console.log('No authenticated user found, skipping refresh');
+            return;
+          }
+          
+          // Use the existing sync method which already handles everything properly
+          await get().syncWithSupabase(currentUserId);
+        } catch (error) {
+          console.error('Error refreshing from Supabase:', error);
+        }
       },
       
       syncWithSupabase: async (userId: string) => {
