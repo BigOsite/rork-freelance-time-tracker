@@ -70,16 +70,22 @@ export default function JobCard({
         return shouldRespond;
       },
       onPanResponderGrant: () => {
-        setIsSwipeActive(true);
+        // Don't set isSwipeActive immediately to avoid delays
       },
       onPanResponderMove: (evt, gestureState) => {
         // Only allow left swipe (negative dx)
         if (gestureState.dx < 0) {
           const newValue = Math.max(gestureState.dx, -DELETE_BUTTON_WIDTH);
           translateX.setValue(newValue);
+          
+          // Set swipe active only when actually moving
+          if (!isSwipeActive && Math.abs(gestureState.dx) > 10) {
+            setIsSwipeActive(true);
+          }
         }
       },
       onPanResponderRelease: (evt, gestureState) => {
+        // Reset swipe active state immediately for responsiveness
         setIsSwipeActive(false);
         
         if (gestureState.dx < -SWIPE_THRESHOLD) {
@@ -87,8 +93,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: -DELETE_BUTTON_WIDTH,
             useNativeDriver: true,
-            tension: 120,
-            friction: 9,
+            tension: 150,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         } else {
@@ -96,8 +102,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 120,
-            friction: 9,
+            tension: 150,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         }
@@ -111,8 +117,8 @@ export default function JobCard({
       Animated.spring(translateX, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 120,
-        friction: 9,
+        tension: 150,
+        friction: 8,
       }).start(() => {
         router.push(`/job/${id}`);
       });
@@ -146,8 +152,8 @@ export default function JobCard({
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
-              tension: 120,
-              friction: 9,
+              tension: 150,
+              friction: 8,
             }).start();
           }
         },
@@ -367,7 +373,6 @@ const createStyles = (colors: any) => StyleSheet.create({
     width: DELETE_BUTTON_WIDTH,
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
     overflow: 'hidden',
   },
   deleteButton: {
@@ -376,9 +381,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 20,
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
+    borderTopLeftRadius: 0,
+    borderBottomLeftRadius: 0,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
+    shadowOffset: { width: -2, height: 3 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 3,
