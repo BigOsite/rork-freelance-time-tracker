@@ -825,7 +825,7 @@ export const useJobsStore = create<JobsState>()(
             )
           }));
           
-          // Sync to Supabase using delete+insert for complete replacement
+          // Sync to Supabase using delete+insert for complete replacement to avoid stale data
           const syncToSupabase = async () => {
             try {
               const userId = await getCurrentUserId();

@@ -107,7 +107,8 @@ export default function TimeEntryForm({
   };
 
   const handleCancel = () => {
-    // Always allow cancel, even if submitting
+    // Reset submitting state and call parent cancel
+    setIsSubmitting(false);
     onCancel();
   };
 
@@ -208,6 +209,7 @@ export default function TimeEntryForm({
           <TouchableOpacity 
             style={[styles.button, styles.cancelButton]} 
             onPress={handleCancel}
+            disabled={false} // Cancel should always be available
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>
