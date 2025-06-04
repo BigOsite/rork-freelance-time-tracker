@@ -255,15 +255,7 @@ export default function ProfileScreen() {
 
   const handleProfilePhotoUpload = async () => {
     try {
-      // Request permission
-      const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera roll is required!');
-        return;
-      }
-
-      // Show action sheet for photo selection
+      // Show action sheet for photo selection first
       Alert.alert(
         'Update Profile Photo',
         'Choose how you would like to update your profile photo',
@@ -283,16 +275,25 @@ export default function ProfileScreen() {
         ]
       );
     } catch (error) {
-      Alert.alert('Error', 'Failed to access photo library.');
+      console.error('Error in handleProfilePhotoUpload:', error);
+      Alert.alert('Error', 'Failed to access photo options. Please try again.');
     }
   };
 
   const openCamera = async () => {
     try {
-      const permissionResult = await ImagePicker.requestCameraPermissionsAsync();
+      // Request camera permission
+      const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
       
-      if (permissionResult.granted === false) {
-        Alert.alert('Permission Required', 'Permission to access camera is required!');
+      if (!cameraPermission.granted) {
+        Alert.alert(
+          'Camera Permission Required', 
+          'Please enable camera access in your device settings to take photos.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => ImagePicker.requestCameraPermissionsAsync() }
+          ]
+        );
         return;
       }
 
@@ -301,30 +302,49 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        exif: false,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets && result.assets[0]) {
         await uploadProfilePhoto(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to open camera.');
+      console.error('Error opening camera:', error);
+      Alert.alert('Error', 'Failed to open camera. Please try again.');
     }
   };
 
   const openImagePicker = async () => {
     try {
+      // Request media library permission
+      const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
+      if (!mediaPermission.granted) {
+        Alert.alert(
+          'Photo Library Permission Required', 
+          'Please enable photo library access in your device settings to select photos.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => ImagePicker.requestMediaLibraryPermissionsAsync() }
+          ]
+        );
+        return;
+      }
+
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.8,
+        exif: false,
       });
 
-      if (!result.canceled && result.assets[0]) {
+      if (!result.canceled && result.assets && result.assets[0]) {
         await uploadProfilePhoto(result.assets[0].uri);
       }
     } catch (error) {
-      Alert.alert('Error', 'Failed to open image picker.');
+      console.error('Error opening image picker:', error);
+      Alert.alert('Error', 'Failed to open photo library. Please try again.');
     }
   };
 
@@ -334,6 +354,7 @@ export default function ProfileScreen() {
       await updateProfilePhoto(uri);
       Alert.alert('Success', 'Profile photo updated successfully.');
     } catch (error: any) {
+      console.error('Error uploading profile photo:', error);
       Alert.alert('Error', getCleanErrorMessage(error));
     } finally {
       setUploadingPhoto(false);

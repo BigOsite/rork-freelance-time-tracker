@@ -67,7 +67,7 @@ export default function JobCard({
         }
         // More responsive gesture recognition
         const shouldRespond = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && 
-               Math.abs(gestureState.dx) > 3;
+               Math.abs(gestureState.dx) > 5;
         return shouldRespond;
       },
       onPanResponderGrant: () => {
@@ -81,7 +81,7 @@ export default function JobCard({
           translateX.setValue(newValue);
           
           // Set swipe active when meaningfully moving
-          if (!isSwipeActive && Math.abs(gestureState.dx) > 5) {
+          if (!isSwipeActive && Math.abs(gestureState.dx) > 10) {
             setIsSwipeActive(true);
           }
         }
@@ -100,8 +100,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: -DELETE_BUTTON_WIDTH,
             useNativeDriver: true,
-            tension: 400,
-            friction: 10,
+            tension: 300,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         } else {
@@ -109,8 +109,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 400,
-            friction: 10,
+            tension: 300,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         }
@@ -118,6 +118,12 @@ export default function JobCard({
       onPanResponderTerminate: () => {
         // Ensure state is reset if gesture is interrupted
         setIsSwipeActive(false);
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 300,
+          friction: 8,
+        }).start();
       },
     })
   ).current;
@@ -128,8 +134,8 @@ export default function JobCard({
       Animated.spring(translateX, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 400,
-        friction: 10,
+        tension: 300,
+        friction: 8,
       }).start(() => {
         router.push(`/job/${id}`);
       });
@@ -163,8 +169,8 @@ export default function JobCard({
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
-              tension: 400,
-              friction: 10,
+              tension: 300,
+              friction: 8,
             }).start();
           }
         },
@@ -279,8 +285,8 @@ export default function JobCard({
   
   return (
     <View style={styles.cardContainer}>
-      {/* Delete Button (positioned behind the card) */}
-      <View style={styles.deleteButtonContainer}>
+      {/* Delete Button Background - positioned to extend under the card */}
+      <View style={styles.deleteButtonBackground}>
         <TouchableOpacity 
           style={styles.deleteButton}
           onPress={handleDelete}
@@ -373,19 +379,21 @@ const createStyles = (colors: any) => StyleSheet.create({
     marginBottom: 12,
     position: 'relative',
     overflow: 'hidden',
+    borderRadius: 20,
   },
   cardWrapper: {
     width: '100%',
+    borderRadius: 20,
   },
-  deleteButtonContainer: {
+  deleteButtonBackground: {
     position: 'absolute',
-    right: -DELETE_BUTTON_WIDTH,
     top: 0,
     bottom: 0,
-    width: DELETE_BUTTON_WIDTH * 2,
+    right: -DELETE_BUTTON_WIDTH,
+    width: DELETE_BUTTON_WIDTH + 40, // Extra width to ensure it's hidden
     justifyContent: 'center',
     alignItems: 'flex-end',
-    paddingRight: DELETE_BUTTON_WIDTH,
+    paddingRight: 40, // Push the button content to the visible area
   },
   deleteButton: {
     backgroundColor: colors.danger,
@@ -393,10 +401,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
-    borderTopLeftRadius: 0,
-    borderBottomLeftRadius: 0,
+    borderRadius: 0, // No border radius to ensure clean edge
     shadowColor: '#000',
     shadowOffset: { width: -2, height: 2 },
     shadowOpacity: 0.1,
