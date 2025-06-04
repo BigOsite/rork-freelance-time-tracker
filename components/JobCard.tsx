@@ -53,8 +53,8 @@ export default function JobCard({
   const earnings = (totalDuration / (1000 * 60 * 60)) * hourlyRate;
   const hasPaidEarnings = paidEarnings > 0;
   
-  // Extract tags and location from settings
-  const tags = settings?.tags?.filter(tag => tag.trim()) || [];
+  // Extract tags and location from settings with proper type checking
+  const tags = settings?.tags?.filter((tag: string) => tag.trim()) || [];
   const location = settings?.location?.trim();
   const hasTagsOrLocation = tags.length > 0 || !!location;
   
@@ -380,9 +380,9 @@ const createStyles = (colors: any) => StyleSheet.create({
     right: 0,
     top: 0,
     bottom: 0,
-    width: DELETE_BUTTON_WIDTH,
+    width: DELETE_BUTTON_WIDTH + 20, // Extended further left
     justifyContent: 'center',
-    alignItems: 'center',
+    alignItems: 'flex-end', // Align to right side
     overflow: 'hidden',
   },
   deleteButton: {
