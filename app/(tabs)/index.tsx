@@ -140,8 +140,10 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.greeting}>{greeting}</Text>
             <Text style={styles.title}>Dashboard</Text>
+            {isAuthenticated && user?.displayName && (
+              <Text style={styles.greeting}>{greeting}</Text>
+            )}
           </View>
           <TouchableOpacity 
             style={styles.addButton}
@@ -313,18 +315,18 @@ const createStyles = (colors: any) => StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  greeting: {
-    fontSize: 16,
-    color: colors.subtext,
-    fontWeight: '500',
-    marginBottom: 4,
-    letterSpacing: -0.1,
-  },
   title: {
     fontSize: 28,
     fontWeight: '800',
     color: colors.text,
     letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  greeting: {
+    fontSize: 16,
+    color: colors.subtext,
+    fontWeight: '500',
+    letterSpacing: -0.1,
   },
   addButton: {
     width: 48,

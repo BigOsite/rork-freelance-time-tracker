@@ -30,8 +30,10 @@ export default function NewTimeEntryScreen() {
       });
       
       if (entryId) {
-        // Navigate directly to the specific job details page
-        router.replace(`/(tabs)/job/${jobId}`);
+        // Use a small delay to ensure store operations complete
+        setTimeout(() => {
+          router.replace(`/(tabs)/job/${jobId}`);
+        }, 100);
         return true;
       } else {
         return false;
