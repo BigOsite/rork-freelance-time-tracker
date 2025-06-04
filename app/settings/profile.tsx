@@ -16,6 +16,7 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, Key, X, Edit, Camera, Upload } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -282,7 +283,7 @@ export default function ProfileScreen() {
 
   const openCamera = async () => {
     try {
-      // Request camera permission
+      // Request camera permission with better error handling
       const cameraPermission = await ImagePicker.requestCameraPermissionsAsync();
       
       if (!cameraPermission.granted) {
@@ -291,7 +292,16 @@ export default function ProfileScreen() {
           'Please enable camera access in your device settings to take photos.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => ImagePicker.requestCameraPermissionsAsync() }
+            { 
+              text: 'Open Settings', 
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Alert.alert('Settings', 'Go to Settings > Privacy & Security > Camera and enable access for this app.');
+                } else {
+                  Alert.alert('Settings', 'Go to Settings > Apps > Permissions > Camera and enable access for this app.');
+                }
+              }
+            }
           ]
         );
         return;
@@ -316,8 +326,17 @@ export default function ProfileScreen() {
 
   const openImagePicker = async () => {
     try {
-      // Request media library permission
-      const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      // Request media library permission with better error handling
+      let mediaPermission;
+      
+      try {
+        // Try MediaLibrary first (more comprehensive)
+        mediaPermission = await MediaLibrary.requestPermissionsAsync();
+      } catch (mediaLibraryError) {
+        console.log('MediaLibrary not available, falling back to ImagePicker:', mediaLibraryError);
+        // Fallback to ImagePicker permissions
+        mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      }
       
       if (!mediaPermission.granted) {
         Alert.alert(
@@ -325,7 +344,16 @@ export default function ProfileScreen() {
           'Please enable photo library access in your device settings to select photos.',
           [
             { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => ImagePicker.requestMediaLibraryPermissionsAsync() }
+            { 
+              text: 'Open Settings', 
+              onPress: () => {
+                if (Platform.OS === 'ios') {
+                  Alert.alert('Settings', 'Go to Settings > Privacy & Security > Photos and enable access for this app.');
+                } else {
+                  Alert.alert('Settings', 'Go to Settings > Apps > Permissions > Storage and enable access for this app.');
+                }
+              }
+            }
           ]
         );
         return;

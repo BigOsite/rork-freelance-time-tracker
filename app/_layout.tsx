@@ -21,6 +21,7 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   const appState = useRef<AppStateStatus>(AppState.currentState);
   const backgroundSyncInitialized = useRef(false);
+  const lastSyncTime = useRef<number>(0);
   
   // Get store methods
   const { 
@@ -69,10 +70,23 @@ export default function RootLayout() {
   useEffect(() => {
     // Set up network monitoring
     const unsubscribeNetInfo = NetInfo.addEventListener(state => {
+      const isConnected = state.isConnected ?? false;
       setNetworkInfo({
-        isConnected: state.isConnected ?? false,
+        isConnected,
         type: state.type,
       });
+      
+      // If we regain connectivity and have a user, try to sync
+      if (isConnected && userAccount?.uid) {
+        const now = Date.now();
+        // Only sync if it's been more than 30 seconds since last sync
+        if (now - lastSyncTime.current > 30000) {
+          lastSyncTime.current = now;
+          processSyncQueue(userAccount.uid).catch(error => {
+            console.log('Auto-sync on connectivity restore failed:', error);
+          });
+        }
+      }
     });
 
     // Initialize network state
@@ -86,7 +100,7 @@ export default function RootLayout() {
     return () => {
       unsubscribeNetInfo();
     };
-  }, [setNetworkInfo]);
+  }, [setNetworkInfo, userAccount?.uid, processSyncQueue]);
 
   // Background sync initialization
   useEffect(() => {
@@ -110,7 +124,12 @@ export default function RootLayout() {
         // App has come to the foreground - trigger sync
         if (userAccount?.uid) {
           try {
-            await processSyncQueue(userAccount.uid);
+            const now = Date.now();
+            // Only sync if it's been more than 10 seconds since last sync
+            if (now - lastSyncTime.current > 10000) {
+              lastSyncTime.current = now;
+              await processSyncQueue(userAccount.uid);
+            }
           } catch (error) {
             console.error('Error syncing on app foreground:', error);
           }
@@ -126,22 +145,49 @@ export default function RootLayout() {
     };
   }, [userAccount?.uid, processSyncQueue]);
 
-  // Periodic sync when app is active
+  // Enhanced periodic sync when app is active
   useEffect(() => {
     if (!userAccount?.uid) return;
 
     const periodicSync = setInterval(async () => {
       if (AppState.currentState === 'active') {
         try {
-          await processSyncQueue(userAccount.uid);
+          const now = Date.now();
+          // Only sync if it's been more than 5 minutes since last sync
+          if (now - lastSyncTime.current > 5 * 60 * 1000) {
+            lastSyncTime.current = now;
+            await processSyncQueue(userAccount.uid);
+          }
         } catch (error) {
           console.error('Error in periodic sync:', error);
         }
       }
-    }, 30 * 60 * 1000); // Every 30 minutes when app is active
+    }, 10 * 60 * 1000); // Check every 10 minutes when app is active
 
     return () => {
       clearInterval(periodicSync);
+    };
+  }, [userAccount?.uid, processSyncQueue]);
+
+  // Enhanced background sync for data consistency
+  useEffect(() => {
+    if (!userAccount?.uid) return;
+
+    const backgroundSync = setInterval(async () => {
+      try {
+        const now = Date.now();
+        // Background sync every 2 hours
+        if (now - lastSyncTime.current > 2 * 60 * 60 * 1000) {
+          lastSyncTime.current = now;
+          await processSyncQueue(userAccount.uid);
+        }
+      } catch (error) {
+        console.error('Error in background sync:', error);
+      }
+    }, 2 * 60 * 60 * 1000); // Every 2 hours
+
+    return () => {
+      clearInterval(backgroundSync);
     };
   }, [userAccount?.uid, processSyncQueue]);
 

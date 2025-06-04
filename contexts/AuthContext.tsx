@@ -3,10 +3,11 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
+import * as MediaLibrary from 'expo-media-library';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
-import { supabase, refreshSessionIfNeeded } from '@/lib/supabase';
+import { supabase, refreshSessionIfNeeded, initializeSession } from '@/lib/supabase';
 import { AuthState, UserAccount } from '@/types';
 
 interface AuthContextType extends AuthState {
@@ -67,6 +68,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
   } = useBusinessStore();
 
   const { syncWithSupabase, initializeBackgroundSync, stopBackgroundSync } = useJobsStore();
+
+  // Set up the getCurrentUser method in the jobs store
+  useEffect(() => {
+    const jobsStore = useJobsStore.getState();
+    jobsStore.getCurrentUser = () => userAccount;
+  }, [userAccount]);
 
   // Helper function to establish Supabase session
   const establishSupabaseSession = async (email: string, password: string) => {
@@ -384,25 +391,45 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // If no imageUri provided, launch image picker
       let finalImageUri = imageUri;
       if (!finalImageUri) {
-        // Request permissions first
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
+        // Request permissions first with better error handling
+        try {
+          const { status } = await MediaLibrary.requestPermissionsAsync();
+          if (status !== 'granted') {
+            throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
+          }
+        } catch (permissionError) {
+          console.log('Media library permission error:', permissionError);
+          // Fallback to image picker permission
+          try {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
+            }
+          } catch (fallbackError) {
+            console.log('Image picker permission error:', fallbackError);
+            throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
+          }
         }
 
-        const result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: true,
-          aspect: [1, 1],
-          quality: 0.8,
-        });
+        try {
+          const result = await ImagePicker.launchImageLibraryAsync({
+            mediaTypes: ImagePicker.MediaTypeOptions.Images,
+            allowsEditing: true,
+            aspect: [1, 1],
+            quality: 0.8,
+            exif: false, // Reduce metadata for smaller file size
+          });
 
-        if (result.canceled || !result.assets || result.assets.length === 0) {
-          setAuthState({ isLoading: false, error: null });
-          return;
+          if (result.canceled || !result.assets || result.assets.length === 0) {
+            setAuthState({ isLoading: false, error: null });
+            return;
+          }
+
+          finalImageUri = result.assets[0].uri;
+        } catch (pickerError) {
+          console.log('Image picker error:', pickerError);
+          throw new Error('Failed to select image. Please try again.');
         }
-
-        finalImageUri = result.assets[0].uri;
       }
 
       // Ensure we have an active Supabase session
@@ -413,10 +440,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
       const userId = session.user.id;
 
-      // Read the image file
-      const fileInfo = await FileSystem.getInfoAsync(finalImageUri);
-      if (!fileInfo.exists) {
-        throw new Error('Image file not found');
+      // Validate the image file exists
+      try {
+        const fileInfo = await FileSystem.getInfoAsync(finalImageUri);
+        if (!fileInfo.exists) {
+          throw new Error('Selected image file not found. Please try selecting another image.');
+        }
+      } catch (fileError) {
+        console.log('File validation error:', fileError);
+        throw new Error('Failed to access selected image. Please try selecting another image.');
       }
 
       // Create a unique filename
@@ -431,6 +463,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // On web, convert image URI to File object
         try {
           const response = await fetch(finalImageUri);
+          if (!response.ok) {
+            throw new Error('Failed to fetch image data');
+          }
           const blob = await response.blob();
           const file = new File([blob], fileName, { type: `image/${fileExt}` });
           
@@ -445,7 +480,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
           uploadError = result.error;
         } catch (fetchError) {
           console.log('Web file conversion error:', fetchError);
-          throw new Error('Failed to process image file');
+          throw new Error('Failed to process image file. Please try selecting another image.');
         }
       } else {
         // On native platforms, read as base64 and convert to Uint8Array
@@ -453,6 +488,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
           const base64 = await FileSystem.readAsStringAsync(finalImageUri, {
             encoding: FileSystem.EncodingType.Base64,
           });
+
+          if (!base64) {
+            throw new Error('Failed to read image file');
+          }
 
           // Convert base64 to Uint8Array
           const binaryString = atob(base64);
@@ -473,17 +512,20 @@ export function AuthProvider({ children }: AuthProviderProps) {
           uploadError = result.error;
         } catch (conversionError) {
           console.log('Native file conversion error:', conversionError);
-          throw new Error('Failed to process image file');
+          throw new Error('Failed to process image file. Please try selecting another image.');
         }
       }
 
       if (uploadError) {
         console.log('Upload error:', uploadError);
-        throw uploadError;
+        if (uploadError.message?.includes('row-level security')) {
+          throw new Error('Upload permission denied. Please try signing out and back in.');
+        }
+        throw new Error('Upload failed. Please check your connection and try again.');
       }
 
       if (!uploadData) {
-        throw new Error('Upload failed - no data returned');
+        throw new Error('Upload failed - no data returned. Please try again.');
       }
 
       // Get public URL
@@ -492,7 +534,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
         .getPublicUrl(filePath);
 
       if (!urlData?.publicUrl) {
-        throw new Error('Failed to get public URL for uploaded image');
+        throw new Error('Failed to get public URL for uploaded image. Please try again.');
       }
 
       // Update user profile with new photo URL
@@ -504,6 +546,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       });
 
       if (updateError) {
+        console.log('Profile update error:', updateError);
         throw updateError;
       }
 
@@ -564,7 +607,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('The resource was not found')) {
       return 'Upload failed. Please try again.';
     }
-    if (message.includes('Image file not found')) {
+    if (message.includes('Image file not found') || message.includes('Selected image file not found')) {
       return 'Selected image could not be found. Please try selecting another image.';
     }
     if (message.includes('Session expired')) {
@@ -573,7 +616,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('Auth session missing') || message.includes('No active session')) {
       return 'Session expired. Please sign in again.';
     }
-    if (message.includes('new row violates row-level security policy')) {
+    if (message.includes('new row violates row-level security policy') || message.includes('Upload permission denied')) {
       return 'Upload permission denied. Please try signing out and back in.';
     }
     if (message.includes('Creating blobs from') || message.includes('ArrayBuffer')) {
@@ -588,19 +631,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('Permission to access media library is required')) {
       return message; // Return the full permission message
     }
+    if (message.includes('Failed to select image')) {
+      return 'Failed to select image. Please try again.';
+    }
+    if (message.includes('Failed to access selected image')) {
+      return 'Failed to access selected image. Please try selecting another image.';
+    }
     
     // Return the original message if it's already user-friendly
     return message || 'An unexpected error occurred. Please try again.';
   };
 
-  // Initialize auth state on app start
+  // Initialize auth state on app start with better session management
   useEffect(() => {
     const initializeAuth = async () => {
       try {
         setAuthState({ isLoading: true, error: null });
         
+        // Initialize Supabase session first
+        const session = await initializeSession();
+        
         const token = await secureStorage.getItem(TOKEN_KEY);
-        if (token) {
+        if (token && session) {
           setAuthToken(token);
           
           setAuthState({ isAuthenticated: true, isLoading: false, error: null });
@@ -631,8 +683,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           } catch (error) {
             console.log('Failed to refresh profile on init:', error);
-            // If profile fetch fails, clear auth
-            await logout();
+            // If profile fetch fails, clear auth but don't logout from Supabase
+            await secureStorage.removeItem(TOKEN_KEY);
+            clearAuth();
           }
         } else {
           setAuthState({ isAuthenticated: false, isLoading: false, error: null });

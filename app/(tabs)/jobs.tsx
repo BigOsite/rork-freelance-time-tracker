@@ -160,11 +160,19 @@ export default function JobsScreen() {
   const onRefresh = React.useCallback(async () => {
     try {
       if (user?.uid) {
-        // Use intelligent sync that preserves local changes
+        // Enhanced pull-to-refresh: First upload local changes, then download remote data
+        console.log('Starting enhanced pull-to-refresh sync...');
+        
+        // Step 1: Process any pending local changes (upload to Supabase)
+        await store.processSyncQueue(user.uid);
+        
+        // Step 2: Fetch and merge latest data from Supabase
         await store.syncWithSupabase(user.uid);
+        
+        console.log('Enhanced pull-to-refresh sync completed successfully');
       }
     } catch (error) {
-      console.error('Error refreshing data:', error);
+      console.error('Error during enhanced refresh:', error);
     }
   }, [store, user?.uid]);
   
@@ -221,8 +229,11 @@ export default function JobsScreen() {
             </Text>
           </View>
           <View style={styles.headerActions}>
-            <TouchableOpacity 
-              style={[styles.searchButton, showSearchBar && styles.searchButtonActive]}
+            <TouchableOpacity
+              style={[
+                styles.filterButton,
+                showSearchBar && styles.searchButtonActive
+              ]}
               onPress={handleSearchPress}
             >
               <Search size={20} color={showSearchBar ? colors.primary : colors.subtext} />

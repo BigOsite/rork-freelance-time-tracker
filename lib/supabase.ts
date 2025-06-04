@@ -284,9 +284,45 @@ export const refreshSessionIfNeeded = async () => {
   }
 };
 
+// Enhanced session management
+export const initializeSession = async () => {
+  try {
+    // Get the current session
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Error initializing session:', error);
+      return null;
+    }
+    
+    if (session) {
+      // Refresh the session to ensure it's valid
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.error('Error refreshing session on init:', refreshError);
+        return session; // Return original session if refresh fails
+      }
+      
+      return refreshData.session || session;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error in initializeSession:', error);
+    return null;
+  }
+};
+
 // Batch sync helpers for offline queue processing
 export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'upsert' | 'delete') => {
   try {
+    // Ensure we have a valid session
+    const session = await getCurrentSession();
+    if (!session) {
+      throw new Error('No active session for sync');
+    }
+    
     if (operation === 'upsert') {
       const jobsData = jobs.map(job => ({
         id: job.id,
@@ -320,6 +356,12 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
 
 export const batchSyncTimeEntries = async (entries: TimeEntry[], userId: string, operation: 'upsert' | 'delete') => {
   try {
+    // Ensure we have a valid session
+    const session = await getCurrentSession();
+    if (!session) {
+      throw new Error('No active session for sync');
+    }
+    
     if (operation === 'upsert') {
       const entriesData = entries.map(entry => ({
         id: entry.id,
@@ -355,6 +397,12 @@ export const batchSyncTimeEntries = async (entries: TimeEntry[], userId: string,
 
 export const batchSyncPayPeriods = async (periods: PayPeriod[], userId: string, operation: 'upsert' | 'delete') => {
   try {
+    // Ensure we have a valid session
+    const session = await getCurrentSession();
+    if (!session) {
+      throw new Error('No active session for sync');
+    }
+    
     if (operation === 'upsert') {
       const periodsData = periods.map(period => ({
         id: period.id,
@@ -389,8 +437,8 @@ export const batchSyncPayPeriods = async (periods: PayPeriod[], userId: string, 
   }
 };
 
-// Fetch all user data from Supabase with better error handling
-export const fetchAllUserData = async (userId: string) => {
+// Fetch all user data from Supabase with better error handling and retry logic
+export const fetchAllUserData = async (userId: string, retryCount = 0) => {
   try {
     // Ensure we have a valid session before making requests
     const session = await getCurrentSession();
@@ -476,6 +524,14 @@ export const fetchAllUserData = async (userId: string) => {
     return result;
   } catch (error) {
     console.error('Error fetching all user data:', error);
+    
+    // Retry logic for network issues
+    if (retryCount < 2 && (error as any)?.message?.includes('network')) {
+      console.log(`Retrying fetch (attempt ${retryCount + 1})`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1))); // Exponential backoff
+      return fetchAllUserData(userId, retryCount + 1);
+    }
+    
     throw error;
   }
 };
