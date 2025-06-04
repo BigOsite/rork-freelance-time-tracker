@@ -27,7 +27,7 @@ type JobCardProps = {
 };
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SWIPE_THRESHOLD = 80;
+const SWIPE_THRESHOLD = 60;
 const DELETE_BUTTON_WIDTH = 80;
 
 export default function JobCard({ 
@@ -66,7 +66,7 @@ export default function JobCard({
           return false;
         }
         const shouldRespond = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && 
-               Math.abs(gestureState.dx) > 10;
+               Math.abs(gestureState.dx) > 8;
         return shouldRespond;
       },
       onPanResponderGrant: () => {
@@ -87,16 +87,18 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: -DELETE_BUTTON_WIDTH,
             useNativeDriver: true,
-            tension: 100,
-            friction: 8,
+            tension: 120,
+            friction: 9,
+            velocity: gestureState.vx,
           }).start();
         } else {
           // Reset to original position
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 100,
-            friction: 8,
+            tension: 120,
+            friction: 9,
+            velocity: gestureState.vx,
           }).start();
         }
       },
@@ -109,8 +111,8 @@ export default function JobCard({
       Animated.spring(translateX, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 100,
-        friction: 8,
+        tension: 120,
+        friction: 9,
       }).start(() => {
         router.push(`/job/${id}`);
       });
@@ -144,8 +146,8 @@ export default function JobCard({
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
-              tension: 100,
-              friction: 8,
+              tension: 120,
+              friction: 9,
             }).start();
           }
         },
@@ -365,6 +367,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     width: DELETE_BUTTON_WIDTH,
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 20,
+    overflow: 'hidden',
   },
   deleteButton: {
     backgroundColor: colors.danger,
@@ -372,8 +376,7 @@ const createStyles = (colors: any) => StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderTopRightRadius: 20,
-    borderBottomRightRadius: 20,
+    borderRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 3 },
     shadowOpacity: 0.15,
