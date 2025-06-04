@@ -30,8 +30,8 @@ export default function NewTimeEntryScreen() {
       });
       
       if (entryId) {
-        // Use replace to ensure we navigate back properly
-        router.replace(`/(tabs)/job/${jobId}`);
+        // Navigate back to the job details page
+        router.push(`/(tabs)/job/${jobId}`);
         return true;
       } else {
         return false;
@@ -45,7 +45,7 @@ export default function NewTimeEntryScreen() {
   const handleCancel = () => {
     // Navigate back to the job details page
     if (jobId) {
-      router.replace(`/(tabs)/job/${jobId}`);
+      router.push(`/(tabs)/job/${jobId}`);
     } else {
       router.push('/(tabs)/jobs');
     }
