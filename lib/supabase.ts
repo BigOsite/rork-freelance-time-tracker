@@ -1,14 +1,50 @@
 import { createClient } from '@supabase/supabase-js';
+import { Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Job, TimeEntry, PayPeriod, SyncQueueItem } from '@/types';
 
 const supabaseUrl = 'https://hrymwfavjfvnksxjezoy.supabase.co';
 const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyeW13ZmF2amZ2bmtzeGplem95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2MzExNTMsImV4cCI6MjA2NDIwNzE1M30.o3aPJsDW8JHSCdAE0ACYrLj4Y6u9UR3kPbujBzEcapY';
 
+// Create storage adapter for cross-platform compatibility
+const supabaseStorage = {
+  getItem: async (key: string) => {
+    if (Platform.OS === 'web') {
+      return localStorage.getItem(key);
+    } else {
+      return await AsyncStorage.getItem(key);
+    }
+  },
+  setItem: async (key: string, value: string) => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem(key, value);
+    } else {
+      await AsyncStorage.setItem(key, value);
+    }
+  },
+  removeItem: async (key: string) => {
+    if (Platform.OS === 'web') {
+      localStorage.removeItem(key);
+    } else {
+      await AsyncStorage.removeItem(key);
+    }
+  },
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
+    storage: supabaseStorage,
     autoRefreshToken: true,
     persistSession: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: Platform.OS === 'web',
+    flowType: 'pkce',
+    // Increase session refresh threshold to prevent premature logouts
+    sessionRefreshThreshold: 300, // 5 minutes before expiry
+  },
+  global: {
+    headers: {
+      'X-Client-Info': Platform.OS === 'web' ? 'supabase-js-web' : 'supabase-js-react-native',
+    },
   },
 });
 
@@ -209,6 +245,45 @@ export const ensureAuthenticated = async () => {
     throw new Error('User not authenticated');
   }
   return user;
+};
+
+// Helper function to refresh session if needed
+export const refreshSessionIfNeeded = async () => {
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.log('Error getting session:', error);
+      return false;
+    }
+    
+    if (!session) {
+      console.log('No active session found');
+      return false;
+    }
+    
+    // Check if session is close to expiring (within 10 minutes)
+    const now = Math.round(Date.now() / 1000);
+    const expiresAt = session.expires_at || 0;
+    const timeUntilExpiry = expiresAt - now;
+    
+    if (timeUntilExpiry < 600) { // Less than 10 minutes
+      console.log('Session expiring soon, refreshing...');
+      const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+      
+      if (refreshError) {
+        console.log('Failed to refresh session:', refreshError);
+        return false;
+      }
+      
+      return !!refreshData.session;
+    }
+    
+    return true;
+  } catch (error) {
+    console.log('Error refreshing session:', error);
+    return false;
+  }
 };
 
 // Batch sync helpers for offline queue processing

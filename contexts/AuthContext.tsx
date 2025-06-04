@@ -6,7 +6,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
-import { supabase } from '@/lib/supabase';
+import { supabase, refreshSessionIfNeeded } from '@/lib/supabase';
 import { AuthState, UserAccount } from '@/types';
 
 interface AuthContextType extends AuthState {
@@ -28,7 +28,6 @@ interface AuthProviderProps {
 }
 
 const TOKEN_KEY = 'auth_token';
-const SUPABASE_SESSION_KEY = 'supabase_session';
 
 // Secure storage wrapper that works on all platforms
 const secureStorage = {
@@ -82,44 +81,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
         return false;
       }
 
-      if (data.session) {
-        // Store session for persistence
-        await secureStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(data.session));
-        return true;
-      }
-      return false;
+      return !!data.session;
     } catch (error) {
       console.log('Error establishing Supabase session:', error);
-      return false;
-    }
-  };
-
-  // Helper function to restore Supabase session
-  const restoreSupabaseSession = async () => {
-    try {
-      const sessionData = await secureStorage.getItem(SUPABASE_SESSION_KEY);
-      if (sessionData) {
-        const session = JSON.parse(sessionData);
-        
-        // Check if session is still valid (not expired)
-        const now = Math.round(Date.now() / 1000);
-        if (session.expires_at && session.expires_at < now) {
-          console.log('Stored session is expired, removing it');
-          await secureStorage.removeItem(SUPABASE_SESSION_KEY);
-          return false;
-        }
-        
-        const { error } = await supabase.auth.setSession(session);
-        if (error) {
-          console.log('Failed to restore Supabase session:', error);
-          await secureStorage.removeItem(SUPABASE_SESSION_KEY);
-          return false;
-        }
-        return true;
-      }
-      return false;
-    } catch (error) {
-      console.log('Error restoring Supabase session:', error);
       return false;
     }
   };
@@ -129,63 +93,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (session && session.user) {
+        // Check if session needs refresh
+        await refreshSessionIfNeeded();
         return session;
       }
-
-      // Try to restore session from storage
-      const restored = await restoreSupabaseSession();
-      if (restored) {
-        const { data: { session: newSession } } = await supabase.auth.getSession();
-        return newSession;
-      }
-
       return null;
     } catch (error) {
       console.log('Error ensuring Supabase session:', error);
       return null;
-    }
-  };
-
-  // Helper function to refresh session if needed
-  const refreshSessionIfNeeded = async () => {
-    try {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        console.log('Error getting session:', error);
-        return false;
-      }
-      
-      if (!session) {
-        console.log('No active session found');
-        return false;
-      }
-      
-      // Check if session is close to expiring (within 5 minutes)
-      const now = Math.round(Date.now() / 1000);
-      const expiresAt = session.expires_at || 0;
-      const timeUntilExpiry = expiresAt - now;
-      
-      if (timeUntilExpiry < 300) { // Less than 5 minutes
-        console.log('Session expiring soon, refreshing...');
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          console.log('Failed to refresh session:', refreshError);
-          return false;
-        }
-        
-        if (refreshData.session) {
-          // Update stored session
-          await secureStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(refreshData.session));
-          return true;
-        }
-      }
-      
-      return true;
-    } catch (error) {
-      console.log('Error refreshing session:', error);
-      return false;
     }
   };
 
@@ -309,7 +224,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     } finally {
       // Clear local auth data regardless of API call result
       await secureStorage.removeItem(TOKEN_KEY);
-      await secureStorage.removeItem(SUPABASE_SESSION_KEY);
       clearAuth();
     }
   };
@@ -470,6 +384,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // If no imageUri provided, launch image picker
       let finalImageUri = imageUri;
       if (!finalImageUri) {
+        // Request permissions first
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
+        }
+
         const result = await ImagePicker.launchImageLibraryAsync({
           mediaTypes: ImagePicker.MediaTypeOptions.Images,
           allowsEditing: true,
@@ -665,6 +585,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('Upload failed - no data returned')) {
       return 'Upload failed. Please check your connection and try again.';
     }
+    if (message.includes('Permission to access media library is required')) {
+      return message; // Return the full permission message
+    }
     
     // Return the original message if it's already user-friendly
     return message || 'An unexpected error occurred. Please try again.';
@@ -674,12 +597,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const initializeAuth = async () => {
       try {
+        setAuthState({ isLoading: true, error: null });
+        
         const token = await secureStorage.getItem(TOKEN_KEY);
         if (token) {
           setAuthToken(token);
-          
-          // Try to restore Supabase session
-          await restoreSupabaseSession();
           
           setAuthState({ isAuthenticated: true, isLoading: false, error: null });
           // Try to refresh profile to get latest user data
@@ -724,24 +646,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
   }, []);
 
-  // Set up auth state change listener
+  // Set up auth state change listener for better session management
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('Auth state changed:', event, !!session);
+        
         if (event === 'SIGNED_OUT' || !session) {
-          // Handle sign out
-          await secureStorage.removeItem(SUPABASE_SESSION_KEY);
-        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          // Handle sign in or token refresh
-          if (session) {
-            await secureStorage.setItem(SUPABASE_SESSION_KEY, JSON.stringify(session));
+          // Handle sign out - but don't clear if user is still authenticated via our backend
+          if (!authState.isAuthenticated) {
+            clearAuth();
           }
+        } else if (event === 'TOKEN_REFRESHED') {
+          // Session was refreshed successfully
+          console.log('Session refreshed successfully');
+        } else if (event === 'SIGNED_IN') {
+          // User signed in via Supabase
+          console.log('User signed in via Supabase');
         }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [authState.isAuthenticated, clearAuth]);
 
   const contextValue: AuthContextType = {
     isAuthenticated: authState.isAuthenticated,
