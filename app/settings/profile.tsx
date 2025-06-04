@@ -681,9 +681,7 @@ export default function ProfileScreen() {
             <View style={styles.demoCard}>
               <Text style={styles.demoTitle}>Demo Account</Text>
               <Text style={styles.demoText}>
-                Email: demo@example.com{'
-'}
-                Password: password123
+                Email: demo@example.com{'\n'}Password: password123
               </Text>
             </View>
           </View>
