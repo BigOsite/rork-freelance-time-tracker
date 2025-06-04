@@ -55,12 +55,6 @@ export default function NewJobScreen() {
               payPeriodType: 'weekly',
               payPeriodStartDay: 0,
               roundTime: 'none',
-              timeRounding: {
-                enabled: false,
-                direction: 'up',
-                interval: '15min',
-                bufferTime: 0
-              },
               tags: [],
               location: '',
               clockOutReminders: false,
