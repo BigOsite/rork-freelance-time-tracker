@@ -169,7 +169,7 @@ const getCurrentUserId = async (): Promise<string | null> => {
 };
 
 // Background sync timer - properly typed for cross-platform compatibility
-let backgroundSyncTimer: NodeJS.Timeout | null = null;
+let backgroundSyncTimer: number | NodeJS.Timeout | null = null;
 const BACKGROUND_SYNC_INTERVAL = 2 * 60 * 60 * 1000; // 2 hours
 
 export const useJobsStore = create<JobsState>()(
@@ -376,7 +376,7 @@ export const useJobsStore = create<JobsState>()(
       initializeBackgroundSync: (userId: string) => {
         // Clear any existing timer
         if (backgroundSyncTimer) {
-          clearInterval(backgroundSyncTimer);
+          clearInterval(backgroundSyncTimer as any);
         }
         
         // Set up background sync timer
@@ -394,7 +394,7 @@ export const useJobsStore = create<JobsState>()(
       
       stopBackgroundSync: () => {
         if (backgroundSyncTimer) {
-          clearInterval(backgroundSyncTimer);
+          clearInterval(backgroundSyncTimer as any);
           backgroundSyncTimer = null;
         }
       },
