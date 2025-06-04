@@ -93,13 +93,16 @@ export default function TimeEntryForm({
         note: note.trim(),
       });
       
-      // If the result is true, the parent component will handle navigation
-      // Don't reset isSubmitting in this case as the component may unmount
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
         setIsSubmitting(false);
+      } else {
+        // Success - give the parent component a moment to handle navigation
+        // then reset isSubmitting in case navigation fails
+        setTimeout(() => {
+          setIsSubmitting(false);
+        }, 1000);
       }
-      // If result is true, let the parent handle navigation and don't reset isSubmitting
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
@@ -108,7 +111,7 @@ export default function TimeEntryForm({
   };
 
   const handleCancel = () => {
-    if (isSubmitting) return;
+    // Always allow cancel, even if submitting
     onCancel();
   };
 
@@ -208,8 +211,7 @@ export default function TimeEntryForm({
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
             style={[styles.button, styles.cancelButton]} 
-            onPress={handleCancel} 
-            disabled={isSubmitting}
+            onPress={handleCancel}
           >
             <Text style={styles.cancelButtonText}>Cancel</Text>
           </TouchableOpacity>

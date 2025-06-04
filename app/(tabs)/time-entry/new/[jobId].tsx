@@ -30,8 +30,8 @@ export default function NewTimeEntryScreen() {
       });
       
       if (entryId) {
-        // Navigate back to the job details page immediately after successful creation
-        router.push(`/(tabs)/job/${jobId}`);
+        // Use replace to ensure we navigate back properly
+        router.replace(`/(tabs)/job/${jobId}`);
         return true;
       } else {
         return false;
@@ -45,7 +45,7 @@ export default function NewTimeEntryScreen() {
   const handleCancel = () => {
     // Navigate back to the job details page
     if (jobId) {
-      router.push(`/(tabs)/job/${jobId}`);
+      router.replace(`/(tabs)/job/${jobId}`);
     } else {
       router.push('/(tabs)/jobs');
     }
