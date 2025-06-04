@@ -16,6 +16,8 @@ export interface JobSettings {
   weeklyOvertimeThreshold?: number;
   weeklyOvertimeRate?: number;
   presetBreaks?: PresetBreak[];
+  tags?: string[];
+  location?: string;
 }
 
 export interface PresetBreak {
