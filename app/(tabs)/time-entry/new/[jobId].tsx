@@ -30,10 +30,8 @@ export default function NewTimeEntryScreen() {
       });
       
       if (entryId) {
-        // Use a small delay to ensure store operations complete
-        setTimeout(() => {
-          router.replace(`/(tabs)/job/${jobId}`);
-        }, 100);
+        // Navigate immediately without delay
+        router.replace(`/(tabs)/job/${jobId}`);
         return true;
       } else {
         return false;

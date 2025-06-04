@@ -445,7 +445,7 @@ export const useJobsStore = create<JobsState>()(
           jobs: [...state.jobs, newJob]
         }));
         
-        // Sync to Supabase
+        // Sync to Supabase asynchronously
         const syncToSupabase = async () => {
           try {
             const userId = await getCurrentUserId();
@@ -476,7 +476,7 @@ export const useJobsStore = create<JobsState>()(
             return { jobs: newJobs };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase asynchronously
           if (updatedJob) {
             const syncToSupabase = async (jobToSync: Job) => {
               try {
@@ -511,7 +511,7 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase asynchronously
           if (deletedJob) {
             const syncToSupabase = async (jobToDelete: Job) => {
               try {
@@ -618,7 +618,7 @@ export const useJobsStore = create<JobsState>()(
           timeEntries: [...state.timeEntries, newEntry]
         }));
         
-        // Sync to Supabase
+        // Sync to Supabase asynchronously
         const syncToSupabase = async () => {
           try {
             const userId = await getCurrentUserId();
@@ -663,15 +663,13 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase using delete+insert for complete replacement
+          // Sync to Supabase asynchronously
           if (updatedEntry) {
             const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  // Delete the old entry and insert the new one to ensure complete replacement
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'delete');
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'insert');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
                 }
               } catch (error) {
                 console.error('Error syncing clock out to Supabase:', error);
@@ -680,7 +678,7 @@ export const useJobsStore = create<JobsState>()(
             syncToSupabase(updatedEntry);
           }
           
-          // Regenerate pay periods after clocking out - use immediate call instead of setTimeout
+          // Regenerate pay periods after clocking out
           get().generatePayPeriods();
           
           return true;
@@ -713,15 +711,13 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase using delete+insert for complete replacement
+          // Sync to Supabase asynchronously
           if (updatedEntry) {
             const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  // Delete the old entry and insert the new one to ensure complete replacement
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'delete');
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'insert');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
                 }
               } catch (error) {
                 console.error('Error syncing break start to Supabase:', error);
@@ -763,15 +759,13 @@ export const useJobsStore = create<JobsState>()(
             return { timeEntries: newEntries };
           });
           
-          // Sync to Supabase using delete+insert for complete replacement
+          // Sync to Supabase asynchronously
           if (updatedEntry) {
             const syncToSupabase = async (entryToSync: TimeEntry) => {
               try {
                 const userId = await getCurrentUserId();
                 if (userId) {
-                  // Delete the old entry and insert the new one to ensure complete replacement
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'delete');
-                  await syncTimeEntryToSupabase(entryToSync, userId, 'insert');
+                  await syncTimeEntryToSupabase(entryToSync, userId, 'update');
                 }
               } catch (error) {
                 console.error('Error syncing break end to Supabase:', error);
@@ -798,7 +792,7 @@ export const useJobsStore = create<JobsState>()(
           timeEntries: [...state.timeEntries, newEntry]
         }));
         
-        // Sync to Supabase
+        // Sync to Supabase asynchronously
         const syncToSupabase = async () => {
           try {
             const userId = await getCurrentUserId();
@@ -811,7 +805,7 @@ export const useJobsStore = create<JobsState>()(
         };
         syncToSupabase();
         
-        // Regenerate pay periods after adding entry - use immediate call instead of setTimeout
+        // Regenerate pay periods after adding entry
         get().generatePayPeriods();
         
         return id;
@@ -825,14 +819,12 @@ export const useJobsStore = create<JobsState>()(
             )
           }));
           
-          // Sync to Supabase using delete+insert for complete replacement to avoid stale data
+          // Sync to Supabase asynchronously
           const syncToSupabase = async () => {
             try {
               const userId = await getCurrentUserId();
               if (userId) {
-                // Delete the old entry and insert the new one to ensure complete replacement
-                await syncTimeEntryToSupabase(updatedEntry, userId, 'delete');
-                await syncTimeEntryToSupabase(updatedEntry, userId, 'insert');
+                await syncTimeEntryToSupabase(updatedEntry, userId, 'update');
               }
             } catch (error) {
               console.error('Error syncing time entry update to Supabase:', error);
@@ -840,7 +832,7 @@ export const useJobsStore = create<JobsState>()(
           };
           syncToSupabase();
           
-          // Regenerate pay periods after updating entry - use immediate call instead of setTimeout
+          // Regenerate pay periods after updating entry
           get().generatePayPeriods();
           
           return true;
@@ -916,25 +908,22 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase - only if deletedEntry exists
-          if (!deletedEntry) {
-            console.error('Could not find entry to delete');
-            return false;
+          // Sync to Supabase asynchronously
+          if (deletedEntry) {
+            const syncToSupabase = async (entryToDelete: TimeEntry) => {
+              try {
+                const userId = await getCurrentUserId();
+                if (userId) {
+                  await syncTimeEntryToSupabase(entryToDelete, userId, 'delete');
+                }
+              } catch (error) {
+                console.error('Error syncing time entry deletion to Supabase:', error);
+              }
+            };
+            syncToSupabase(deletedEntry);
           }
           
-          const syncToSupabase = async (entryToDelete: TimeEntry) => {
-            try {
-              const userId = await getCurrentUserId();
-              if (userId) {
-                await syncTimeEntryToSupabase(entryToDelete, userId, 'delete');
-              }
-            } catch (error) {
-              console.error('Error syncing time entry deletion to Supabase:', error);
-            }
-          };
-          syncToSupabase(deletedEntry);
-          
-          // Regenerate pay periods after deleting entry to ensure consistency - use immediate call instead of setTimeout
+          // Regenerate pay periods after deleting entry to ensure consistency
           get().generatePayPeriods();
           
           return true;
@@ -1043,7 +1032,7 @@ export const useJobsStore = create<JobsState>()(
         
         set({ payPeriods: newPayPeriods });
         
-        // Sync pay periods to Supabase using upsert - but only if there are changes
+        // Sync pay periods to Supabase asynchronously
         const syncToSupabase = async () => {
           try {
             const userId = await getCurrentUserId();
@@ -1102,7 +1091,7 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase asynchronously
           if (updatedPeriod) {
             const syncToSupabase = async (periodToSync: PayPeriod) => {
               try {
@@ -1116,8 +1105,7 @@ export const useJobsStore = create<JobsState>()(
                     for (const entryId of period.timeEntryIds) {
                       const entry = get().timeEntries.find(e => e.id === entryId);
                       if (entry) {
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: periodId }, userId, 'delete');
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: periodId }, userId, 'insert');
+                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: periodId }, userId, 'update');
                       }
                     }
                   }
@@ -1158,7 +1146,7 @@ export const useJobsStore = create<JobsState>()(
             };
           });
           
-          // Sync to Supabase
+          // Sync to Supabase asynchronously
           if (updatedPeriod) {
             const syncToSupabase = async (periodToSync: PayPeriod) => {
               try {
@@ -1172,8 +1160,7 @@ export const useJobsStore = create<JobsState>()(
                     for (const entryId of period.timeEntryIds) {
                       const entry = get().timeEntries.find(e => e.id === entryId);
                       if (entry) {
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: undefined }, userId, 'delete');
-                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: undefined }, userId, 'insert');
+                        await syncTimeEntryToSupabase({ ...entry, paidInPeriodId: undefined }, userId, 'update');
                       }
                     }
                   }

@@ -27,10 +27,8 @@ export default function EditTimeEntryScreen() {
       });
       
       if (success) {
-        // Use a small delay to ensure store operations complete
-        setTimeout(() => {
-          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-        }, 100);
+        // Navigate immediately without delay
+        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
         return true;
       } else {
         return false;
@@ -57,14 +55,12 @@ export default function EditTimeEntryScreen() {
     try {
       const success = deleteTimeEntry(id);
       if (success) {
-        // Use a small delay to ensure store operations complete
-        setTimeout(() => {
-          if (timeEntry?.jobId) {
-            router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-          } else {
-            router.replace('/(tabs)/jobs');
-          }
-        }, 100);
+        // Navigate immediately without delay
+        if (timeEntry?.jobId) {
+          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+        } else {
+          router.replace('/(tabs)/jobs');
+        }
       }
     } catch (error) {
       console.error('Error deleting time entry:', error);

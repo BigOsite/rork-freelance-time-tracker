@@ -93,12 +93,14 @@ export default function DashboardScreen() {
     return earnings;
   }, [jobs, store]);
   
-  // Generate personalized greeting
+  // Generate personalized greeting with time-based logic
   const greeting = React.useMemo(() => {
     if (isAuthenticated && user?.displayName) {
-      return `Good morning, ${user.displayName}`;
+      const currentHour = new Date().getHours();
+      const timeOfDay = currentHour < 12 ? 'morning' : 'afternoon';
+      return `Good ${timeOfDay}, ${user.displayName}`;
     }
-    return 'Good morning';
+    return null;
   }, [isAuthenticated, user?.displayName]);
   
   const onRefresh = React.useCallback(() => {
@@ -141,7 +143,7 @@ export default function DashboardScreen() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.title}>Dashboard</Text>
-            {isAuthenticated && user?.displayName && (
+            {greeting && (
               <Text style={styles.greeting}>{greeting}</Text>
             )}
           </View>

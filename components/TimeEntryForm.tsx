@@ -19,7 +19,7 @@ type TimeEntryFormProps = {
     endTime: number | null;
     note: string;
   };
-  onSubmit: (values: { startTime: number; endTime: number | null; note: string }) => Promise<boolean> | boolean;
+  onSubmit: (values: { startTime: number; endTime: number | null; note: string }) => Promise<boolean>;
   onCancel: () => void;
   onDelete?: () => void;
   jobName: string;
@@ -56,6 +56,8 @@ export default function TimeEntryForm({
     setStartTime(currentValues.startTime);
     setEndTime(currentValues.endTime);
     setNote(currentValues.note);
+    // Reset submitting state when values change
+    setIsSubmitting(false);
   }, [initialValues, defaultValues]);
 
   const hasChanges = useMemo(() => {
@@ -97,8 +99,7 @@ export default function TimeEntryForm({
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
         setIsSubmitting(false);
       }
-      // If result is true, don't reset isSubmitting - let the parent handle navigation
-      // The parent component will handle navigation and cleanup
+      // If successful, parent will handle navigation - don't reset isSubmitting here
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
