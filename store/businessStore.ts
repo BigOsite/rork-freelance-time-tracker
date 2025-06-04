@@ -142,7 +142,12 @@ export const useBusinessStore = create<BusinessState>()(
       },
       
       setUserAccount: (account) => {
-        set({ userAccount: account });
+        // Ensure the id property is set to the same value as uid for compatibility
+        const accountWithId = {
+          ...account,
+          id: account.uid, // Ensure id is always set to uid
+        };
+        set({ userAccount: accountWithId });
       },
       
       setAuthState: (newState) => {

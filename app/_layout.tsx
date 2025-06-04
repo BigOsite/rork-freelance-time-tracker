@@ -19,7 +19,7 @@ const queryClient = new QueryClient();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const appState = useRef(AppState.currentState);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
   const backgroundSyncInitialized = useRef(false);
   
   // Get store methods

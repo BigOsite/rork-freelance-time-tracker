@@ -27,7 +27,7 @@ type JobCardProps = {
 };
 
 const SCREEN_WIDTH = Dimensions.get('window').width;
-const SWIPE_THRESHOLD = 50;
+const SWIPE_THRESHOLD = 60;
 const DELETE_BUTTON_WIDTH = 80;
 
 export default function JobCard({ 
@@ -65,13 +65,13 @@ export default function JobCard({
         if (!showSwipeToDelete || !onDelete) {
           return false;
         }
-        // Reduced threshold for more responsive gesture recognition
+        // More responsive gesture recognition
         const shouldRespond = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && 
-               Math.abs(gestureState.dx) > 5;
+               Math.abs(gestureState.dx) > 3;
         return shouldRespond;
       },
       onPanResponderGrant: () => {
-        // Immediately reset any previous swipe state for instant responsiveness
+        // Reset any previous swipe state for instant responsiveness
         setIsSwipeActive(false);
       },
       onPanResponderMove: (evt, gestureState) => {
@@ -80,27 +80,28 @@ export default function JobCard({
           const newValue = Math.max(gestureState.dx, -DELETE_BUTTON_WIDTH);
           translateX.setValue(newValue);
           
-          // Set swipe active only when meaningfully moving
-          if (!isSwipeActive && Math.abs(gestureState.dx) > 8) {
+          // Set swipe active when meaningfully moving
+          if (!isSwipeActive && Math.abs(gestureState.dx) > 5) {
             setIsSwipeActive(true);
           }
         }
       },
       onPanResponderRelease: (evt, gestureState) => {
-        // Immediately reset swipe active state for instant responsiveness
+        // Reset swipe active state
         setIsSwipeActive(false);
         
-        // Use velocity for more natural feel
+        // Use velocity and distance for natural feel
         const velocity = Math.abs(gestureState.vx);
-        const shouldReveal = gestureState.dx < -SWIPE_THRESHOLD || velocity > 0.5;
+        const distance = Math.abs(gestureState.dx);
+        const shouldReveal = distance > SWIPE_THRESHOLD || (velocity > 0.3 && distance > 20);
         
         if (shouldReveal && gestureState.dx < 0) {
-          // Swipe threshold met, show delete button with improved animation
+          // Reveal delete button with smooth spring animation
           Animated.spring(translateX, {
             toValue: -DELETE_BUTTON_WIDTH,
             useNativeDriver: true,
-            tension: 300,
-            friction: 8,
+            tension: 400,
+            friction: 10,
             velocity: gestureState.vx,
           }).start();
         } else {
@@ -108,8 +109,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 300,
-            friction: 8,
+            tension: 400,
+            friction: 10,
             velocity: gestureState.vx,
           }).start();
         }
@@ -127,8 +128,8 @@ export default function JobCard({
       Animated.spring(translateX, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 300,
-        friction: 8,
+        tension: 400,
+        friction: 10,
       }).start(() => {
         router.push(`/job/${id}`);
       });
@@ -162,8 +163,8 @@ export default function JobCard({
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
-              tension: 300,
-              friction: 8,
+              tension: 400,
+              friction: 10,
             }).start();
           }
         },
@@ -278,7 +279,7 @@ export default function JobCard({
   
   return (
     <View style={styles.cardContainer}>
-      {/* Delete Button (behind the card) */}
+      {/* Delete Button (positioned behind the card) */}
       <View style={styles.deleteButtonContainer}>
         <TouchableOpacity 
           style={styles.deleteButton}
@@ -371,19 +372,20 @@ const createStyles = (colors: any) => StyleSheet.create({
   cardContainer: {
     marginBottom: 12,
     position: 'relative',
+    overflow: 'hidden',
   },
   cardWrapper: {
     width: '100%',
   },
   deleteButtonContainer: {
     position: 'absolute',
-    right: -40, // Extended further left beneath the card
+    right: -DELETE_BUTTON_WIDTH,
     top: 0,
     bottom: 0,
-    width: DELETE_BUTTON_WIDTH + 60, // Wider to ensure full coverage
+    width: DELETE_BUTTON_WIDTH * 2,
     justifyContent: 'center',
     alignItems: 'flex-end',
-    overflow: 'hidden',
+    paddingRight: DELETE_BUTTON_WIDTH,
   },
   deleteButton: {
     backgroundColor: colors.danger,
@@ -391,16 +393,14 @@ const createStyles = (colors: any) => StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    // Square off left corners, keep right corners rounded
     borderTopRightRadius: 20,
     borderBottomRightRadius: 20,
     borderTopLeftRadius: 0,
     borderBottomLeftRadius: 0,
-    // Enhanced shadow for depth effect
     shadowColor: '#000',
-    shadowOffset: { width: -4, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    shadowOffset: { width: -2, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
     elevation: 3,
   },
   deleteButtonText: {
