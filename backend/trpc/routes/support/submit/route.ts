@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { publicProcedure } from '../../../create-context';
+import { protectedProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
 
 const supportInputSchema = z.object({
@@ -11,14 +11,15 @@ const supportInputSchema = z.object({
   appVersion: z.string().optional(),
 });
 
-export const submitSupportProcedure = publicProcedure
+export const submitSupportProcedure = protectedProcedure
   .input(supportInputSchema)
-  .mutation(async ({ input }: { input: z.infer<typeof supportInputSchema> }) => {
+  .mutation(async ({ input, ctx }: { input: z.infer<typeof supportInputSchema>; ctx: any }) => {
     try {
-      // Save to Supabase
+      // Save to Supabase with user_id
       const { data, error } = await supabase
         .from('support_requests')
         .insert({
+          user_id: ctx.userId,
           name: input.name,
           email: input.email,
           subject: input.subject,
