@@ -54,8 +54,8 @@ export default function JobCard({
   const hasPaidEarnings = paidEarnings > 0;
   
   // Extract tags and location from settings with proper type checking
-  const tags = settings?.tags?.filter((tag: string) => tag.trim()) || [];
-  const location = settings?.location?.trim();
+  const tags = (settings?.tags || []).filter((tag: string) => tag && tag.trim());
+  const location = settings?.location?.trim() || '';
   const hasTagsOrLocation = tags.length > 0 || !!location;
   
   const panResponder = useRef(
@@ -99,8 +99,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: -DELETE_BUTTON_WIDTH,
             useNativeDriver: true,
-            tension: 200,
-            friction: 12,
+            tension: 300,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         } else {
@@ -108,8 +108,8 @@ export default function JobCard({
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
-            tension: 200,
-            friction: 12,
+            tension: 300,
+            friction: 8,
             velocity: gestureState.vx,
           }).start();
         }
@@ -127,8 +127,8 @@ export default function JobCard({
       Animated.spring(translateX, {
         toValue: 0,
         useNativeDriver: true,
-        tension: 200,
-        friction: 12,
+        tension: 300,
+        friction: 8,
       }).start(() => {
         router.push(`/job/${id}`);
       });
@@ -162,8 +162,8 @@ export default function JobCard({
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
-              tension: 200,
-              friction: 12,
+              tension: 300,
+              friction: 8,
             }).start();
           }
         },
@@ -278,7 +278,7 @@ export default function JobCard({
   
   return (
     <View style={styles.cardContainer}>
-      {/* Delete Button (behind the card) */}
+      {/* Delete Button (behind the card) - Extended further left */}
       <View style={styles.deleteButtonContainer}>
         <TouchableOpacity 
           style={styles.deleteButton}
@@ -377,12 +377,12 @@ const createStyles = (colors: any) => StyleSheet.create({
   },
   deleteButtonContainer: {
     position: 'absolute',
-    right: 0,
+    right: -40, // Extended further left to go beneath the card
     top: 0,
     bottom: 0,
-    width: DELETE_BUTTON_WIDTH + 20, // Extended further left
+    width: DELETE_BUTTON_WIDTH + 60, // Wider to extend beneath card
     justifyContent: 'center',
-    alignItems: 'flex-end', // Align to right side
+    alignItems: 'flex-end',
     overflow: 'hidden',
   },
   deleteButton: {
@@ -396,12 +396,12 @@ const createStyles = (colors: any) => StyleSheet.create({
     borderBottomRightRadius: 20,
     borderTopLeftRadius: 0,
     borderBottomLeftRadius: 0,
-    // Subtle shadow to enhance the "beneath card" appearance
+    // Enhanced shadow to create depth beneath card
     shadowColor: '#000',
-    shadowOffset: { width: -3, height: 2 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 2,
+    shadowOffset: { width: -4, height: 3 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3,
   },
   deleteButtonText: {
     color: '#FFFFFF',

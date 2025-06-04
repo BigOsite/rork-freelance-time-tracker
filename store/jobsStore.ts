@@ -154,7 +154,7 @@ const getCurrentUserId = async (): Promise<string | null> => {
   }
 };
 
-// Helper function to sync a single job to Supabase
+// Helper function to sync a single job to Supabase with complete field mapping
 const syncJobToSupabase = async (job: Job, userId: string, operation: 'insert' | 'update' | 'delete') => {
   try {
     switch (operation) {
@@ -166,7 +166,40 @@ const syncJobToSupabase = async (job: Job, userId: string, operation: 'insert' |
           client: job.client,
           hourly_rate: job.hourlyRate,
           color: job.color,
-          settings: job.settings,
+          settings: job.settings ? {
+            // Pay period settings
+            payPeriodType: job.settings.payPeriodType,
+            payPeriodStartDay: job.settings.payPeriodStartDay,
+            
+            // Time rounding settings
+            roundTime: job.settings.roundTime,
+            timeRounding: job.settings.timeRounding,
+            
+            // Organization
+            tags: job.settings.tags || [],
+            location: job.settings.location || '',
+            
+            // Reminders
+            clockOutReminders: job.settings.clockOutReminders,
+            dailyReminderThreshold: job.settings.dailyReminderThreshold,
+            weeklyReminderThreshold: job.settings.weeklyReminderThreshold,
+            
+            // Breaks
+            automaticBreaks: job.settings.automaticBreaks,
+            presetBreaks: job.settings.presetBreaks || [],
+            
+            // Overtime settings
+            dailyOvertime: job.settings.dailyOvertime,
+            dailyOvertimeThreshold: job.settings.dailyOvertimeThreshold,
+            dailyOvertimeRate: job.settings.dailyOvertimeRate,
+            weeklyOvertime: job.settings.weeklyOvertime,
+            weeklyOvertimeThreshold: job.settings.weeklyOvertimeThreshold,
+            weeklyOvertimeRate: job.settings.weeklyOvertimeRate,
+            
+            // Financial settings
+            estimatedTaxRate: job.settings.estimatedTaxRate,
+            deductions: job.settings.deductions,
+          } : null,
           created_at: new Date(job.createdAt).toISOString(),
         });
         if (insertError) throw insertError;
@@ -178,7 +211,40 @@ const syncJobToSupabase = async (job: Job, userId: string, operation: 'insert' |
           client: job.client,
           hourly_rate: job.hourlyRate,
           color: job.color,
-          settings: job.settings,
+          settings: job.settings ? {
+            // Pay period settings
+            payPeriodType: job.settings.payPeriodType,
+            payPeriodStartDay: job.settings.payPeriodStartDay,
+            
+            // Time rounding settings
+            roundTime: job.settings.roundTime,
+            timeRounding: job.settings.timeRounding,
+            
+            // Organization
+            tags: job.settings.tags || [],
+            location: job.settings.location || '',
+            
+            // Reminders
+            clockOutReminders: job.settings.clockOutReminders,
+            dailyReminderThreshold: job.settings.dailyReminderThreshold,
+            weeklyReminderThreshold: job.settings.weeklyReminderThreshold,
+            
+            // Breaks
+            automaticBreaks: job.settings.automaticBreaks,
+            presetBreaks: job.settings.presetBreaks || [],
+            
+            // Overtime settings
+            dailyOvertime: job.settings.dailyOvertime,
+            dailyOvertimeThreshold: job.settings.dailyOvertimeThreshold,
+            dailyOvertimeRate: job.settings.dailyOvertimeRate,
+            weeklyOvertime: job.settings.weeklyOvertime,
+            weeklyOvertimeThreshold: job.settings.weeklyOvertimeThreshold,
+            weeklyOvertimeRate: job.settings.weeklyOvertimeRate,
+            
+            // Financial settings
+            estimatedTaxRate: job.settings.estimatedTaxRate,
+            deductions: job.settings.deductions,
+          } : null,
         }).eq('id', job.id).eq('user_id', userId);
         if (updateError) throw updateError;
         break;

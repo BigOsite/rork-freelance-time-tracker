@@ -52,6 +52,12 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
       payPeriodType: 'weekly' as PayPeriodType,
       payPeriodStartDay: 0,
       roundTime: 'none' as RoundTimeType,
+      timeRounding: {
+        enabled: false,
+        direction: 'up' as RoundingDirection,
+        interval: '15min' as RoundingInterval,
+        bufferTime: 0
+      },
       tags: [],
       location: '',
       clockOutReminders: false,
