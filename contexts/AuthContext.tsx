@@ -56,20 +56,6 @@ const secureStorage = {
   },
 };
 
-// Media library wrapper for production compatibility
-const mediaLibrary = {
-  async requestPermissionsAsync() {
-    try {
-      // Use ImagePicker permissions as fallback
-      return await ImagePicker.requestMediaLibraryPermissionsAsync();
-    } catch (error) {
-      console.log('Media library permissions not available:', error);
-      // Return a mock permission object
-      return { status: 'denied' as const, granted: false };
-    }
-  }
-};
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const { 
     userAccount, 
@@ -405,7 +391,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!finalImageUri) {
         // Request permissions first with better error handling
         try {
-          const { status } = await mediaLibrary.requestPermissionsAsync();
+          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
           if (status !== 'granted') {
             throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
           }

@@ -24,7 +24,7 @@ export default function DashboardScreen() {
   const refreshing = store.isLoading;
   
   // Get data with error handling and memoization
-  const jobs = React.useMemo(() => {
+  const allJobsWithStats = React.useMemo(() => {
     try {
       const allJobs = store.getJobsWithStats();
       return Array.isArray(allJobs) ? allJobs.filter(Boolean) : [];
@@ -43,6 +43,14 @@ export default function DashboardScreen() {
       return [];
     }
   }, [store]);
+  
+  // Recent jobs should exclude active jobs to prevent duplication
+  const recentJobs = React.useMemo(() => {
+    const activeJobIds = new Set(activeJobs.map(job => job.id));
+    return allJobsWithStats
+      .filter(job => !activeJobIds.has(job.id)) // Exclude active jobs
+      .slice(0, 3); // Show only top 3 recent jobs
+  }, [allJobsWithStats, activeJobs]);
   
   const totalEarnings = React.useMemo(() => {
     try {
@@ -81,7 +89,7 @@ export default function DashboardScreen() {
   // Pre-calculate paid earnings for all jobs to avoid state updates during render
   const jobPaidEarnings = React.useMemo(() => {
     const earnings: Record<string, number> = {};
-    jobs.forEach(job => {
+    allJobsWithStats.forEach(job => {
       if (job && job.id) {
         try {
           earnings[job.id] = store.getPaidEarningsForJob(job.id) || 0;
@@ -92,7 +100,7 @@ export default function DashboardScreen() {
       }
     });
     return earnings;
-  }, [jobs, store]);
+  }, [allJobsWithStats, store]);
   
   // Generate personalized greeting with time-based logic
   const greeting = React.useMemo(() => {
@@ -199,7 +207,7 @@ export default function DashboardScreen() {
           />
           <StatCard 
             title="Total Jobs" 
-            value={jobs.length.toString()}
+            value={allJobsWithStats.length.toString()}
             icon={<Briefcase size={24} color={colors.warning} />}
             color={colors.warning}
             style={styles.statCard}
@@ -276,21 +284,19 @@ export default function DashboardScreen() {
               <Text style={styles.viewAllText}>View All</Text>
             </TouchableOpacity>
           </View>
-          {jobs.length > 0 ? (
-            jobs
-              .slice(0, 3)
-              .map((job) => (
-                job ? (
-                  <JobCard 
-                    key={job.id} 
-                    job={job}
-                    onClockIn={() => handleClockIn(job.id)}
-                    onClockOut={() => handleClockOut(job)}
-                    paidEarnings={jobPaidEarnings[job.id] || 0}
-                    showSwipeToDelete={false}
-                  />
-                ) : null
-              ))
+          {recentJobs.length > 0 ? (
+            recentJobs.map((job) => (
+              job ? (
+                <JobCard 
+                  key={job.id} 
+                  job={job}
+                  onClockIn={() => handleClockIn(job.id)}
+                  onClockOut={() => handleClockOut(job)}
+                  paidEarnings={jobPaidEarnings[job.id] || 0}
+                  showSwipeToDelete={false}
+                />
+              ) : null
+            ))
           ) : (
             <EmptyState
               title="No jobs yet"

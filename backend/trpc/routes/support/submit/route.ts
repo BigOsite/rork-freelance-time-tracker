@@ -15,11 +15,11 @@ export const submitSupportProcedure = protectedProcedure
   .input(supportInputSchema)
   .mutation(async ({ input, ctx }: { input: z.infer<typeof supportInputSchema>; ctx: any }) => {
     try {
-      // Save to Supabase with user_id
+      // Save to Supabase with user_id from authenticated context
       const { data, error } = await supabase
         .from('support_requests')
         .insert({
-          user_id: ctx.userId,
+          user_id: ctx.userId, // Use authenticated user's ID
           name: input.name,
           email: input.email,
           subject: input.subject,
