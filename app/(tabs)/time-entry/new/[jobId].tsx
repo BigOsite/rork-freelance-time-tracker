@@ -30,7 +30,7 @@ export default function NewTimeEntryScreen() {
       });
       
       if (entryId) {
-        // Navigate back to the job details page
+        // Navigate back immediately on success
         router.push(`/(tabs)/job/${jobId}`);
         return true;
       } else {

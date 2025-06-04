@@ -96,13 +96,9 @@ export default function TimeEntryForm({
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
         setIsSubmitting(false);
-      } else {
-        // Success - give the parent component a moment to handle navigation
-        // then reset isSubmitting in case navigation fails
-        setTimeout(() => {
-          setIsSubmitting(false);
-        }, 1000);
       }
+      // If result is true, the parent component handles navigation
+      // Don't reset isSubmitting here - let the navigation happen
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
