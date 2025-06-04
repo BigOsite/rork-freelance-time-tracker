@@ -4,6 +4,7 @@ import { useRouter } from 'expo-router';
 import { Clock, Coins, Briefcase, Plus, Timer, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react-native';
 import { useJobsStore } from '@/store/jobsStore';
 import { useBusinessStore } from '@/store/businessStore';
+import { useAuth } from '@/contexts/AuthContext';
 import { formatDuration } from '@/utils/time';
 import { formatCurrency } from '@/utils/helpers';
 import StatCard from '@/components/StatCard';
@@ -14,6 +15,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 export default function DashboardScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { isAuthenticated, user } = useAuth();
   const [refreshing, setRefreshing] = React.useState(false);
   
   // Get store methods and data
@@ -91,6 +93,14 @@ export default function DashboardScreen() {
     return earnings;
   }, [jobs, store]);
   
+  // Generate personalized greeting
+  const greeting = React.useMemo(() => {
+    if (isAuthenticated && user?.displayName) {
+      return `Good morning, ${user.displayName}`;
+    }
+    return 'Good morning';
+  }, [isAuthenticated, user?.displayName]);
+  
   const onRefresh = React.useCallback(() => {
     setRefreshing(true);
     // Just simulate a refresh
@@ -130,7 +140,7 @@ export default function DashboardScreen() {
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.greeting}>Good morning</Text>
+            <Text style={styles.greeting}>{greeting}</Text>
             <Text style={styles.title}>Dashboard</Text>
           </View>
           <TouchableOpacity 
