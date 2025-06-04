@@ -3,7 +3,7 @@ import { Stack, useRouter } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useEffect, useRef } from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { AppState, Linking, Platform } from 'react-native';
+import { AppState, AppStateStatus, Linking, Platform } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 import { trpc, trpcClient } from '@/lib/trpc';
 import { ThemeProvider as CustomThemeProvider } from '@/contexts/ThemeContext';
@@ -105,7 +105,7 @@ export default function RootLayout() {
 
   // App state change handling for background sync
   useEffect(() => {
-    const handleAppStateChange = async (nextAppState: string) => {
+    const handleAppStateChange = async (nextAppState: AppStateStatus) => {
       if (appState.current.match(/inactive|background/) && nextAppState === 'active') {
         // App has come to the foreground - trigger sync
         if (userAccount?.uid) {
