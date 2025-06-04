@@ -95,6 +95,10 @@ interface JobsState {
   
   // Helper method to get current user
   getCurrentUser: () => UserAccount | null;
+  setCurrentUser: (user: UserAccount | null) => void;
+  
+  // Internal state for current user
+  _currentUser: UserAccount | null;
 }
 
 export const useJobsStore = create<JobsState>()(
@@ -109,6 +113,7 @@ export const useJobsStore = create<JobsState>()(
       networkInfo: { isConnected: false, type: null },
       backgroundSyncInterval: null,
       isLoading: false,
+      _currentUser: null,
       
       addJob: (jobData) => {
         const job: Job = {
@@ -247,7 +252,7 @@ export const useJobsStore = create<JobsState>()(
             totalDuration,
             isActive: !!activeEntry,
             activeEntryId: activeEntry?.id,
-          };
+          } as JobWithDuration;
         });
       },
       
@@ -292,7 +297,7 @@ export const useJobsStore = create<JobsState>()(
             totalDuration,
             isActive: true,
             activeEntryId: activeEntry?.id,
-          };
+          } as JobWithDuration;
         });
       },
       
@@ -1111,8 +1116,14 @@ export const useJobsStore = create<JobsState>()(
         };
       },
       
-      // Helper method to get current user (will be set by auth context)
-      getCurrentUser: () => null,
+      // Helper method to get current user
+      getCurrentUser: () => {
+        return get()._currentUser;
+      },
+      
+      setCurrentUser: (user: UserAccount | null) => {
+        set({ _currentUser: user });
+      },
     }),
     {
       name: 'jobs-storage',
@@ -1124,6 +1135,7 @@ export const useJobsStore = create<JobsState>()(
         payPeriods: state.payPeriods,
         activeTimeEntry: state.activeTimeEntry,
         lastSyncTimestamp: state.lastSyncTimestamp,
+        _currentUser: state._currentUser,
         // Don't persist syncQueue, networkInfo, backgroundSyncInterval, or isLoading
       }),
     }

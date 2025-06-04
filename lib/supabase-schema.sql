@@ -67,6 +67,7 @@ FOR DELETE USING (
 -- Create support_requests table
 CREATE TABLE IF NOT EXISTS support_requests (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   email TEXT NOT NULL,
   subject TEXT NOT NULL,
@@ -123,11 +124,13 @@ CREATE INDEX IF NOT EXISTS idx_time_entries_user_id ON time_entries(user_id);
 CREATE INDEX IF NOT EXISTS idx_time_entries_job_id ON time_entries(job_id);
 CREATE INDEX IF NOT EXISTS idx_pay_periods_user_id ON pay_periods(user_id);
 CREATE INDEX IF NOT EXISTS idx_pay_periods_job_id ON pay_periods(job_id);
+CREATE INDEX IF NOT EXISTS idx_support_requests_user_id ON support_requests(user_id);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE jobs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE time_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pay_periods ENABLE ROW LEVEL SECURITY;
+ALTER TABLE support_requests ENABLE ROW LEVEL SECURITY;
 
 -- Create RLS policies
 CREATE POLICY "Users can only access their own jobs" ON jobs
@@ -139,12 +142,21 @@ CREATE POLICY "Users can only access their own time entries" ON time_entries
 CREATE POLICY "Users can only access their own pay periods" ON pay_periods
   FOR ALL USING (auth.uid() = user_id);
 
--- Support requests don't need RLS as they're public submissions
+CREATE POLICY "Users can only access their own support requests" ON support_requests
+  FOR ALL USING (auth.uid() = user_id);
 
 -- Add client column to existing jobs table if it doesn't exist
 DO $$ 
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
     ALTER TABLE jobs ADD COLUMN client TEXT;
+  END IF;
+END $$;
+
+-- Add user_id column to existing support_requests table if it doesn't exist
+DO $$ 
+BEGIN 
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'support_requests' AND column_name = 'user_id') THEN
+    ALTER TABLE support_requests ADD COLUMN user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
   END IF;
 END $$;

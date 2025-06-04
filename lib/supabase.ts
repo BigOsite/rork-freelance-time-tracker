@@ -53,6 +53,7 @@ export interface Database {
       support_requests: {
         Row: {
           id: string;
+          user_id: string;
           name: string;
           email: string;
           subject: string;
@@ -63,6 +64,7 @@ export interface Database {
         };
         Insert: {
           id?: string;
+          user_id: string;
           name: string;
           email: string;
           subject: string;
@@ -73,6 +75,7 @@ export interface Database {
         };
         Update: {
           id?: string;
+          user_id?: string;
           name?: string;
           email?: string;
           subject?: string;

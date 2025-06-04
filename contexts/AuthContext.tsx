@@ -81,13 +81,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearAuth 
   } = useBusinessStore();
 
-  const { syncWithSupabase, initializeBackgroundSync, stopBackgroundSync } = useJobsStore();
+  const { syncWithSupabase, initializeBackgroundSync, stopBackgroundSync, setCurrentUser } = useJobsStore();
 
-  // Set up the getCurrentUser method in the jobs store
+  // Set up the current user in the jobs store whenever userAccount changes
   useEffect(() => {
-    const jobsStore = useJobsStore.getState();
-    jobsStore.getCurrentUser = () => userAccount;
-  }, [userAccount]);
+    setCurrentUser(userAccount);
+  }, [userAccount, setCurrentUser]);
 
   // Helper function to establish Supabase session
   const establishSupabaseSession = async (email: string, password: string) => {
