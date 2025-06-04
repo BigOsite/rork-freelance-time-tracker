@@ -19,8 +19,9 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: NodeJS.Timeout | null;
+  backgroundSyncInterval: ReturnType<typeof setInterval> | null;
   isLoading: boolean;
+  _currentUser: UserAccount | null;
   
   // Job actions
   addJob: (job: Omit<Job, 'id' | 'createdAt'>) => void;
@@ -93,12 +94,9 @@ interface JobsState {
     entriesCount: number;
   };
   
-  // Helper method to get current user
+  // Helper methods for current user
   getCurrentUser: () => UserAccount | null;
   setCurrentUser: (user: UserAccount | null) => void;
-  
-  // Internal state for current user
-  _currentUser: UserAccount | null;
 }
 
 export const useJobsStore = create<JobsState>()(
@@ -993,7 +991,7 @@ export const useJobsStore = create<JobsState>()(
           } catch (error) {
             console.error('Background sync error:', error);
           }
-        }, 2 * 60 * 60 * 1000) as NodeJS.Timeout; // Every 2 hours
+        }, 2 * 60 * 60 * 1000); // Every 2 hours
         
         set({ backgroundSyncInterval: interval });
       },
@@ -1116,7 +1114,7 @@ export const useJobsStore = create<JobsState>()(
         };
       },
       
-      // Helper method to get current user
+      // Helper methods for current user
       getCurrentUser: () => {
         return get()._currentUser;
       },

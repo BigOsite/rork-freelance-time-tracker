@@ -60,13 +60,12 @@ const secureStorage = {
 const mediaLibrary = {
   async requestPermissionsAsync() {
     try {
-      // Try to dynamically import expo-media-library
-      const MediaLibrary = await import('expo-media-library');
-      return await MediaLibrary.requestPermissionsAsync();
-    } catch (error) {
-      console.log('expo-media-library not available, falling back to ImagePicker:', error);
-      // Fallback to ImagePicker permissions
+      // Use ImagePicker permissions as fallback
       return await ImagePicker.requestMediaLibraryPermissionsAsync();
+    } catch (error) {
+      console.log('Media library permissions not available:', error);
+      // Return a mock permission object
+      return { status: 'denied' as const, granted: false };
     }
   }
 };
