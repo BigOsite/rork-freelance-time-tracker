@@ -65,7 +65,7 @@ export default function HistoryScreen() {
   const onRefresh = React.useCallback(async () => {
     try {
       if (user?.uid) {
-        // Use comprehensive sync that processes queue and fetches fresh data
+        // Use intelligent sync that preserves local changes
         await store.syncWithSupabase(user.uid);
       }
     } catch (error) {

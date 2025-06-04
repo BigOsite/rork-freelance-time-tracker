@@ -19,13 +19,17 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: ReturnType<typeof setInterval> | null;
+  backgroundSyncInterval: NodeJS.Timeout | null;
+  isLoading: boolean;
   
   // Job actions
   addJob: (job: Omit<Job, 'id' | 'createdAt'>) => void;
   updateJob: (id: string, updates: Partial<Job>) => void;
   deleteJob: (id: string) => void;
   getJob: (id: string) => Job | undefined;
+  getJobById: (id: string) => Job | undefined;
+  getJobsWithStats: () => Job[];
+  getActiveJobs: () => Job[];
   
   // Time entry actions
   startTimeEntry: (jobId: string, note?: string) => void;
@@ -34,10 +38,16 @@ interface JobsState {
   updateTimeEntry: (id: string, updates: Partial<TimeEntry>) => void;
   deleteTimeEntry: (id: string) => void;
   getTimeEntry: (id: string) => TimeEntry | undefined;
+  getTimeEntriesForJob: (jobId: string) => TimeEntry[];
+  getActiveTimeEntry: (jobId: string) => TimeEntry | undefined;
+  
+  // Clock actions
+  clockIn: (jobId: string, note?: string, customStartTime?: number) => void;
+  clockOut: (entryId: string, customEndTime?: number) => void;
   
   // Break actions
-  startBreak: () => void;
-  endBreak: () => void;
+  startBreak: (entryId: string, customStartTime?: number) => void;
+  endBreak: (entryId: string) => void;
   
   // Pay period actions
   addPayPeriod: (period: Omit<PayPeriod, 'id' | 'createdAt'>) => void;
@@ -45,6 +55,13 @@ interface JobsState {
   deletePayPeriod: (id: string) => void;
   getPayPeriod: (id: string) => PayPeriod | undefined;
   markPayPeriodAsPaid: (id: string) => void;
+  markPayPeriodAsUnpaid: (id: string) => void;
+  getJobWithPayPeriods: (jobId: string) => Job & { payPeriods: PayPeriod[]; paidEarnings: number; paidDuration: number } | undefined;
+  getPaidEarningsForJob: (jobId: string) => number;
+  
+  // Stats actions
+  getTotalEarnings: () => number;
+  getTotalHours: () => number;
   
   // Sync actions
   addToSyncQueue: (item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>) => void;
@@ -83,6 +100,7 @@ export const useJobsStore = create<JobsState>()(
       lastSyncTimestamp: null,
       networkInfo: { isConnected: false, type: null },
       backgroundSyncInterval: null,
+      isLoading: false,
       
       addJob: (jobData) => {
         const job: Job = {
@@ -165,6 +183,43 @@ export const useJobsStore = create<JobsState>()(
       
       getJob: (id) => {
         return get().jobs.find(job => job.id === id);
+      },
+      
+      getJobById: (id) => {
+        return get().jobs.find(job => job.id === id);
+      },
+      
+      getJobsWithStats: () => {
+        const state = get();
+        return state.jobs.map(job => {
+          const entries = state.timeEntries.filter(entry => entry.jobId === job.id);
+          const activeEntry = entries.find(entry => !entry.endTime);
+          
+          return {
+            ...job,
+            isActive: !!activeEntry,
+            activeEntryId: activeEntry?.id,
+          };
+        });
+      },
+      
+      getActiveJobs: () => {
+        const state = get();
+        return state.jobs.filter(job => {
+          const activeEntry = state.timeEntries.find(entry => 
+            entry.jobId === job.id && !entry.endTime
+          );
+          return !!activeEntry;
+        }).map(job => {
+          const activeEntry = state.timeEntries.find(entry => 
+            entry.jobId === job.id && !entry.endTime
+          );
+          return {
+            ...job,
+            isActive: true,
+            activeEntryId: activeEntry?.id,
+          };
+        });
       },
       
       startTimeEntry: (jobId, note = '') => {
@@ -288,14 +343,85 @@ export const useJobsStore = create<JobsState>()(
         return get().timeEntries.find(entry => entry.id === id);
       },
       
-      startBreak: () => {
-        const active = get().activeTimeEntry;
-        if (!active || active.isOnBreak) return;
+      getTimeEntriesForJob: (jobId) => {
+        return get().timeEntries
+          .filter(entry => entry.jobId === jobId)
+          .sort((a, b) => b.startTime - a.startTime);
+      },
+      
+      getActiveTimeEntry: (jobId) => {
+        return get().timeEntries.find(entry => 
+          entry.jobId === jobId && !entry.endTime
+        );
+      },
+      
+      clockIn: (jobId, note = '', customStartTime?: number) => {
+        const existingActive = get().activeTimeEntry;
+        if (existingActive) {
+          // Stop the existing active entry first
+          get().clockOut(existingActive.id);
+        }
         
-        const breakStart = Date.now();
-        const breaks = active.breaks || [];
+        const timeEntry: TimeEntry = {
+          id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          jobId,
+          startTime: customStartTime || Date.now(),
+          endTime: null,
+          note,
+          breaks: [],
+          isOnBreak: false,
+          createdAt: Date.now(),
+        };
+        
+        set(state => ({
+          timeEntries: [...state.timeEntries, timeEntry],
+          activeTimeEntry: timeEntry,
+        }));
+        
+        // Add to sync queue
+        get().addToSyncQueue({
+          entityType: 'timeEntry',
+          entityId: timeEntry.id,
+          operation: 'create',
+          data: timeEntry,
+        });
+      },
+      
+      clockOut: (entryId, customEndTime?: number) => {
+        const entry = get().timeEntries.find(e => e.id === entryId);
+        if (!entry) return;
+        
+        const endTime = customEndTime || Date.now();
         const updatedEntry: TimeEntry = {
-          ...active,
+          ...entry,
+          endTime,
+          isOnBreak: false,
+        };
+        
+        set(state => ({
+          timeEntries: state.timeEntries.map(e =>
+            e.id === entryId ? updatedEntry : e
+          ),
+          activeTimeEntry: state.activeTimeEntry?.id === entryId ? null : state.activeTimeEntry,
+        }));
+        
+        // Add to sync queue
+        get().addToSyncQueue({
+          entityType: 'timeEntry',
+          entityId: entryId,
+          operation: 'update',
+          data: updatedEntry,
+        });
+      },
+      
+      startBreak: (entryId, customStartTime?: number) => {
+        const entry = get().timeEntries.find(e => e.id === entryId);
+        if (!entry || entry.isOnBreak) return;
+        
+        const breakStart = customStartTime || Date.now();
+        const breaks = entry.breaks || [];
+        const updatedEntry: TimeEntry = {
+          ...entry,
           isOnBreak: true,
           breaks: [
             ...breaks,
@@ -304,27 +430,27 @@ export const useJobsStore = create<JobsState>()(
         };
         
         set(state => ({
-          timeEntries: state.timeEntries.map(entry =>
-            entry.id === active.id ? updatedEntry : entry
+          timeEntries: state.timeEntries.map(e =>
+            e.id === entryId ? updatedEntry : e
           ),
-          activeTimeEntry: updatedEntry,
+          activeTimeEntry: state.activeTimeEntry?.id === entryId ? updatedEntry : state.activeTimeEntry,
         }));
         
         // Add to sync queue
         get().addToSyncQueue({
           entityType: 'timeEntry',
-          entityId: active.id,
+          entityId: entryId,
           operation: 'update',
           data: updatedEntry,
         });
       },
       
-      endBreak: () => {
-        const active = get().activeTimeEntry;
-        if (!active || !active.isOnBreak) return;
+      endBreak: (entryId) => {
+        const entry = get().timeEntries.find(e => e.id === entryId);
+        if (!entry || !entry.isOnBreak) return;
         
         const breakEnd = Date.now();
-        const breaks = active.breaks || [];
+        const breaks = entry.breaks || [];
         const updatedBreaks = breaks.map((breakItem, index) =>
           index === breaks.length - 1 && !breakItem.endTime
             ? { ...breakItem, endTime: breakEnd }
@@ -332,22 +458,22 @@ export const useJobsStore = create<JobsState>()(
         );
         
         const updatedEntry: TimeEntry = {
-          ...active,
+          ...entry,
           isOnBreak: false,
           breaks: updatedBreaks,
         };
         
         set(state => ({
-          timeEntries: state.timeEntries.map(entry =>
-            entry.id === active.id ? updatedEntry : entry
+          timeEntries: state.timeEntries.map(e =>
+            e.id === entryId ? updatedEntry : e
           ),
-          activeTimeEntry: updatedEntry,
+          activeTimeEntry: state.activeTimeEntry?.id === entryId ? updatedEntry : state.activeTimeEntry,
         }));
         
         // Add to sync queue
         get().addToSyncQueue({
           entityType: 'timeEntry',
-          entityId: active.id,
+          entityId: entryId,
           operation: 'update',
           data: updatedEntry,
         });
@@ -415,6 +541,103 @@ export const useJobsStore = create<JobsState>()(
           isPaid: true, 
           paidDate: Date.now() 
         });
+      },
+      
+      markPayPeriodAsUnpaid: (id) => {
+        get().updatePayPeriod(id, { 
+          isPaid: false, 
+          paidDate: undefined 
+        });
+      },
+      
+      getJobWithPayPeriods: (jobId) => {
+        const state = get();
+        const job = state.jobs.find(j => j.id === jobId);
+        if (!job) return undefined;
+        
+        const payPeriods = state.payPeriods.filter(p => p.jobId === jobId);
+        const paidEarnings = payPeriods
+          .filter(p => p.isPaid)
+          .reduce((total, p) => total + p.totalEarnings, 0);
+        const paidDuration = payPeriods
+          .filter(p => p.isPaid)
+          .reduce((total, p) => total + p.totalDuration, 0);
+        
+        return {
+          ...job,
+          payPeriods,
+          paidEarnings,
+          paidDuration,
+        };
+      },
+      
+      getPaidEarningsForJob: (jobId) => {
+        const state = get();
+        return state.payPeriods
+          .filter(p => p.jobId === jobId && p.isPaid)
+          .reduce((total, p) => total + p.totalEarnings, 0);
+      },
+      
+      getTotalEarnings: () => {
+        const state = get();
+        let totalEarnings = 0;
+        
+        state.jobs.forEach(job => {
+          const entries = state.timeEntries.filter(entry => entry.jobId === job.id);
+          entries.forEach(entry => {
+            let entryDuration = 0;
+            
+            if (entry.endTime) {
+              entryDuration = entry.endTime - entry.startTime;
+            } else if (entry.endTime === null) {
+              entryDuration = Date.now() - entry.startTime;
+            }
+            
+            const breakDuration = (entry.breaks || []).reduce((breakTotal, breakItem) => {
+              if (breakItem && breakItem.endTime) {
+                return breakTotal + (breakItem.endTime - breakItem.startTime);
+              } else if (breakItem && breakItem.endTime === null && entry.isOnBreak) {
+                return breakTotal + (Date.now() - breakItem.startTime);
+              }
+              return breakTotal;
+            }, 0);
+            
+            const workDuration = Math.max(0, entryDuration - breakDuration);
+            const durationHours = workDuration / (1000 * 60 * 60);
+            totalEarnings += durationHours * job.hourlyRate;
+          });
+        });
+        
+        return totalEarnings;
+      },
+      
+      getTotalHours: () => {
+        const state = get();
+        let totalDuration = 0;
+        
+        state.timeEntries.forEach(entry => {
+          let entryDuration = 0;
+          
+          if (entry.endTime) {
+            entryDuration = entry.endTime - entry.startTime;
+          } else if (entry.endTime === null) {
+            entryDuration = Date.now() - entry.startTime;
+          }
+          
+          const breakDuration = (entry.breaks || []).reduce((breakTotal, breakItem) => {
+            if (breakItem && breakItem.endTime) {
+              return breakTotal + (breakItem.endTime - breakItem.startTime);
+            } else if (breakItem && breakItem.endTime === null && entry.isOnBreak) {
+              return breakTotal + (Date.now() - breakItem.startTime);
+            }
+            return breakTotal;
+          }, 0);
+          
+          const workDuration = Math.max(0, entryDuration - breakDuration);
+          totalDuration += workDuration;
+        });
+        
+        return totalDuration / (1000 * 60 * 60); // Convert to hours
       },
       
       addToSyncQueue: (item) => {
@@ -523,7 +746,9 @@ export const useJobsStore = create<JobsState>()(
       
       syncWithSupabase: async (userId: string) => {
         try {
-          // First process any pending local changes
+          set({ isLoading: true });
+          
+          // First process any pending local changes (upload to server)
           await get().processSyncQueue(userId);
           
           // Then fetch latest data from Supabase
@@ -533,20 +758,53 @@ export const useJobsStore = create<JobsState>()(
             console.warn('Some data failed to sync:', result.errors);
           }
           
-          // Update local state with server data
-          // Note: This is a simple merge strategy. In a production app,
-          // you might want more sophisticated conflict resolution
+          // Intelligent merge strategy instead of replacing all data
+          const currentState = get();
+          
+          // For jobs: merge by preferring local changes for recently modified items
+          const mergedJobs = mergeDataIntelligently(
+            currentState.jobs,
+            result.jobs,
+            'id',
+            'createdAt'
+          );
+          
+          // For time entries: preserve active entries and recent changes
+          const mergedTimeEntries = mergeDataIntelligently(
+            currentState.timeEntries,
+            result.timeEntries,
+            'id',
+            'startTime',
+            (local, remote) => {
+              // Always prefer local active entries (no endTime)
+              if (!local.endTime) return local;
+              // For completed entries, prefer the one with later creation time
+              return local.createdAt > remote.createdAt ? local : remote;
+            }
+          );
+          
+          // For pay periods: merge normally
+          const mergedPayPeriods = mergeDataIntelligently(
+            currentState.payPeriods,
+            result.payPeriods,
+            'id',
+            'createdAt'
+          );
+          
+          // Update local state with merged data
           set({
-            jobs: result.jobs,
-            timeEntries: result.timeEntries,
-            payPeriods: result.payPeriods,
+            jobs: mergedJobs,
+            timeEntries: mergedTimeEntries,
+            payPeriods: mergedPayPeriods,
             lastSyncTimestamp: Date.now(),
+            isLoading: false,
           });
           
-          console.log('Full sync with Supabase completed');
+          console.log('Intelligent sync with Supabase completed');
           
         } catch (error) {
           console.error('Error syncing with Supabase:', error);
+          set({ isLoading: false });
           throw error;
         }
       },
@@ -573,7 +831,7 @@ export const useJobsStore = create<JobsState>()(
           } catch (error) {
             console.error('Background sync error:', error);
           }
-        }, 5 * 60 * 1000);
+        }, 5 * 60 * 1000) as NodeJS.Timeout;
         
         set({ backgroundSyncInterval: interval });
       },
@@ -612,7 +870,7 @@ export const useJobsStore = create<JobsState>()(
           const duration = entry.endTime - entry.startTime;
           const breaks = entry.breaks || [];
           const breakDuration = breaks.reduce((breakTotal, breakItem) => {
-            if (breakItem.endTime) {
+            if (breakItem && breakItem.endTime) {
               return breakTotal + (breakItem.endTime - breakItem.startTime);
             }
             return breakTotal;
@@ -660,8 +918,47 @@ export const useJobsStore = create<JobsState>()(
         payPeriods: state.payPeriods,
         activeTimeEntry: state.activeTimeEntry,
         lastSyncTimestamp: state.lastSyncTimestamp,
-        // Don't persist syncQueue, networkInfo, or backgroundSyncInterval
+        // Don't persist syncQueue, networkInfo, backgroundSyncInterval, or isLoading
       }),
     }
   )
 );
+
+// Helper function for intelligent data merging
+function mergeDataIntelligently<T extends { id: string; createdAt: number }>(
+  localData: T[],
+  remoteData: T[],
+  idField: keyof T,
+  timestampField: keyof T,
+  conflictResolver?: (local: T, remote: T) => T
+): T[] {
+  const merged = new Map<string, T>();
+  
+  // Add all local items first
+  localData.forEach(item => {
+    merged.set(item[idField] as string, item);
+  });
+  
+  // Merge remote items
+  remoteData.forEach(remoteItem => {
+    const id = remoteItem[idField] as string;
+    const localItem = merged.get(id);
+    
+    if (!localItem) {
+      // New item from remote, add it
+      merged.set(id, remoteItem);
+    } else {
+      // Conflict resolution
+      if (conflictResolver) {
+        merged.set(id, conflictResolver(localItem, remoteItem));
+      } else {
+        // Default: prefer the item with later timestamp
+        const localTimestamp = localItem[timestampField] as number;
+        const remoteTimestamp = remoteItem[timestampField] as number;
+        merged.set(id, localTimestamp > remoteTimestamp ? localItem : remoteItem);
+      }
+    }
+  });
+  
+  return Array.from(merged.values());
+}

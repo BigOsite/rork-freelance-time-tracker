@@ -389,9 +389,15 @@ export const batchSyncPayPeriods = async (periods: PayPeriod[], userId: string, 
   }
 };
 
-// Fetch all user data from Supabase
+// Fetch all user data from Supabase with better error handling
 export const fetchAllUserData = async (userId: string) => {
   try {
+    // Ensure we have a valid session before making requests
+    const session = await getCurrentSession();
+    if (!session) {
+      throw new Error('No active session found');
+    }
+
     const [jobsResult, entriesResult, periodsResult] = await Promise.allSettled([
       supabase.from('jobs').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
       supabase.from('time_entries').select('*').eq('user_id', userId).order('start_time', { ascending: false }),
@@ -418,6 +424,10 @@ export const fetchAllUserData = async (userId: string) => {
       }));
     } else if (jobsResult.status === 'rejected') {
       result.errors.push('Failed to fetch jobs');
+      console.error('Jobs fetch error:', jobsResult.reason);
+    } else if (jobsResult.status === 'fulfilled' && jobsResult.value.error) {
+      result.errors.push('Failed to fetch jobs');
+      console.error('Jobs fetch error:', jobsResult.value.error);
     }
 
     // Process time entries
@@ -435,6 +445,10 @@ export const fetchAllUserData = async (userId: string) => {
       }));
     } else if (entriesResult.status === 'rejected') {
       result.errors.push('Failed to fetch time entries');
+      console.error('Time entries fetch error:', entriesResult.reason);
+    } else if (entriesResult.status === 'fulfilled' && entriesResult.value.error) {
+      result.errors.push('Failed to fetch time entries');
+      console.error('Time entries fetch error:', entriesResult.value.error);
     }
 
     // Process pay periods
@@ -453,6 +467,10 @@ export const fetchAllUserData = async (userId: string) => {
       }));
     } else if (periodsResult.status === 'rejected') {
       result.errors.push('Failed to fetch pay periods');
+      console.error('Pay periods fetch error:', periodsResult.reason);
+    } else if (periodsResult.status === 'fulfilled' && periodsResult.value.error) {
+      result.errors.push('Failed to fetch pay periods');
+      console.error('Pay periods fetch error:', periodsResult.value.error);
     }
 
     return result;
@@ -462,13 +480,14 @@ export const fetchAllUserData = async (userId: string) => {
   }
 };
 
-// Check network connectivity
+// Check network connectivity with better error handling
 export const checkNetworkConnectivity = async (): Promise<boolean> => {
   try {
     // Simple connectivity check by making a lightweight request to Supabase
     const { error } = await supabase.from('jobs').select('id').limit(1);
     return !error;
   } catch (error) {
+    console.log('Network connectivity check failed:', error);
     return false;
   }
 };

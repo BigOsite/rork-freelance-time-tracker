@@ -176,12 +176,12 @@ export default function JobDetailScreen() {
           weekEntries.forEach(e => {
             if (e.endTime) {
               const eDuration = e.endTime - e.startTime;
-              const eBreakDuration = e.breaks?.reduce((total, breakItem) => {
+              const eBreakDuration = (e.breaks || []).reduce((total, breakItem) => {
                 if (breakItem?.endTime) {
                   return total + (breakItem.endTime - breakItem.startTime);
                 }
                 return total;
-              }, 0) || 0;
+              }, 0);
               const eWorkDuration = Math.max(0, eDuration - eBreakDuration);
               totalWeekHours += eWorkDuration / (1000 * 60 * 60);
             }
@@ -395,7 +395,7 @@ export default function JobDetailScreen() {
   const onRefresh = React.useCallback(async () => {
     try {
       if (user?.uid) {
-        // Use comprehensive sync that processes queue and fetches fresh data
+        // Use intelligent sync that preserves local changes
         await store.syncWithSupabase(user.uid);
       }
     } catch (error) {
