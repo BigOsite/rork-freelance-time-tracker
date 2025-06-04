@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Job, TimeEntry, PayPeriod, SyncQueueItem, NetworkInfo } from '@/types';
+import { Job, TimeEntry, PayPeriod, SyncQueueItem, NetworkInfo, JobWithDuration, UserAccount } from '@/types';
 import { 
   supabase, 
   batchSyncJobs, 
@@ -19,7 +19,7 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: any; // Use any to avoid Node.js/browser type conflicts
+  backgroundSyncInterval: NodeJS.Timeout | null;
   isLoading: boolean;
   
   // Job actions
@@ -28,8 +28,8 @@ interface JobsState {
   deleteJob: (id: string) => void;
   getJob: (id: string) => Job | undefined;
   getJobById: (id: string) => Job | undefined;
-  getJobsWithStats: () => Job[];
-  getActiveJobs: () => Job[];
+  getJobsWithStats: () => JobWithDuration[];
+  getActiveJobs: () => JobWithDuration[];
   
   // Time entry actions
   startTimeEntry: (jobId: string, note?: string) => void;
@@ -92,6 +92,9 @@ interface JobsState {
     jobsCount: number;
     entriesCount: number;
   };
+  
+  // Helper method to get current user
+  getCurrentUser: () => UserAccount | null;
 }
 
 export const useJobsStore = create<JobsState>()(
@@ -125,7 +128,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveJobImmediately(job, currentUser.uid).catch(error => {
             console.log('Immediate job save failed, will retry later:', error);
@@ -150,7 +153,7 @@ export const useJobsStore = create<JobsState>()(
           });
           
           // Try immediate save to Supabase
-          const currentUser = get().getCurrentUser?.();
+          const currentUser = get().getCurrentUser();
           if (currentUser?.uid) {
             get().saveJobImmediately(updatedJob, currentUser.uid).catch(error => {
               console.log('Immediate job update failed, will retry later:', error);
@@ -216,8 +219,32 @@ export const useJobsStore = create<JobsState>()(
           const entries = state.timeEntries.filter(entry => entry.jobId === job.id);
           const activeEntry = entries.find(entry => !entry.endTime);
           
+          // Calculate total duration for this job
+          const totalDuration = entries.reduce((total, entry) => {
+            let entryDuration = 0;
+            
+            if (entry.endTime) {
+              entryDuration = entry.endTime - entry.startTime;
+            } else if (entry.endTime === null) {
+              entryDuration = Date.now() - entry.startTime;
+            }
+            
+            const breakDuration = (entry.breaks || []).reduce((breakTotal, breakItem) => {
+              if (breakItem && breakItem.endTime) {
+                return breakTotal + (breakItem.endTime - breakItem.startTime);
+              } else if (breakItem && breakItem.endTime === null && entry.isOnBreak) {
+                return breakTotal + (Date.now() - breakItem.startTime);
+              }
+              return breakTotal;
+            }, 0);
+            
+            const workDuration = Math.max(0, entryDuration - breakDuration);
+            return total + workDuration;
+          }, 0);
+          
           return {
             ...job,
+            totalDuration,
             isActive: !!activeEntry,
             activeEntryId: activeEntry?.id,
           };
@@ -235,8 +262,34 @@ export const useJobsStore = create<JobsState>()(
           const activeEntry = state.timeEntries.find(entry => 
             entry.jobId === job.id && !entry.endTime
           );
+          
+          // Calculate total duration for this job
+          const entries = state.timeEntries.filter(entry => entry.jobId === job.id);
+          const totalDuration = entries.reduce((total, entry) => {
+            let entryDuration = 0;
+            
+            if (entry.endTime) {
+              entryDuration = entry.endTime - entry.startTime;
+            } else if (entry.endTime === null) {
+              entryDuration = Date.now() - entry.startTime;
+            }
+            
+            const breakDuration = (entry.breaks || []).reduce((breakTotal, breakItem) => {
+              if (breakItem && breakItem.endTime) {
+                return breakTotal + (breakItem.endTime - breakItem.startTime);
+              } else if (breakItem && breakItem.endTime === null && entry.isOnBreak) {
+                return breakTotal + (Date.now() - breakItem.startTime);
+              }
+              return breakTotal;
+            }, 0);
+            
+            const workDuration = Math.max(0, entryDuration - breakDuration);
+            return total + workDuration;
+          }, 0);
+          
           return {
             ...job,
+            totalDuration,
             isActive: true,
             activeEntryId: activeEntry?.id,
           };
@@ -275,7 +328,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(timeEntry, currentUser.uid).catch(error => {
             console.log('Immediate time entry save failed, will retry later:', error);
@@ -310,7 +363,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
             console.log('Immediate time entry update failed, will retry later:', error);
@@ -337,7 +390,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(timeEntry, currentUser.uid).catch(error => {
             console.log('Immediate time entry save failed, will retry later:', error);
@@ -365,7 +418,7 @@ export const useJobsStore = create<JobsState>()(
           });
           
           // Try immediate save to Supabase
-          const currentUser = get().getCurrentUser?.();
+          const currentUser = get().getCurrentUser();
           if (currentUser?.uid) {
             get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
               console.log('Immediate time entry update failed, will retry later:', error);
@@ -440,7 +493,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(timeEntry, currentUser.uid).catch(error => {
             console.log('Immediate clock in save failed, will retry later:', error);
@@ -475,7 +528,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
             console.log('Immediate clock out save failed, will retry later:', error);
@@ -489,13 +542,16 @@ export const useJobsStore = create<JobsState>()(
         
         const breakStart = customStartTime || Date.now();
         const breaks = entry.breaks || [];
+        const newBreak = {
+          id: `break_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          startTime: breakStart,
+          endTime: null,
+        };
+        
         const updatedEntry: TimeEntry = {
           ...entry,
           isOnBreak: true,
-          breaks: [
-            ...breaks,
-            { startTime: breakStart, endTime: null }
-          ],
+          breaks: [...breaks, newBreak],
         };
         
         set(state => ({
@@ -514,7 +570,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
             console.log('Immediate break start save failed, will retry later:', error);
@@ -556,7 +612,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
             console.log('Immediate break end save failed, will retry later:', error);
@@ -582,7 +638,7 @@ export const useJobsStore = create<JobsState>()(
         });
         
         // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser?.();
+        const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().savePayPeriodImmediately(payPeriod, currentUser.uid).catch(error => {
             console.log('Immediate pay period save failed, will retry later:', error);
@@ -607,7 +663,7 @@ export const useJobsStore = create<JobsState>()(
           });
           
           // Try immediate save to Supabase
-          const currentUser = get().getCurrentUser?.();
+          const currentUser = get().getCurrentUser();
           if (currentUser?.uid) {
             get().savePayPeriodImmediately(updatedPeriod, currentUser.uid).catch(error => {
               console.log('Immediate pay period update failed, will retry later:', error);
@@ -932,7 +988,7 @@ export const useJobsStore = create<JobsState>()(
           } catch (error) {
             console.error('Background sync error:', error);
           }
-        }, 2 * 60 * 60 * 1000); // Every 2 hours
+        }, 2 * 60 * 60 * 1000) as NodeJS.Timeout; // Every 2 hours
         
         set({ backgroundSyncInterval: interval });
       },
@@ -1056,7 +1112,7 @@ export const useJobsStore = create<JobsState>()(
       },
       
       // Helper method to get current user (will be set by auth context)
-      getCurrentUser: undefined as any,
+      getCurrentUser: () => null,
     }),
     {
       name: 'jobs-storage',

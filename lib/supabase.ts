@@ -438,7 +438,12 @@ export const batchSyncPayPeriods = async (periods: PayPeriod[], userId: string, 
 };
 
 // Fetch all user data from Supabase with better error handling and retry logic
-export const fetchAllUserData = async (userId: string, retryCount = 0) => {
+export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<{
+  jobs: Job[];
+  timeEntries: TimeEntry[];
+  payPeriods: PayPeriod[];
+  errors: string[];
+}> => {
   try {
     // Ensure we have a valid session before making requests
     const session = await getCurrentSession();

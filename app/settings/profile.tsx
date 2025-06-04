@@ -16,7 +16,6 @@ import {
 import { Stack, useRouter } from 'expo-router';
 import { ChevronLeft, User, Mail, Lock, LogOut, UserPlus, Key, X, Edit, Camera, Upload } from 'lucide-react-native';
 import * as ImagePicker from 'expo-image-picker';
-import * as MediaLibrary from 'expo-media-library';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -327,16 +326,7 @@ export default function ProfileScreen() {
   const openImagePicker = async () => {
     try {
       // Request media library permission with better error handling
-      let mediaPermission;
-      
-      try {
-        // Try MediaLibrary first (more comprehensive)
-        mediaPermission = await MediaLibrary.requestPermissionsAsync();
-      } catch (mediaLibraryError) {
-        console.log('MediaLibrary not available, falling back to ImagePicker:', mediaLibraryError);
-        // Fallback to ImagePicker permissions
-        mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      }
+      const mediaPermission = await ImagePicker.requestMediaLibraryPermissionsAsync();
       
       if (!mediaPermission.granted) {
         Alert.alert(
@@ -691,7 +681,8 @@ export default function ProfileScreen() {
             <View style={styles.demoCard}>
               <Text style={styles.demoTitle}>Demo Account</Text>
               <Text style={styles.demoText}>
-                Email: demo@example.com{'\n'}
+                Email: demo@example.com{'
+'}
                 Password: password123
               </Text>
             </View>

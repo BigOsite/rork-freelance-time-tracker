@@ -11,6 +11,7 @@ import StatCard from '@/components/StatCard';
 import JobCard from '@/components/JobCard';
 import EmptyState from '@/components/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
+import { JobWithDuration } from '@/types';
 
 export default function DashboardScreen() {
   const router = useRouter();
@@ -132,10 +133,10 @@ export default function DashboardScreen() {
     }
   }, [store]);
   
-  const handleClockOut = React.useCallback((jobId: string, entryId?: string) => {
+  const handleClockOut = React.useCallback((job: JobWithDuration) => {
     try {
-      if (entryId) {
-        store.clockOut(entryId);
+      if (job.activeEntryId) {
+        store.clockOut(job.activeEntryId);
       }
     } catch (error) {
       console.error('Error clocking out:', error);
@@ -251,7 +252,7 @@ export default function DashboardScreen() {
                 <JobCard 
                   key={job.id} 
                   job={job}
-                  onClockOut={() => handleClockOut(job.id, job.activeEntryId)}
+                  onClockOut={() => handleClockOut(job)}
                   paidEarnings={jobPaidEarnings[job.id] || 0}
                   showSwipeToDelete={false}
                 />
@@ -284,7 +285,7 @@ export default function DashboardScreen() {
                     key={job.id} 
                     job={job}
                     onClockIn={() => handleClockIn(job.id)}
-                    onClockOut={() => handleClockOut(job.id, job.activeEntryId)}
+                    onClockOut={() => handleClockOut(job)}
                     paidEarnings={jobPaidEarnings[job.id] || 0}
                     showSwipeToDelete={false}
                   />

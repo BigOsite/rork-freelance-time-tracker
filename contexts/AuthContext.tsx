@@ -3,7 +3,6 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import * as FileSystem from 'expo-file-system';
 import * as ImagePicker from 'expo-image-picker';
-import * as MediaLibrary from 'expo-media-library';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
@@ -55,6 +54,21 @@ const secureStorage = {
       await SecureStore.deleteItemAsync(key);
     }
   },
+};
+
+// Media library wrapper for production compatibility
+const mediaLibrary = {
+  async requestPermissionsAsync() {
+    try {
+      // Try to dynamically import expo-media-library
+      const MediaLibrary = await import('expo-media-library');
+      return await MediaLibrary.requestPermissionsAsync();
+    } catch (error) {
+      console.log('expo-media-library not available, falling back to ImagePicker:', error);
+      // Fallback to ImagePicker permissions
+      return await ImagePicker.requestMediaLibraryPermissionsAsync();
+    }
+  }
 };
 
 export function AuthProvider({ children }: AuthProviderProps) {
@@ -393,7 +407,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       if (!finalImageUri) {
         // Request permissions first with better error handling
         try {
-          const { status } = await MediaLibrary.requestPermissionsAsync();
+          const { status } = await mediaLibrary.requestPermissionsAsync();
           if (status !== 'granted') {
             throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
           }

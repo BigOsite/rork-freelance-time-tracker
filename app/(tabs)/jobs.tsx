@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import JobCard from '@/components/JobCard';
 import EmptyState from '@/components/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
+import { JobWithDuration } from '@/types';
 
 type SortOption = 'dateNewest' | 'dateOldest' | 'titleAZ' | 'titleZA' | 'clientAZ' | 'clientZA';
 
@@ -132,10 +133,10 @@ export default function JobsScreen() {
     }
   }, [store]);
   
-  const handleClockOut = React.useCallback((jobId: string, entryId?: string) => {
+  const handleClockOut = React.useCallback((job: JobWithDuration) => {
     try {
-      if (entryId) {
-        store.clockOut(entryId);
+      if (job.activeEntryId) {
+        store.clockOut(job.activeEntryId);
       }
     } catch (error) {
       console.error('Error clocking out:', error);
@@ -201,14 +202,14 @@ export default function JobsScreen() {
     { label: 'Client Name (Z-A)', value: 'clientZA' as SortOption },
   ];
   
-  const renderItem = React.useCallback(({ item }: { item: typeof jobs[0] }) => {
+  const renderItem = React.useCallback(({ item }: { item: JobWithDuration }) => {
     if (!item) return null;
     
     return (
       <JobCard 
         job={item}
         onClockIn={() => handleClockIn(item.id)}
-        onClockOut={() => handleClockOut(item.id, item.activeEntryId)}
+        onClockOut={() => handleClockOut(item)}
         onDelete={() => handleDeleteJob(item.id)}
         paidEarnings={jobPaidEarnings[item.id] || 0}
         showSwipeToDelete={true}
