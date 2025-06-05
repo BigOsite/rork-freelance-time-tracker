@@ -593,7 +593,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('Too many requests')) {
       return 'Too many attempts. Please wait a moment before trying again.';
     }
-    if (message.includes('Network request failed') || message.includes('fetch')) {
+    if (message.includes('Network request failed') || message.includes('fetch') || message.includes('Network error')) {
       return 'Network error. Please check your connection and try again.';
     }
     if (message.includes('signup is disabled')) {
@@ -634,6 +634,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     if (message.includes('Failed to access selected image')) {
       return 'Failed to access selected image. Please try selecting another image.';
+    }
+    if (message.includes('Server did not start')) {
+      return 'Server is not available. Please try again later.';
+    }
+    if (message.includes('JSON Parse error') || message.includes('Unexpected character')) {
+      return 'Server error. Please try again later.';
     }
     
     // Return the original message if it's already user-friendly

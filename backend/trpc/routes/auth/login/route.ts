@@ -24,17 +24,36 @@ export const loginProcedure = publicProcedure
 
       if (authError) {
         console.error('Supabase auth error:', authError);
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Invalid email or password',
-        });
+        
+        // Provide more specific error messages
+        if (authError.message?.includes('Invalid login credentials')) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Invalid email or password. Please check your credentials and try again.',
+          });
+        } else if (authError.message?.includes('Email not confirmed')) {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Please check your email and confirm your account before signing in.',
+          });
+        } else if (authError.message?.includes('Too many requests')) {
+          throw new TRPCError({
+            code: 'TOO_MANY_REQUESTS',
+            message: 'Too many login attempts. Please wait a moment before trying again.',
+          });
+        } else {
+          throw new TRPCError({
+            code: 'UNAUTHORIZED',
+            message: 'Login failed. Please check your credentials and try again.',
+          });
+        }
       }
 
       if (!authData.user || !authData.session) {
         console.error('No user or session returned from Supabase');
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
-          message: 'Login failed',
+          message: 'Login failed - no user data returned',
         });
       }
 
@@ -65,10 +84,18 @@ export const loginProcedure = publicProcedure
         throw error;
       }
       
+      // Handle network and other errors
+      if (error.message?.includes('fetch') || error.message?.includes('network')) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Network error. Please check your connection and try again.',
+        });
+      }
+      
       // Otherwise, wrap it in a TRPCError
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: error.message || 'Login failed',
+        message: error.message || 'Login failed. Please try again.',
       });
     }
   });

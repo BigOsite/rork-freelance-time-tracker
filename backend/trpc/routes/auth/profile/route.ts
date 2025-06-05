@@ -9,6 +9,7 @@ export const getProfileProcedure = protectedProcedure
       const { data: { user }, error } = await supabase.auth.getUser(ctx.token);
 
       if (error || !user) {
+        console.error('Profile fetch error:', error);
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'Invalid token or user not found',
@@ -23,7 +24,7 @@ export const getProfileProcedure = protectedProcedure
         uid: user.id,
         email: user.email!,
         displayName,
-        photoURL: user.user_metadata?.avatar_url || null,
+        photoURL: user.user_metadata?.avatar_url || user.user_metadata?.photo_url || null,
         isLoggedIn: true,
         createdAt: new Date(user.created_at).getTime(),
       };
