@@ -40,13 +40,20 @@ export const trpcClient = trpc.createClient({
         try {
           console.log('Making tRPC request to:', url);
           
+          // Create AbortController for timeout
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
           const response = await fetch(url, {
             ...options,
             headers: {
               ...options?.headers,
             },
-            timeout: 30000, // 30 second timeout
+            signal: controller.signal,
           });
+
+          // Clear timeout if request completes
+          clearTimeout(timeoutId);
 
           console.log('tRPC response status:', response.status);
 
@@ -98,6 +105,11 @@ export const trpcClient = trpc.createClient({
           return response;
         } catch (error: any) {
           console.error('TRPC fetch error:', error);
+          
+          // Handle AbortError (timeout)
+          if (error.name === 'AbortError') {
+            throw new Error('Request timed out. Please try again.');
+          }
           
           // Provide more specific error messages
           if (error.name === 'TypeError' && error.message?.includes('fetch')) {
