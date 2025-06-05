@@ -290,6 +290,8 @@ export const refreshSessionIfNeeded = async () => {
 // Enhanced session management
 export const initializeSession = async () => {
   try {
+    console.log('Initializing Supabase session');
+    
     // Get the current session
     const { data: { session }, error } = await supabase.auth.getSession();
     
@@ -299,6 +301,7 @@ export const initializeSession = async () => {
     }
     
     if (session) {
+      console.log('Existing session found, refreshing...');
       // Refresh the session to ensure it's valid
       const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
       
@@ -307,9 +310,11 @@ export const initializeSession = async () => {
         return session; // Return original session if refresh fails
       }
       
+      console.log('Session refreshed successfully');
       return refreshData.session || session;
     }
     
+    console.log('No existing session found');
     return null;
   } catch (error) {
     console.error('Error in initializeSession:', error);
@@ -325,6 +330,8 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
     if (!session) {
       throw new Error('No active session for sync');
     }
+    
+    console.log(`Batch syncing ${jobs.length} jobs (${operation}) for user:`, userId);
     
     if (operation === 'upsert') {
       const jobsData = jobs.map(job => ({
@@ -343,6 +350,7 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
       });
       
       if (error) throw error;
+      console.log('Jobs upserted successfully');
     } else if (operation === 'delete') {
       const jobIds = jobs.map(job => job.id);
       const { error } = await supabase.from('jobs').delete()
@@ -350,6 +358,7 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
         .eq('user_id', userId);
       
       if (error) throw error;
+      console.log('Jobs deleted successfully');
     }
   } catch (error) {
     console.error('Error in batch sync jobs:', error);
@@ -364,6 +373,8 @@ export const batchSyncTimeEntries = async (entries: TimeEntry[], userId: string,
     if (!session) {
       throw new Error('No active session for sync');
     }
+    
+    console.log(`Batch syncing ${entries.length} time entries (${operation}) for user:`, userId);
     
     if (operation === 'upsert') {
       const entriesData = entries.map(entry => ({
@@ -384,6 +395,7 @@ export const batchSyncTimeEntries = async (entries: TimeEntry[], userId: string,
       });
       
       if (error) throw error;
+      console.log('Time entries upserted successfully');
     } else if (operation === 'delete') {
       const entryIds = entries.map(entry => entry.id);
       const { error } = await supabase.from('time_entries').delete()
@@ -391,6 +403,7 @@ export const batchSyncTimeEntries = async (entries: TimeEntry[], userId: string,
         .eq('user_id', userId);
       
       if (error) throw error;
+      console.log('Time entries deleted successfully');
     }
   } catch (error) {
     console.error('Error in batch sync time entries:', error);
@@ -405,6 +418,8 @@ export const batchSyncPayPeriods = async (periods: PayPeriod[], userId: string, 
     if (!session) {
       throw new Error('No active session for sync');
     }
+    
+    console.log(`Batch syncing ${periods.length} pay periods (${operation}) for user:`, userId);
     
     if (operation === 'upsert') {
       const periodsData = periods.map(period => ({
@@ -426,6 +441,7 @@ export const batchSyncPayPeriods = async (periods: PayPeriod[], userId: string, 
       });
       
       if (error) throw error;
+      console.log('Pay periods upserted successfully');
     } else if (operation === 'delete') {
       const periodIds = periods.map(period => period.id);
       const { error } = await supabase.from('pay_periods').delete()
@@ -433,6 +449,7 @@ export const batchSyncPayPeriods = async (periods: PayPeriod[], userId: string, 
         .eq('user_id', userId);
       
       if (error) throw error;
+      console.log('Pay periods deleted successfully');
     }
   } catch (error) {
     console.error('Error in batch sync pay periods:', error);
@@ -448,6 +465,8 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
   errors: string[];
 }> => {
   try {
+    console.log(`Fetching all user data for user: ${userId} (attempt ${retryCount + 1})`);
+    
     // Ensure we have a valid session before making requests
     const session = await getCurrentSession();
     if (!session) {
@@ -478,6 +497,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
         settings: job.settings,
         createdAt: new Date(job.created_at).getTime(),
       }));
+      console.log(`Fetched ${result.jobs.length} jobs`);
     } else if (jobsResult.status === 'rejected') {
       result.errors.push('Failed to fetch jobs');
       console.error('Jobs fetch error:', jobsResult.reason);
@@ -499,6 +519,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
         paidInPeriodId: entry.paid_in_period_id || undefined,
         createdAt: new Date(entry.created_at).getTime(),
       }));
+      console.log(`Fetched ${result.timeEntries.length} time entries`);
     } else if (entriesResult.status === 'rejected') {
       result.errors.push('Failed to fetch time entries');
       console.error('Time entries fetch error:', entriesResult.reason);
@@ -521,6 +542,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
         timeEntryIds: period.time_entry_ids || [],
         createdAt: new Date(period.created_at).getTime(),
       }));
+      console.log(`Fetched ${result.payPeriods.length} pay periods`);
     } else if (periodsResult.status === 'rejected') {
       result.errors.push('Failed to fetch pay periods');
       console.error('Pay periods fetch error:', periodsResult.reason);
@@ -529,6 +551,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       console.error('Pay periods fetch error:', periodsResult.value.error);
     }
 
+    console.log('Data fetch completed with', result.errors.length, 'errors');
     return result;
   } catch (error) {
     console.error('Error fetching all user data:', error);
@@ -547,9 +570,12 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
 // Check network connectivity with better error handling
 export const checkNetworkConnectivity = async (): Promise<boolean> => {
   try {
+    console.log('Checking network connectivity');
     // Simple connectivity check by making a lightweight request to Supabase
     const { error } = await supabase.from('jobs').select('id').limit(1);
-    return !error;
+    const isConnected = !error;
+    console.log('Network connectivity:', isConnected ? 'connected' : 'disconnected');
+    return isConnected;
   } catch (error) {
     console.log('Network connectivity check failed:', error);
     return false;

@@ -16,6 +16,7 @@ app.use('*', cors({
 
 // Health check endpoint
 app.get('/health', (c) => {
+  console.log('Health check requested');
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
@@ -42,6 +43,7 @@ app.use('/api/trpc/*', trpcServer({
         'X-tRPC-Path': paths?.join(',') || 'unknown',
         'X-tRPC-Type': type,
         'X-tRPC-Errors': errors.length.toString(),
+        'Content-Type': 'application/json',
       },
     };
   },
@@ -49,6 +51,7 @@ app.use('/api/trpc/*', trpcServer({
 
 // Catch-all for API routes
 app.all('/api/*', (c) => {
+  console.log('Unknown API endpoint requested:', c.req.path);
   return c.json({ 
     error: 'API endpoint not found',
     path: c.req.path,
@@ -62,6 +65,7 @@ app.all('/api/*', (c) => {
 
 // Default route with more information
 app.get('/', (c) => {
+  console.log('Root endpoint requested');
   return c.json({ 
     message: 'HoursTracker API Server',
     version: '1.0.0',
@@ -87,5 +91,7 @@ app.onError((err, c) => {
     path: c.req.path
   }, 500);
 });
+
+console.log('Hono server initialized');
 
 export default app;

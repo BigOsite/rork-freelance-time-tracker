@@ -113,10 +113,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setAuthState({ isLoading: true, error: null });
       
+      console.log('Starting login process for:', email);
+      
       const response = await trpcClient.auth.login.mutate({
         email,
         password,
       });
+
+      console.log('Login response received:', response.success);
 
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
@@ -140,17 +144,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null 
       });
 
+      console.log('User state updated, initializing background sync');
+
       // Initialize background sync for the authenticated user
       initializeBackgroundSync(response.user.uid);
 
       // Sync data with Supabase after successful login
       try {
         await syncWithSupabase(response.user.uid);
+        console.log('Data sync completed successfully');
       } catch (syncError) {
         console.log('Data sync failed, but login successful:', syncError);
       }
 
     } catch (error: any) {
+      console.error('Login failed:', error);
       const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
@@ -164,11 +172,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       setAuthState({ isLoading: true, error: null });
       
+      console.log('Starting registration process for:', email);
+      
       const response = await trpcClient.auth.register.mutate({
         email,
         password,
         displayName,
       });
+
+      console.log('Registration response received:', response.success);
 
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
@@ -192,17 +204,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null 
       });
 
+      console.log('User state updated, initializing background sync');
+
       // Initialize background sync for the authenticated user
       initializeBackgroundSync(response.user.uid);
 
       // Sync data with Supabase after successful registration
       try {
         await syncWithSupabase(response.user.uid);
+        console.log('Data sync completed successfully');
       } catch (syncError) {
         console.log('Data sync failed, but registration successful:', syncError);
       }
 
     } catch (error: any) {
+      console.error('Registration failed:', error);
       const errorMessage = getCleanErrorMessage(error);
       setAuthState({ 
         isLoading: false, 
@@ -214,28 +230,43 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const logout = async () => {
     try {
+      console.log('Starting logout process');
+      
       // Stop background sync
       stopBackgroundSync();
       
       // Call logout endpoint if authenticated
       if (authState.isAuthenticated) {
-        await trpcClient.auth.logout.mutate();
+        try {
+          await trpcClient.auth.logout.mutate();
+          console.log('Logout API call successful');
+        } catch (error) {
+          console.log('Logout API call failed:', error);
+        }
       }
       
       // Sign out from Supabase
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+        console.log('Supabase signout successful');
+      } catch (error) {
+        console.log('Supabase signout failed:', error);
+      }
     } catch (error) {
-      console.log('Logout API call failed:', error);
+      console.log('Logout process failed:', error);
     } finally {
       // Clear local auth data regardless of API call result
       await secureStorage.removeItem(TOKEN_KEY);
       clearAuth();
+      console.log('Local auth data cleared');
     }
   };
 
   const refreshProfile = async () => {
     try {
       if (!authState.isAuthenticated) return;
+      
+      console.log('Refreshing profile');
       
       // Refresh session if needed
       await refreshSessionIfNeeded();
@@ -257,6 +288,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Sync data after profile refresh
       try {
         await syncWithSupabase(profile.uid);
+        console.log('Data sync completed after profile refresh');
       } catch (syncError) {
         console.log('Data sync failed during profile refresh:', syncError);
       }
@@ -641,6 +673,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     if (message.includes('JSON Parse error') || message.includes('Unexpected character')) {
       return 'Server error. Please try again later.';
     }
+    if (message.includes('Server is not available')) {
+      return 'Server is not available. Please try again later.';
+    }
+    if (message.includes('Request timed out')) {
+      return 'Request timed out. Please try again.';
+    }
     
     // Return the original message if it's already user-friendly
     return message || 'An unexpected error occurred. Please try again.';
@@ -652,16 +690,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       try {
         setAuthState({ isLoading: true, error: null });
         
+        console.log('Initializing auth state');
+        
         // Initialize Supabase session first
         const session = await initializeSession();
         
         const token = await secureStorage.getItem(TOKEN_KEY);
+        console.log('Stored token found:', !!token);
+        console.log('Supabase session found:', !!session);
+        
         if (token && session) {
           setAuthToken(token);
           
           setAuthState({ isAuthenticated: true, isLoading: false, error: null });
           // Try to refresh profile to get latest user data
           try {
+            console.log('Refreshing profile on app start');
             const profile = await trpcClient.auth.profile.query();
             
             // Get updated profile data from Supabase auth
@@ -676,12 +720,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             };
             setUserAccount(loggedInUser);
 
+            console.log('Profile refreshed, initializing background sync');
+
             // Initialize background sync for authenticated user
             initializeBackgroundSync(profile.uid);
 
             // Sync data on app start if user is authenticated
             try {
               await syncWithSupabase(profile.uid);
+              console.log('Data sync completed on app start');
             } catch (syncError) {
               console.log('Data sync failed on app start:', syncError);
             }
@@ -692,6 +739,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
             clearAuth();
           }
         } else {
+          console.log('No valid auth state found');
           setAuthState({ isAuthenticated: false, isLoading: false, error: null });
         }
       } catch (error) {

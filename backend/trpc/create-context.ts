@@ -10,6 +10,8 @@ export const createContext = async (opts: FetchCreateContextFnOptions) => {
     const authorization = opts.req.headers.get('authorization');
     const token = authorization?.replace('Bearer ', '');
     
+    console.log('Creating TRPC context with token:', token ? 'present' : 'missing');
+    
     return {
       req: opts.req,
       token,
@@ -30,6 +32,7 @@ export type Context = Awaited<ReturnType<typeof createContext>>;
 const t = initTRPC.context<Context>().create({
   transformer: superjson,
   errorFormatter: ({ shape, error }) => {
+    console.log('TRPC Error:', error.message, 'Code:', error.code);
     return {
       ...shape,
       data: {
@@ -99,6 +102,8 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
         message: 'Invalid or expired token',
       });
     }
+
+    console.log('Token validated for user:', user.id);
 
     return next({
       ctx: {

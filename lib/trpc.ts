@@ -44,13 +44,18 @@ export const trpcClient = trpc.createClient({
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-          const response = await fetch(url, {
-            ...options,
-            headers: {
-              ...options?.headers,
-            },
+          // Ensure url is a string
+          const requestUrl = typeof url === 'string' ? url : url.toString();
+
+          // Create proper RequestInit object without timeout property
+          const requestInit: RequestInit = {
+            method: options?.method || 'POST',
+            headers: options?.headers,
+            body: options?.body,
             signal: controller.signal,
-          });
+          };
+
+          const response = await fetch(requestUrl, requestInit);
 
           // Clear timeout if request completes
           clearTimeout(timeoutId);
