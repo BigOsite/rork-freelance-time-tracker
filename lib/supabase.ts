@@ -331,7 +331,7 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
         id: job.id,
         user_id: userId,
         name: job.title,
-        client: job.client || '',
+        client: job.client || null, // Ensure client is properly mapped
         hourly_rate: job.hourlyRate,
         color: job.color,
         settings: job.settings || null,
@@ -472,7 +472,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       result.jobs = jobsResult.value.data.map(job => ({
         id: job.id,
         title: job.name,
-        client: job.client || '',
+        client: job.client || '', // Ensure client is properly mapped
         hourlyRate: job.hourly_rate,
         color: job.color,
         settings: job.settings,

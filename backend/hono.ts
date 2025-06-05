@@ -1,58 +1,48 @@
-import { Hono } from "hono";
-import { trpcServer } from "@hono/trpc-server";
-import { cors } from "hono/cors";
-import { appRouter } from "./trpc/app-router";
-import { createContext } from "./trpc/create-context";
+import { Hono } from 'hono';
+import { cors } from 'hono/cors';
+import { trpcServer } from '@hono/trpc-server';
+import { appRouter } from './trpc/app-router';
+import { createContext } from './trpc/create-context';
 
-// app will be mounted at /api
 const app = new Hono();
 
-// Enable CORS for all routes with proper error handling
-app.use("*", cors({
-  origin: "*",
-  allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-  allowHeaders: ["Content-Type", "Authorization"],
+// Enable CORS for all origins in development
+app.use('*', cors({
+  origin: '*',
+  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowHeaders: ['Content-Type', 'Authorization'],
+  credentials: true,
 }));
 
-// Global error handler
-app.onError((err, c) => {
-  console.error('Hono error:', err);
-  
-  // Return proper JSON error response
-  return c.json({
-    error: {
-      message: err.message || 'Internal server error',
-      code: 'INTERNAL_SERVER_ERROR'
-    }
-  }, 500);
+// Health check endpoint
+app.get('/health', (c) => {
+  return c.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Mount tRPC router at /trpc with proper error handling
-app.use(
-  "/trpc/*",
-  trpcServer({
-    endpoint: "/api/trpc",
-    router: appRouter,
-    createContext,
-    onError: ({ error, path }) => {
-      console.error(`tRPC error on ${path}:`, error);
-    },
-  })
-);
+// tRPC endpoint
+app.use('/api/trpc/*', trpcServer({
+  router: appRouter,
+  createContext,
+  onError: ({ error, path }) => {
+    console.error(`tRPC Error on ${path}:`, error);
+  },
+}));
 
-// Simple health check endpoint
-app.get("/", (c) => {
-  return c.json({ status: "ok", message: "API is running" });
+// Catch-all for API routes
+app.all('/api/*', (c) => {
+  return c.json({ error: 'API endpoint not found' }, 404);
 });
 
-// Catch-all for unmatched routes
-app.all("*", (c) => {
-  return c.json({
-    error: {
-      message: "Route not found",
-      code: "NOT_FOUND"
+// Default route
+app.get('/', (c) => {
+  return c.json({ 
+    message: 'HoursTracker API Server',
+    version: '1.0.0',
+    endpoints: {
+      health: '/health',
+      trpc: '/api/trpc',
     }
-  }, 404);
+  });
 });
 
 export default app;

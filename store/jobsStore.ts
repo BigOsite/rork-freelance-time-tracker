@@ -19,12 +19,12 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: any;
+  backgroundSyncInterval: NodeJS.Timeout | null;
   isLoading: boolean;
   _currentUser: UserAccount | null;
   
   // Job actions
-  addJob: (job: Omit<Job, 'id' | 'createdAt'>) => void;
+  addJob: (job: Omit<Job, 'id' | 'createdAt'>) => string;
   updateJob: (id: string, updates: Partial<Job>) => void;
   deleteJob: (id: string) => void;
   getJob: (id: string) => Job | undefined;
@@ -137,6 +137,8 @@ export const useJobsStore = create<JobsState>()(
             console.log('Immediate job save failed, will retry later:', error);
           });
         }
+        
+        return job.id;
       },
       
       updateJob: (id, updates) => {
@@ -991,7 +993,7 @@ export const useJobsStore = create<JobsState>()(
           } catch (error) {
             console.error('Background sync error:', error);
           }
-        }, 2 * 60 * 60 * 1000); // Every 2 hours
+        }, 2 * 60 * 60 * 1000) as NodeJS.Timeout; // Every 2 hours
         
         set({ backgroundSyncInterval: interval });
       },

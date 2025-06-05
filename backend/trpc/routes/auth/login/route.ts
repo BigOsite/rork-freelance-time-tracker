@@ -14,6 +14,8 @@ export const loginProcedure = publicProcedure
     try {
       const { email, password } = input;
       
+      console.log('Login attempt for email:', email);
+      
       // Sign in with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
         email,
@@ -21,6 +23,7 @@ export const loginProcedure = publicProcedure
       });
 
       if (authError) {
+        console.error('Supabase auth error:', authError);
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'Invalid email or password',
@@ -28,6 +31,7 @@ export const loginProcedure = publicProcedure
       }
 
       if (!authData.user || !authData.session) {
+        console.error('No user or session returned from Supabase');
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Login failed',
@@ -38,7 +42,7 @@ export const loginProcedure = publicProcedure
                          authData.user.email?.split('@')[0] || 
                          'User';
 
-      return {
+      const response = {
         success: true,
         user: {
           uid: authData.user.id,
@@ -50,6 +54,9 @@ export const loginProcedure = publicProcedure
         },
         token: authData.session.access_token,
       };
+
+      console.log('Login successful for user:', authData.user.id);
+      return response;
     } catch (error: any) {
       console.error('Login error:', error);
       

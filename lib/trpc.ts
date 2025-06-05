@@ -36,6 +36,8 @@ export const trpcClient = trpc.createClient({
       },
       fetch: async (url, options) => {
         try {
+          console.log('Making tRPC request to:', url);
+          
           const response = await fetch(url, {
             ...options,
             headers: {
@@ -43,12 +45,16 @@ export const trpcClient = trpc.createClient({
             },
           });
 
+          console.log('tRPC response status:', response.status);
+
           // Check if response is ok
           if (!response.ok) {
             // Try to get error message from response
             let errorMessage = `HTTP ${response.status}`;
             try {
               const errorText = await response.text();
+              console.log('Error response text:', errorText);
+              
               if (errorText) {
                 // Try to parse as JSON first
                 try {
@@ -70,6 +76,16 @@ export const trpcClient = trpc.createClient({
           return response;
         } catch (error: any) {
           console.error('TRPC fetch error:', error);
+          
+          // Provide more specific error messages
+          if (error.message?.includes('fetch')) {
+            throw new Error('Network error. Please check your connection and try again.');
+          }
+          
+          if (error.message?.includes('Server did not start')) {
+            throw new Error('Server is not available. Please try again later.');
+          }
+          
           throw error;
         }
       },
