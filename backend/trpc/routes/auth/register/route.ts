@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
+import { TRPCError } from '@trpc/server';
 
 const registerInputSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -14,7 +15,7 @@ export const registerProcedure = publicProcedure
     try {
       const { email, password, displayName } = input;
       
-      // Register user with Supabase Auth
+      // Sign up with Supabase Auth
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email,
         password,
@@ -26,22 +27,17 @@ export const registerProcedure = publicProcedure
       });
 
       if (authError) {
-        if (authError.message.includes('already registered')) {
-          throw new Error('User with this email already exists');
-        }
-        throw new Error(authError.message);
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: authError.message,
+        });
       }
 
-      if (!authData.user) {
-        throw new Error('Failed to create user');
-      }
-
-      // Get the session token
-      const { data: sessionData } = await supabase.auth.getSession();
-      const token = sessionData.session?.access_token;
-
-      if (!token) {
-        throw new Error('Failed to get authentication token');
+      if (!authData.user || !authData.session) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Registration failed',
+        });
       }
 
       return {
@@ -54,10 +50,20 @@ export const registerProcedure = publicProcedure
           isLoggedIn: true,
           createdAt: new Date(authData.user.created_at).getTime(),
         },
-        token,
+        token: authData.session.access_token,
       };
     } catch (error: any) {
       console.error('Registration error:', error);
-      throw new Error(error.message || 'Registration failed');
+      
+      // If it's already a TRPCError, re-throw it
+      if (error.code) {
+        throw error;
+      }
+      
+      // Otherwise, wrap it in a TRPCError
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message || 'Registration failed',
+      });
     }
   });

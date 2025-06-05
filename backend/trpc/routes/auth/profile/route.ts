@@ -1,5 +1,6 @@
 import { protectedProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
+import { TRPCError } from '@trpc/server';
 
 export const getProfileProcedure = protectedProcedure
   .query(async ({ ctx }: { ctx: any }) => {
@@ -8,7 +9,10 @@ export const getProfileProcedure = protectedProcedure
       const { data: { user }, error } = await supabase.auth.getUser(ctx.token);
 
       if (error || !user) {
-        throw new Error('Invalid token or user not found');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Invalid token or user not found',
+        });
       }
 
       const displayName = user.user_metadata?.display_name || 
@@ -25,6 +29,16 @@ export const getProfileProcedure = protectedProcedure
       };
     } catch (error: any) {
       console.error('Profile fetch error:', error);
-      throw new Error('Failed to fetch profile');
+      
+      // If it's already a TRPCError, re-throw it
+      if (error.code) {
+        throw error;
+      }
+      
+      // Otherwise, wrap it in a TRPCError
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'Failed to fetch profile',
+      });
     }
   });

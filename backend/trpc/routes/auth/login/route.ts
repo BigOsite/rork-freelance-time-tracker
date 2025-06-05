@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
 import { supabase } from '@/lib/supabase';
+import { TRPCError } from '@trpc/server';
 
 const loginInputSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -20,11 +21,17 @@ export const loginProcedure = publicProcedure
       });
 
       if (authError) {
-        throw new Error('Invalid email or password');
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'Invalid email or password',
+        });
       }
 
       if (!authData.user || !authData.session) {
-        throw new Error('Login failed');
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Login failed',
+        });
       }
 
       const displayName = authData.user.user_metadata?.display_name || 
@@ -45,6 +52,16 @@ export const loginProcedure = publicProcedure
       };
     } catch (error: any) {
       console.error('Login error:', error);
-      throw new Error(error.message || 'Login failed');
+      
+      // If it's already a TRPCError, re-throw it
+      if (error.code) {
+        throw error;
+      }
+      
+      // Otherwise, wrap it in a TRPCError
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message || 'Login failed',
+      });
     }
   });

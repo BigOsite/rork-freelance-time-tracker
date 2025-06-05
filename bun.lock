@@ -14,7 +14,7 @@
         "@tanstack/react-query": "^5.79.2",
         "@trpc/client": "^11.2.0",
         "@trpc/react-query": "^11.2.0",
-        "@trpc/server": "^11.2.0",
+        "@trpc/server": "^11.3.0",
         "expo": "^53.0.4",
         "expo-auth-session": "~6.1.5",
         "expo-blur": "~14.1.4",
@@ -434,7 +434,7 @@
 
     "@trpc/react-query": ["@trpc/react-query@11.2.0", "", { "peerDependencies": { "@tanstack/react-query": "^5.67.1", "@trpc/client": "11.2.0", "@trpc/server": "11.2.0", "react": ">=18.2.0", "react-dom": ">=18.2.0", "typescript": ">=5.7.2" } }, "sha512-eVbvjUzvia7B+Xt3002YRlU2/u+jljtVdOTErT6ffMHC2T5ETop84oyqnsmXpMlnhT5y/We6v/KGpE4GUE2Zkw=="],
 
-    "@trpc/server": ["@trpc/server@11.2.0", "", { "peerDependencies": { "typescript": ">=5.7.2" } }, "sha512-clESXvCT3rTRUavB3wjtmPDlbB+rayVPeaTeXEQVeQNdTrK5o6GnYfCdiJJSdQspUQAwkGgQFRnku5pckuISlw=="],
+    "@trpc/server": ["@trpc/server@11.3.0", "", { "peerDependencies": { "typescript": ">=5.7.2" } }, "sha512-E5y94QLxgYr+T5FOWiMqNrCW0d2CJfhxNB7bS9xQzPfPMQeo4dpX8/s3nAxITJ9ARrORhK3Efpqs3/bPI9UOTQ=="],
 
     "@types/babel__core": ["@types/babel__core@7.20.5", "", { "dependencies": { "@babel/parser": "^7.20.7", "@babel/types": "^7.20.7", "@types/babel__generator": "*", "@types/babel__template": "*", "@types/babel__traverse": "*" } }, "sha512-qoQprZvz5wQFJwMDqeseRXWv3rqMvhgpbXFfVyWhbx9X47POIA6i/+dXefEmZKoAgOaTdaIgNSMqMIU61yRyzA=="],
 

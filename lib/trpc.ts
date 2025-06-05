@@ -24,13 +24,54 @@ export const trpcClient = trpc.createClient({
       headers: () => {
         // Get auth token from store
         const authState = useBusinessStore.getState().authState;
-        const headers: Record<string, string> = {};
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+        };
         
         if (authState.token) {
           headers.authorization = `Bearer ${authState.token}`;
         }
         
         return headers;
+      },
+      fetch: async (url, options) => {
+        try {
+          const response = await fetch(url, {
+            ...options,
+            headers: {
+              ...options?.headers,
+            },
+          });
+
+          // Check if response is ok
+          if (!response.ok) {
+            // Try to get error message from response
+            let errorMessage = `HTTP ${response.status}`;
+            try {
+              const errorText = await response.text();
+              if (errorText) {
+                // Try to parse as JSON first
+                try {
+                  const errorJson = JSON.parse(errorText);
+                  errorMessage = errorJson.error?.message || errorJson.message || errorText;
+                } catch {
+                  // If not JSON, use the text as is
+                  errorMessage = errorText;
+                }
+              }
+            } catch {
+              // If we can't read the response, use the status
+              errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+            }
+            
+            throw new Error(errorMessage);
+          }
+
+          return response;
+        } catch (error: any) {
+          console.error('TRPC fetch error:', error);
+          throw error;
+        }
       },
     }),
   ],
