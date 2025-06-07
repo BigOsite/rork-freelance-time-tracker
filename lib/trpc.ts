@@ -10,6 +10,11 @@ const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   }
 
+  // Fallback for development
+  if (__DEV__) {
+    return 'http://localhost:3000';
+  }
+
   throw new Error(
     "No base url found, please set EXPO_PUBLIC_RORK_API_BASE_URL"
   );
@@ -124,13 +129,17 @@ export const trpcClient = trpc.createClient({
             throw new Error('Request timed out. Please try again.');
           }
           
-          // Provide more specific error messages
+          // Handle network connection errors
           if (error.name === 'TypeError' && error.message?.includes('fetch')) {
             throw new Error('Network error. Please check your connection and try again.');
           }
           
           if (error.message?.includes('timeout')) {
             throw new Error('Request timed out. Please try again.');
+          }
+          
+          if (error.message?.includes('Failed to fetch') || error.message?.includes('Network request failed')) {
+            throw new Error('Network error. Please check your connection and try again.');
           }
           
           if (error.message?.includes('Server did not start')) {
@@ -142,6 +151,11 @@ export const trpcClient = trpc.createClient({
           }
           
           if (error.message?.includes('Server returned HTML')) {
+            throw new Error('Server is not available. Please try again later.');
+          }
+          
+          // Handle connection refused errors
+          if (error.message?.includes('ECONNREFUSED') || error.message?.includes('Connection refused')) {
             throw new Error('Server is not available. Please try again later.');
           }
           

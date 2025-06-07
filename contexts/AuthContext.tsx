@@ -115,6 +115,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting login process for:', email);
       
+      // Test network connectivity first
+      try {
+        const response = await fetch('https://httpbin.org/get', { 
+          method: 'GET',
+          timeout: 5000 
+        });
+        if (!response.ok) {
+          throw new Error('Network test failed');
+        }
+        console.log('Network connectivity confirmed');
+      } catch (networkError) {
+        console.error('Network connectivity test failed:', networkError);
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
+      
       const response = await trpcClient.auth.login.mutate({
         email,
         password,
@@ -173,6 +188,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setAuthState({ isLoading: true, error: null });
       
       console.log('Starting registration process for:', email);
+      
+      // Test network connectivity first
+      try {
+        const response = await fetch('https://httpbin.org/get', { 
+          method: 'GET',
+          timeout: 5000 
+        });
+        if (!response.ok) {
+          throw new Error('Network test failed');
+        }
+        console.log('Network connectivity confirmed');
+      } catch (networkError) {
+        console.error('Network connectivity test failed:', networkError);
+        throw new Error('Network error. Please check your internet connection and try again.');
+      }
       
       const response = await trpcClient.auth.register.mutate({
         email,
@@ -606,6 +636,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
     
     const message = typeof error === 'string' ? error : error.message || '';
     
+    // Handle common network errors first
+    if (message.includes('Network error') || message.includes('fetch') || message.includes('Network request failed')) {
+      return 'Network error. Please check your internet connection and try again.';
+    }
+    
+    if (message.includes('Server is not available') || message.includes('Server returned HTML')) {
+      return 'Server is not available. Please try again later.';
+    }
+    
+    if (message.includes('Request timed out') || message.includes('timeout')) {
+      return 'Request timed out. Please check your connection and try again.';
+    }
+    
+    if (message.includes('ECONNREFUSED') || message.includes('Connection refused')) {
+      return 'Unable to connect to server. Please check your internet connection and try again.';
+    }
+    
     // Handle common Supabase/auth errors with user-friendly messages
     if (message.includes('Invalid login credentials')) {
       return 'Invalid email or password. Please check your credentials and try again.';
@@ -624,9 +671,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     if (message.includes('Too many requests')) {
       return 'Too many attempts. Please wait a moment before trying again.';
-    }
-    if (message.includes('Network request failed') || message.includes('fetch') || message.includes('Network error')) {
-      return 'Network error. Please check your connection and try again.';
     }
     if (message.includes('signup is disabled')) {
       return 'Account registration is currently disabled. Please contact support.';
@@ -672,12 +716,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
     if (message.includes('JSON Parse error') || message.includes('Unexpected character')) {
       return 'Server error. Please try again later.';
-    }
-    if (message.includes('Server is not available')) {
-      return 'Server is not available. Please try again later.';
-    }
-    if (message.includes('Request timed out')) {
-      return 'Request timed out. Please try again.';
     }
     
     // Return the original message if it's already user-friendly
