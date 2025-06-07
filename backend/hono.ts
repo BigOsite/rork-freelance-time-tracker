@@ -9,7 +9,7 @@ const app = new Hono();
 
 // Add CORS middleware with more permissive settings for development
 app.use('*', cors({
-  origin: (origin) => {
+  origin: (origin, c) => {
     // Allow all origins in development
     if (process.env.NODE_ENV === 'development') {
       return origin || '*';
@@ -25,7 +25,7 @@ app.use('*', cors({
       'https://localhost:3000'
     ];
     
-    return allowedOrigins.includes(origin || '') ? origin : false;
+    return allowedOrigins.includes(origin || '') ? origin : null;
   },
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

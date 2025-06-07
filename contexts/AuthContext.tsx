@@ -56,6 +56,24 @@ const secureStorage = {
   },
 };
 
+// Helper function for fetch with timeout
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs: number = 30000): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
+
 export function AuthProvider({ children }: AuthProviderProps) {
   const { 
     userAccount, 
@@ -117,10 +135,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Test network connectivity first
       try {
-        const response = await fetch('https://httpbin.org/get', { 
-          method: 'GET',
-          timeout: 5000 
-        });
+        const response = await fetchWithTimeout('https://httpbin.org/get', { 
+          method: 'GET'
+        }, 5000);
         if (!response.ok) {
           throw new Error('Network test failed');
         }
@@ -191,10 +208,9 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       // Test network connectivity first
       try {
-        const response = await fetch('https://httpbin.org/get', { 
-          method: 'GET',
-          timeout: 5000 
-        });
+        const response = await fetchWithTimeout('https://httpbin.org/get', { 
+          method: 'GET'
+        }, 5000);
         if (!response.ok) {
           throw new Error('Network test failed');
         }

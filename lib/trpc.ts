@@ -20,6 +20,24 @@ const getBaseUrl = () => {
   );
 };
 
+// Helper function for fetch with timeout
+const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs: number = 30000): Promise<Response> => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response;
+  } catch (error) {
+    clearTimeout(timeoutId);
+    throw error;
+  }
+};
+
 export const trpcClient = trpc.createClient({
   links: [
     httpLink({
@@ -53,10 +71,6 @@ export const trpcClient = trpc.createClient({
         try {
           console.log('Making tRPC request to:', url);
           
-          // Create AbortController for timeout
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
           // Ensure url is a string
           const requestUrl = typeof url === 'string' ? url : url.toString();
 
@@ -65,13 +79,9 @@ export const trpcClient = trpc.createClient({
             method: options?.method || 'POST',
             headers: options?.headers,
             body: options?.body,
-            signal: controller.signal,
           };
 
-          const response = await fetch(requestUrl, requestInit);
-
-          // Clear timeout if request completes
-          clearTimeout(timeoutId);
+          const response = await fetchWithTimeout(requestUrl, requestInit, 30000);
 
           console.log('tRPC response status:', response.status);
 
