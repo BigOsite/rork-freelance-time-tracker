@@ -15,7 +15,32 @@ import { useBusinessStore } from '@/store/businessStore';
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: (failureCount, error) => {
+        // Don't retry on auth errors
+        if (error?.message?.includes('UNAUTHORIZED') || error?.message?.includes('401')) {
+          return false;
+        }
+        // Retry up to 3 times for other errors
+        return failureCount < 3;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+    mutations: {
+      retry: (failureCount, error) => {
+        // Don't retry on auth errors
+        if (error?.message?.includes('UNAUTHORIZED') || error?.message?.includes('401')) {
+          return false;
+        }
+        // Retry up to 2 times for other errors
+        return failureCount < 2;
+      },
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000),
+    },
+  },
+});
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();

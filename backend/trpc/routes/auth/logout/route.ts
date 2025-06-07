@@ -3,28 +3,25 @@ import { supabase } from '@/lib/supabase';
 import { TRPCError } from '@trpc/server';
 
 export const logoutProcedure = protectedProcedure
-  .mutation(async ({ ctx }: { ctx: any }) => {
+  .mutation(async ({ ctx }) => {
     try {
+      console.log('Logout attempt for user:', ctx.userId);
+      
       // Sign out from Supabase
       const { error } = await supabase.auth.signOut();
-
+      
       if (error) {
-        console.error('Logout error:', error);
+        console.error('Supabase logout error:', error);
         // Don't throw error for logout - just log it
       }
 
-      return {
-        success: true,
-        message: 'Logged out successfully',
-      };
+      console.log('Logout successful for user:', ctx.userId);
+      return { success: true };
     } catch (error: any) {
       console.error('Logout error:', error);
       
       // For logout, we should always return success even if there's an error
-      // because the client should clear local state regardless
-      return {
-        success: true,
-        message: 'Logged out successfully',
-      };
+      // The client will clear local state regardless
+      return { success: true };
     }
   });

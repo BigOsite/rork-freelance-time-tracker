@@ -19,7 +19,7 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: NodeJS.Timeout | number | null;
+  backgroundSyncInterval: NodeJS.Timeout | null;
   isLoading: boolean;
   _currentUser: UserAccount | null;
   
@@ -983,17 +983,21 @@ export const useJobsStore = create<JobsState>()(
         // Clear any existing interval
         const currentInterval = get().backgroundSyncInterval;
         if (currentInterval) {
-          clearInterval(currentInterval as any);
+          clearTimeout(currentInterval);
         }
         
         // Set up new background sync interval (every 2 hours)
-        const interval = setInterval(async () => {
+        const interval = setTimeout(async () => {
           try {
             await get().processSyncQueue(userId);
+            // Reschedule the next sync
+            get().initializeBackgroundSync(userId);
           } catch (error) {
             console.error('Background sync error:', error);
+            // Reschedule even if there was an error
+            get().initializeBackgroundSync(userId);
           }
-        }, 2 * 60 * 60 * 1000) as any; // Every 2 hours
+        }, 2 * 60 * 60 * 1000) as NodeJS.Timeout; // Every 2 hours
         
         set({ backgroundSyncInterval: interval });
       },
@@ -1001,7 +1005,7 @@ export const useJobsStore = create<JobsState>()(
       stopBackgroundSync: () => {
         const interval = get().backgroundSyncInterval;
         if (interval) {
-          clearInterval(interval as any);
+          clearTimeout(interval);
           set({ backgroundSyncInterval: null });
         }
       },

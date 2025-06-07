@@ -1,35 +1,35 @@
 import { protectedProcedure } from '../../../create-context';
-import { supabase } from '@/lib/supabase';
 import { TRPCError } from '@trpc/server';
 
 export const getProfileProcedure = protectedProcedure
-  .query(async ({ ctx }: { ctx: any }) => {
+  .query(async ({ ctx }) => {
     try {
-      // Get user from Supabase using the token
-      const { data: { user }, error } = await supabase.auth.getUser(ctx.token);
-
-      if (error || !user) {
-        console.error('Profile fetch error:', error);
+      if (!ctx.user) {
         throw new TRPCError({
           code: 'UNAUTHORIZED',
-          message: 'Invalid token or user not found',
+          message: 'User not authenticated',
         });
       }
 
-      const displayName = user.user_metadata?.display_name || 
-                         user.email?.split('@')[0] || 
+      console.log('Getting profile for user:', ctx.user.id);
+
+      const displayName = ctx.user.user_metadata?.display_name || 
+                         ctx.user.email?.split('@')[0] || 
                          'User';
 
-      return {
-        uid: user.id,
-        email: user.email!,
+      const profile = {
+        uid: ctx.user.id,
+        email: ctx.user.email!,
         displayName,
-        photoURL: user.user_metadata?.avatar_url || user.user_metadata?.photo_url || null,
+        photoURL: ctx.user.user_metadata?.avatar_url || ctx.user.user_metadata?.photo_url || null,
         isLoggedIn: true,
-        createdAt: new Date(user.created_at).getTime(),
+        createdAt: new Date(ctx.user.created_at).getTime(),
       };
+
+      console.log('Profile retrieved successfully for user:', ctx.user.id);
+      return profile;
     } catch (error: any) {
-      console.error('Profile fetch error:', error);
+      console.error('Profile retrieval error:', error);
       
       // If it's already a TRPCError, re-throw it
       if (error.code) {
@@ -38,8 +38,8 @@ export const getProfileProcedure = protectedProcedure
       
       // Otherwise, wrap it in a TRPCError
       throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'Failed to fetch profile',
+        code: 'INTERNAL_SERVER_ERROR',
+        message: error.message || 'Failed to retrieve profile. Please try again.',
       });
     }
   });

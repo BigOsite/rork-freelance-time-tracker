@@ -1,97 +1,69 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import { logger } from 'hono/logger';
 import { trpcServer } from '@hono/trpc-server';
 import { appRouter } from './trpc/app-router';
 import { createContext } from './trpc/create-context';
 
 const app = new Hono();
 
-// Enable CORS for all origins in development
+// Add CORS middleware
 app.use('*', cors({
-  origin: '*',
+  origin: ['http://localhost:8081', 'https://localhost:8081', 'exp://192.168.1.100:8081'],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
 }));
 
+// Add logger middleware
+app.use('*', logger());
+
 // Health check endpoint
 app.get('/health', (c) => {
-  console.log('Health check requested');
   return c.json({ 
     status: 'ok', 
     timestamp: new Date().toISOString(),
-    message: 'HoursTracker API Server is running'
+    message: 'Hours Tracker API is running'
   });
 });
 
-// tRPC endpoint with enhanced error handling
-app.use('/api/trpc/*', trpcServer({
-  router: appRouter,
-  createContext,
-  onError: ({ error, path, type, input }) => {
-    console.error(`tRPC Error on ${path} (${type}):`, {
-      message: error.message,
-      code: error.code,
-      input: input ? JSON.stringify(input).substring(0, 200) : 'none',
-      stack: error.stack?.substring(0, 500)
-    });
-  },
-  responseMeta: ({ ctx, paths, errors, type }) => {
-    // Add custom headers for better debugging
-    return {
-      headers: {
-        'X-tRPC-Path': paths?.join(',') || 'unknown',
-        'X-tRPC-Type': type,
-        'X-tRPC-Errors': errors.length.toString(),
-        'Content-Type': 'application/json',
-      },
-    };
-  },
-}));
-
-// Catch-all for API routes
-app.all('/api/*', (c) => {
-  console.log('Unknown API endpoint requested:', c.req.path);
-  return c.json({ 
-    error: 'API endpoint not found',
-    path: c.req.path,
-    method: c.req.method,
-    availableEndpoints: [
-      '/health',
-      '/api/trpc/*'
-    ]
-  }, 404);
-});
-
-// Default route with more information
+// Root endpoint
 app.get('/', (c) => {
-  console.log('Root endpoint requested');
   return c.json({ 
-    message: 'HoursTracker API Server',
+    message: 'Hours Tracker API',
     version: '1.0.0',
-    status: 'running',
-    timestamp: new Date().toISOString(),
     endpoints: {
       health: '/health',
       trpc: '/api/trpc',
-      docs: 'https://trpc.io/docs'
-    },
-    environment: process.env.NODE_ENV || 'development'
+    }
   });
 });
 
-// Global error handler
-app.onError((err, c) => {
-  console.error('Global error handler:', err);
-  
-  return c.json({
-    error: 'Internal Server Error',
-    message: err.message || 'An unexpected error occurred',
-    timestamp: new Date().toISOString(),
-    path: c.req.path
-  }, 500);
+// tRPC endpoint
+app.use('/api/trpc/*', trpcServer({
+  router: appRouter,
+  createContext,
+  onError: ({ error, path }) => {
+    console.error(`tRPC Error on ${path}:`, error);
+  },
+}));
+
+// 404 handler
+app.notFound((c) => {
+  return c.json({ 
+    error: 'Not Found',
+    message: 'The requested endpoint does not exist',
+    availableEndpoints: ['/health', '/api/trpc']
+  }, 404);
 });
 
-console.log('Hono server initialized');
+// Error handler
+app.onError((err, c) => {
+  console.error('Server Error:', err);
+  return c.json({ 
+    error: 'Internal Server Error',
+    message: 'An unexpected error occurred'
+  }, 500);
+});
 
 export default app;

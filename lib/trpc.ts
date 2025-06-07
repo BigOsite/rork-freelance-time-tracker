@@ -2,7 +2,6 @@ import { createTRPCReact } from "@trpc/react-query";
 import { httpLink } from "@trpc/client";
 import type { AppRouter } from "@/backend/trpc/app-router";
 import superjson from "superjson";
-import { useBusinessStore } from "@/store/businessStore";
 
 export const trpc = createTRPCReact<AppRouter>();
 
@@ -22,16 +21,25 @@ export const trpcClient = trpc.createClient({
       url: `${getBaseUrl()}/api/trpc`,
       transformer: superjson,
       headers: () => {
-        // Get auth token from store
-        const authState = useBusinessStore.getState().authState;
+        // Get auth token from store - use a function to get fresh state
+        let authToken: string | null = null;
+        try {
+          // Import the store dynamically to avoid circular dependencies
+          const { useBusinessStore } = require('@/store/businessStore');
+          const authState = useBusinessStore.getState().authState;
+          authToken = authState.token;
+        } catch (error) {
+          console.log('Could not get auth token from store:', error);
+        }
+        
         const headers: Record<string, string> = {
           'Content-Type': 'application/json',
           'Accept': 'application/json',
           'User-Agent': 'HoursTracker-App/1.0.0',
         };
         
-        if (authState.token) {
-          headers.authorization = `Bearer ${authState.token}`;
+        if (authToken) {
+          headers.authorization = `Bearer ${authToken}`;
         }
         
         return headers;
@@ -47,7 +55,7 @@ export const trpcClient = trpc.createClient({
           // Ensure url is a string
           const requestUrl = typeof url === 'string' ? url : url.toString();
 
-          // Create proper RequestInit object without timeout property
+          // Create proper RequestInit object
           const requestInit: RequestInit = {
             method: options?.method || 'POST',
             headers: options?.headers,
@@ -74,7 +82,7 @@ export const trpcClient = trpc.createClient({
                 errorMessage = errorJson.error?.message || errorJson.message || errorMessage;
               } else {
                 const errorText = await response.text();
-                console.log('Non-JSON error response:', errorText);
+                console.log('Non-JSON error response:', errorText.substring(0, 200));
                 
                 // Check if it's an HTML error page (common when server is down)
                 if (errorText.includes('<html>') || errorText.includes('<!DOCTYPE')) {
