@@ -133,24 +133,63 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting login process for:', email);
       
-      // Test network connectivity first
+      // Try direct login with better error handling
+      let response;
       try {
-        const response = await fetchWithTimeout('https://httpbin.org/get', { 
-          method: 'GET'
-        }, 5000);
-        if (!response.ok) {
-          throw new Error('Network test failed');
+        response = await trpcClient.auth.login.mutate({
+          email,
+          password,
+        });
+      } catch (trpcError: any) {
+        console.error('tRPC login error:', trpcError);
+        
+        // If tRPC fails, try direct Supabase auth as fallback
+        if (trpcError.message?.includes('Server is not available') || 
+            trpcError.message?.includes('fetch') ||
+            trpcError.message?.includes('Network error')) {
+          
+          console.log('tRPC server unavailable, trying direct Supabase auth');
+          
+          try {
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+              email,
+              password,
+            });
+
+            if (authError) {
+              throw new Error(authError.message);
+            }
+
+            if (!authData.user || !authData.session) {
+              throw new Error('Login failed - no user data returned');
+            }
+
+            const displayName = authData.user.user_metadata?.display_name || 
+                               authData.user.email?.split('@')[0] || 
+                               'User';
+
+            response = {
+              success: true,
+              user: {
+                uid: authData.user.id,
+                email: authData.user.email!,
+                displayName,
+                photoURL: authData.user.user_metadata?.avatar_url || authData.user.user_metadata?.photo_url || null,
+                isLoggedIn: true,
+                createdAt: new Date(authData.user.created_at).getTime(),
+              },
+              token: authData.session.access_token,
+            };
+            
+            console.log('Direct Supabase login successful');
+          } catch (supabaseError: any) {
+            console.error('Direct Supabase login also failed:', supabaseError);
+            throw new Error(supabaseError.message || 'Login failed. Please check your credentials and try again.');
+          }
+        } else {
+          throw trpcError;
         }
-        console.log('Network connectivity confirmed');
-      } catch (networkError) {
-        console.error('Network connectivity test failed:', networkError);
-        throw new Error('Network error. Please check your internet connection and try again.');
       }
-      
-      const response = await trpcClient.auth.login.mutate({
-        email,
-        password,
-      });
 
       console.log('Login response received:', response.success);
 
@@ -206,25 +245,68 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting registration process for:', email);
       
-      // Test network connectivity first
+      // Try direct registration with better error handling
+      let response;
       try {
-        const response = await fetchWithTimeout('https://httpbin.org/get', { 
-          method: 'GET'
-        }, 5000);
-        if (!response.ok) {
-          throw new Error('Network test failed');
+        response = await trpcClient.auth.register.mutate({
+          email,
+          password,
+          displayName,
+        });
+      } catch (trpcError: any) {
+        console.error('tRPC registration error:', trpcError);
+        
+        // If tRPC fails, try direct Supabase auth as fallback
+        if (trpcError.message?.includes('Server is not available') || 
+            trpcError.message?.includes('fetch') ||
+            trpcError.message?.includes('Network error')) {
+          
+          console.log('tRPC server unavailable, trying direct Supabase auth');
+          
+          try {
+            const { data: authData, error: authError } = await supabase.auth.signUp({
+              email,
+              password,
+              options: {
+                data: {
+                  display_name: displayName,
+                }
+              }
+            });
+
+            if (authError) {
+              throw new Error(authError.message);
+            }
+
+            if (!authData.user) {
+              throw new Error('Registration failed - no user data returned');
+            }
+
+            // For signup, we might not have a session immediately if email confirmation is required
+            const token = authData.session?.access_token || 'pending_confirmation';
+
+            response = {
+              success: true,
+              user: {
+                uid: authData.user.id,
+                email: authData.user.email!,
+                displayName,
+                photoURL: authData.user.user_metadata?.avatar_url || authData.user.user_metadata?.photo_url || null,
+                isLoggedIn: !!authData.session,
+                createdAt: new Date(authData.user.created_at).getTime(),
+              },
+              token,
+            };
+            
+            console.log('Direct Supabase registration successful');
+          } catch (supabaseError: any) {
+            console.error('Direct Supabase registration also failed:', supabaseError);
+            throw new Error(supabaseError.message || 'Registration failed. Please try again.');
+          }
+        } else {
+          throw trpcError;
         }
-        console.log('Network connectivity confirmed');
-      } catch (networkError) {
-        console.error('Network connectivity test failed:', networkError);
-        throw new Error('Network error. Please check your internet connection and try again.');
       }
-      
-      const response = await trpcClient.auth.register.mutate({
-        email,
-        password,
-        displayName,
-      });
 
       console.log('Registration response received:', response.success);
 
@@ -317,7 +399,27 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // Refresh session if needed
       await refreshSessionIfNeeded();
       
-      const profile = await trpcClient.auth.profile.query();
+      let profile;
+      try {
+        profile = await trpcClient.auth.profile.query();
+      } catch (trpcError: any) {
+        console.log('tRPC profile fetch failed, using Supabase directly:', trpcError);
+        
+        // Fallback to direct Supabase user data
+        const { data: { user }, error } = await supabase.auth.getUser();
+        if (error || !user) {
+          throw new Error('Failed to get user profile');
+        }
+        
+        profile = {
+          uid: user.id,
+          email: user.email!,
+          displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
+          photoURL: user.user_metadata?.avatar_url || user.user_metadata?.photo_url || null,
+          isLoggedIn: true,
+          createdAt: new Date(user.created_at).getTime(),
+        };
+      }
       
       // Get updated profile data from Supabase auth
       const { data: { user } } = await supabase.auth.getUser();
@@ -760,7 +862,28 @@ export function AuthProvider({ children }: AuthProviderProps) {
           // Try to refresh profile to get latest user data
           try {
             console.log('Refreshing profile on app start');
-            const profile = await trpcClient.auth.profile.query();
+            let profile;
+            
+            try {
+              profile = await trpcClient.auth.profile.query();
+            } catch (trpcError: any) {
+              console.log('tRPC profile fetch failed on init, using Supabase directly:', trpcError);
+              
+              // Fallback to direct Supabase user data
+              const { data: { user }, error } = await supabase.auth.getUser();
+              if (error || !user) {
+                throw new Error('Failed to get user profile on init');
+              }
+              
+              profile = {
+                uid: user.id,
+                email: user.email!,
+                displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
+                photoURL: user.user_metadata?.avatar_url || user.user_metadata?.photo_url || null,
+                isLoggedIn: true,
+                createdAt: new Date(user.created_at).getTime(),
+              };
+            }
             
             // Get updated profile data from Supabase auth
             const { data: { user } } = await supabase.auth.getUser();
