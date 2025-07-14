@@ -396,23 +396,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
       let profile;
       
       // Always use Supabase directly for profile data
-      const { data: { user }, error } = await supabase.auth.getUser();
-      if (error || !user) {
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+      if (error || !currentUser) {
         throw new Error('Failed to get user profile');
       }
       
       profile = {
-        uid: user.id,
-        email: user.email!,
-        displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
-        photoURL: user.user_metadata?.avatar_url || user.user_metadata?.photo_url || null,
+        uid: currentUser.id,
+        email: currentUser.email!,
+        displayName: currentUser.user_metadata?.display_name || currentUser.email?.split('@')[0] || 'User',
+        photoURL: currentUser.user_metadata?.avatar_url || currentUser.user_metadata?.photo_url || null,
         isLoggedIn: true,
-        createdAt: new Date(user.created_at).getTime(),
+        createdAt: new Date(currentUser.created_at).getTime(),
       };
       
       // Get updated profile data from Supabase auth
-      const { data: { user } } = await supabase.auth.getUser();
-      const photoURL = user?.user_metadata?.avatar_url || user?.user_metadata?.photo_url || profile.photoURL;
+      const { data: { user: updatedUser } } = await supabase.auth.getUser();
+      const photoURL = updatedUser?.user_metadata?.avatar_url || updatedUser?.user_metadata?.photo_url || profile.photoURL;
       
       const loggedInUser: UserAccount = {
         ...profile,
@@ -854,23 +854,23 @@ export function AuthProvider({ children }: AuthProviderProps) {
             let profile;
             
             // Always use Supabase directly for profile data
-            const { data: { user }, error } = await supabase.auth.getUser();
-            if (error || !user) {
+            const { data: { user: initUser }, error } = await supabase.auth.getUser();
+            if (error || !initUser) {
               throw new Error('Failed to get user profile on init');
             }
             
             profile = {
-              uid: user.id,
-              email: user.email!,
-              displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
-              photoURL: user.user_metadata?.avatar_url || user.user_metadata?.photo_url || null,
+              uid: initUser.id,
+              email: initUser.email!,
+              displayName: initUser.user_metadata?.display_name || initUser.email?.split('@')[0] || 'User',
+              photoURL: initUser.user_metadata?.avatar_url || initUser.user_metadata?.photo_url || null,
               isLoggedIn: true,
-              createdAt: new Date(user.created_at).getTime(),
+              createdAt: new Date(initUser.created_at).getTime(),
             };
             
             // Get updated profile data from Supabase auth
-            const { data: { user } } = await supabase.auth.getUser();
-            const photoURL = user?.user_metadata?.avatar_url || user?.user_metadata?.photo_url || profile.photoURL;
+            const { data: { user: profileUser } } = await supabase.auth.getUser();
+            const photoURL = profileUser?.user_metadata?.avatar_url || profileUser?.user_metadata?.photo_url || profile.photoURL;
             
             const loggedInUser: UserAccount = {
               ...profile,
