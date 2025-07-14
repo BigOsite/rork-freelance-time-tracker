@@ -19,7 +19,7 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: ReturnType<typeof setTimeout> | null;
+  backgroundSyncInterval: any;
   isLoading: boolean;
   _currentUser: UserAccount | null;
   
@@ -35,7 +35,7 @@ interface JobsState {
   // Time entry actions
   startTimeEntry: (jobId: string, note?: string) => void;
   stopTimeEntry: () => void;
-  addTimeEntry: (entry: Omit<TimeEntry, 'id' | 'createdAt'>) => void;
+  addTimeEntry: (entry: Omit<TimeEntry, 'id' | 'createdAt'>) => string;
   updateTimeEntry: (id: string, updates: Partial<TimeEntry>) => void;
   deleteTimeEntry: (id: string) => void;
   getTimeEntry: (id: string) => TimeEntry | undefined;
@@ -377,29 +377,48 @@ export const useJobsStore = create<JobsState>()(
       },
       
       addTimeEntry: (entryData) => {
-        const timeEntry: TimeEntry = {
-          ...entryData,
-          id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-          breaks: entryData.breaks || [],
-          createdAt: Date.now(),
-        };
-        
-        set(state => ({ timeEntries: [...state.timeEntries, timeEntry] }));
-        
-        // Add to sync queue
-        get().addToSyncQueue({
-          entityType: 'timeEntry',
-          entityId: timeEntry.id,
-          operation: 'create',
-          data: timeEntry,
-        });
-        
-        // Try immediate save to Supabase
-        const currentUser = get().getCurrentUser();
-        if (currentUser?.uid) {
-          get().saveTimeEntryImmediately(timeEntry, currentUser.uid).catch(error => {
-            console.log('Immediate time entry save failed, will retry later:', error);
+        try {
+          console.log('Creating new time entry:', entryData);
+          
+          const timeEntry: TimeEntry = {
+            ...entryData,
+            id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            breaks: entryData.breaks || [],
+            createdAt: Date.now(),
+          };
+          
+          console.log('Generated time entry:', timeEntry);
+          
+          // Add to local state first
+          set(state => ({ timeEntries: [...state.timeEntries, timeEntry] }));
+          console.log('Time entry added to local state');
+          
+          // Add to sync queue for backup
+          get().addToSyncQueue({
+            entityType: 'timeEntry',
+            entityId: timeEntry.id,
+            operation: 'create',
+            data: timeEntry,
           });
+          console.log('Time entry added to sync queue');
+          
+          // Try immediate save to Supabase
+          const currentUser = get().getCurrentUser();
+          console.log('Current user for sync:', currentUser ? 'found' : 'not found');
+          
+          if (currentUser?.uid) {
+            get().saveTimeEntryImmediately(timeEntry, currentUser.uid).catch(error => {
+              console.log('Immediate time entry save failed, will retry later:', error);
+            });
+          } else {
+            console.log('No authenticated user found, time entry saved locally only');
+          }
+          
+          console.log('Time entry creation completed successfully');
+          return timeEntry.id;
+        } catch (error) {
+          console.error('Error in addTimeEntry:', error);
+          throw error;
         }
       },
       

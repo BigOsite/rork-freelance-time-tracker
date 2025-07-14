@@ -15,25 +15,34 @@ export default function NewTimeEntryScreen() {
   const job = jobId ? getJobById(jobId) : undefined;
   
   const handleSubmit = async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
-    if (!jobId || typeof jobId !== 'string') return false;
+    if (!jobId || typeof jobId !== 'string') {
+      console.error('Invalid jobId:', jobId);
+      return false;
+    }
     
     try {
+      console.log('Submitting time entry with values:', values);
+      console.log('Job ID:', jobId);
+      
       const entryId = addTimeEntry({
         jobId,
         startTime: values.startTime,
         endTime: values.endTime,
         note: values.note,
-        createdAt: Date.now(),
         breaks: [],
         isOnBreak: false,
         paidInPeriodId: undefined
       });
       
+      console.log('Time entry created with ID:', entryId);
+      
       if (entryId) {
+        console.log('Navigating to job details page');
         // Navigate immediately without delay
         router.replace(`/(tabs)/job/${jobId}`);
         return true;
       } else {
+        console.error('Time entry creation failed - no ID returned');
         return false;
       }
     } catch (error) {

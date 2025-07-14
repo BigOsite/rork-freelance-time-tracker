@@ -19,20 +19,15 @@ export default function EditTimeEntryScreen() {
     if (!timeEntry) return false;
     
     try {
-      const success = updateTimeEntry({
-        ...timeEntry,
+      updateTimeEntry(timeEntry.id, {
         startTime: values.startTime,
         endTime: values.endTime,
         note: values.note,
       });
       
-      if (success) {
-        // Navigate immediately without delay
-        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-        return true;
-      } else {
-        return false;
-      }
+      // Navigate immediately without delay
+      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+      return true;
     } catch (error) {
       console.error('Error updating time entry:', error);
       return false;
@@ -53,14 +48,12 @@ export default function EditTimeEntryScreen() {
     if (!id || typeof id !== 'string') return;
     
     try {
-      const success = deleteTimeEntry(id);
-      if (success) {
-        // Navigate immediately without delay
-        if (timeEntry?.jobId) {
-          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-        } else {
-          router.replace('/(tabs)/jobs');
-        }
+      deleteTimeEntry(id);
+      // Navigate immediately without delay
+      if (timeEntry?.jobId) {
+        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+      } else {
+        router.replace('/(tabs)/jobs');
       }
     } catch (error) {
       console.error('Error deleting time entry:', error);
