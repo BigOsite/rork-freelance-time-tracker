@@ -9,7 +9,7 @@ const app = new Hono();
 
 // Add CORS middleware with more permissive settings for development
 app.use('*', cors({
-  origin: (origin) => {
+  origin: (origin, c) => {
     // Allow all origins in development
     if (process.env.NODE_ENV === 'development') {
       return origin || '*';

@@ -22,7 +22,7 @@ export function useServerHealth() {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 5000);
       
-      const response = await fetch('https://rork.com/health', {
+      const response = await fetch('https://8e23p8rts6cegks6ymhco.rork.com/health', {
         method: 'GET',
         signal: controller.signal,
         headers: {

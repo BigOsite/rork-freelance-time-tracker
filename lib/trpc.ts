@@ -10,10 +10,10 @@ const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   }
 
-  // Fallback for development - use the Rork platform URL
+  // For development with Rork platform
   if (__DEV__) {
-    // Use the Rork platform which should be running the backend
-    return 'https://rork.com';
+    // Use the Rork platform tunnel URL
+    return 'https://8e23p8rts6cegks6ymhco.rork.com';
   }
 
   // Production fallback
@@ -81,20 +81,8 @@ export const trpcClient = trpc.createClient({
             body: options?.body,
           };
 
-          // Test server availability first
-          try {
-            const healthCheck = await fetchWithTimeout(
-              requestUrl.replace('/api/trpc', '/health'), 
-              { method: 'GET' }, 
-              5000
-            );
-            if (!healthCheck.ok) {
-              throw new Error('Server health check failed');
-            }
-          } catch (healthError) {
-            console.log('Server health check failed:', healthError);
-            throw new Error('Server is not available. Please try again later.');
-          }
+          // Skip health check for now to avoid double failures
+          // The main request will handle server availability
 
           const response = await fetchWithTimeout(requestUrl, requestInit, 30000);
 
