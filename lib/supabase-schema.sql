@@ -145,24 +145,31 @@ CREATE POLICY "Users can only access their own pay periods" ON pay_periods
 CREATE POLICY "Users can only access their own support requests" ON support_requests
   FOR ALL USING (auth.uid() = user_id);
 
--- Force refresh schema cache and ensure client column exists
+-- Ensure client column exists and has proper constraints
 DO $ 
 BEGIN 
-  -- Drop and recreate the client column to force schema refresh
-  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
-    ALTER TABLE jobs DROP COLUMN client;
+  -- Check if client column exists, if not add it
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
+    ALTER TABLE jobs ADD COLUMN client TEXT NOT NULL DEFAULT '';
+  ELSE
+    -- If column exists, ensure it's not null and has default
+    ALTER TABLE jobs ALTER COLUMN client SET NOT NULL;
+    ALTER TABLE jobs ALTER COLUMN client SET DEFAULT '';
   END IF;
   
-  -- Add client column
-  ALTER TABLE jobs ADD COLUMN client TEXT DEFAULT '';
-  
-  -- Update existing rows
+  -- Update any existing null values
   UPDATE jobs SET client = '' WHERE client IS NULL;
+  
+  -- Ensure name column is not null
+  ALTER TABLE jobs ALTER COLUMN name SET NOT NULL;
+  UPDATE jobs SET name = 'Untitled Job' WHERE name IS NULL OR name = '';
 END $;
 
--- Refresh schema cache by recreating indexes
+-- Create or recreate indexes
 DROP INDEX IF EXISTS idx_jobs_client;
-CREATE INDEX idx_jobs_client ON jobs(client);
+CREATE INDEX IF NOT EXISTS idx_jobs_client ON jobs(client);
+DROP INDEX IF EXISTS idx_jobs_name;
+CREATE INDEX IF NOT EXISTS idx_jobs_name ON jobs(name);
 
 -- Add user_id column to existing support_requests table if it doesn't exist
 DO $$ 

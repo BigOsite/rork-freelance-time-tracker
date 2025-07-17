@@ -21,14 +21,14 @@ import { PayPeriodType, RoundTimeType, OvertimeType, JobSettings, PresetBreak, T
 
 type JobFormProps = {
   initialValues?: {
-    title?: string;
+    name?: string;
     client?: string;
     hourlyRate?: number;
     color?: string;
     settings?: JobSettings;
   };
   onSubmit: (
-    title: string, 
+    name: string, 
     client: string, 
     hourlyRate: number, 
     color: string,
@@ -44,7 +44,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
   
   // Safely handle initial values with proper defaults
   const safeInitialValues = {
-    title: initialValues?.title || '',
+    name: initialValues?.name || '',
     client: initialValues?.client || '',
     hourlyRate: initialValues?.hourlyRate || 0,
     color: initialValues?.color || getRandomColor(),
@@ -64,7 +64,7 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
     }
   };
   
-  const [title, setTitle] = useState(safeInitialValues.title);
+  const [name, setName] = useState(safeInitialValues.name);
   const [client, setClient] = useState(safeInitialValues.client);
   const [hourlyRate, setHourlyRate] = useState((safeInitialValues.hourlyRate || 0).toString());
   const [color, setColor] = useState(safeInitialValues.color);
@@ -131,8 +131,8 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
   }, [dailyOvertimeEnabled]);
   
   const handleSubmit = React.useCallback(() => {
-    if (!title.trim()) {
-      Alert.alert("Error", "Job title is required");
+    if (!name.trim()) {
+      Alert.alert("Error", "Job name is required");
       return;
     }
     
@@ -184,9 +184,9 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
       deductions: parseFloat(deductions) || 0,
     };
     
-    onSubmit(title, client, rate, color, settings);
+    onSubmit(name, client, rate, color, settings);
   }, [
-    title, client, hourlyRate, color, timeRoundingEnabled, roundingDirection, roundingInterval, 
+    name, client, hourlyRate, color, timeRoundingEnabled, roundingDirection, roundingInterval, 
     bufferTime, roundTime, tags, location, clockOutReminders, dailyReminderThreshold, 
     weeklyReminderThreshold, automaticBreaks, presetBreaks, dailyOvertimeEnabled, weeklyOvertimeEnabled, 
     dailyOvertimeThreshold, weeklyOvertimeThreshold, dailyOvertimeRate, weeklyOvertimeRate, 
@@ -296,11 +296,11 @@ export default function JobForm({ initialValues = {}, onSubmit, submitButtonText
             <Text style={styles.sectionTitle}>Basic Information</Text>
             
             <View style={styles.formGroup}>
-              <Text style={styles.label}>Job Title</Text>
+              <Text style={styles.label}>Job Name</Text>
               <TextInput
                 style={styles.input}
-                value={title}
-                onChangeText={setTitle}
+                value={name}
+                onChangeText={setName}
                 placeholder="e.g. Website Redesign"
                 placeholderTextColor={colors.placeholder}
               />

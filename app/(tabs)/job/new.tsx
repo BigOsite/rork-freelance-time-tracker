@@ -10,7 +10,7 @@ export default function NewJobScreen() {
   const { addJob } = useJobsStore();
   
   const handleSubmit = React.useCallback(async (
-    title: string, 
+    name: string, 
     client: string, 
     hourlyRate: number, 
     color: string,
@@ -18,7 +18,7 @@ export default function NewJobScreen() {
   ) => {
     try {
       const newJobId = addJob({
-        title,
+        name,
         client,
         hourlyRate,
         color,
@@ -47,7 +47,7 @@ export default function NewJobScreen() {
       <View style={styles.container}>
         <JobForm
           initialValues={{
-            title: '',
+            name: '',
             client: '',
             hourlyRate: 0,
             color: '',

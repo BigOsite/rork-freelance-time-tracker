@@ -338,10 +338,10 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
       const jobsDataWithClient = jobs.map(job => ({
         id: job.id,
         user_id: userId,
-        name: job.name,
+        name: job.name || 'Untitled Job', // Ensure name is never null or empty
         client: job.client || '',
-        hourly_rate: job.hourlyRate,
-        color: job.color,
+        hourly_rate: job.hourlyRate || 0,
+        color: job.color || '#3B82F6',
         settings: job.settings || null,
         created_at: new Date(job.createdAt).toISOString(),
       }));
@@ -376,9 +376,9 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
           const jobsDataWithoutClient = jobs.map(job => ({
             id: job.id,
             user_id: userId,
-            name: job.name,
-            hourly_rate: job.hourlyRate,
-            color: job.color,
+            name: job.name || 'Untitled Job', // Ensure name is never null or empty
+            hourly_rate: job.hourlyRate || 0,
+            color: job.color || '#3B82F6',
             settings: job.settings || null,
             created_at: new Date(job.createdAt).toISOString(),
           }));
@@ -551,10 +551,10 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
     if (jobsResult.status === 'fulfilled' && jobsResult.value.data) {
       result.jobs = jobsResult.value.data.map((job: any) => ({
         id: job.id,
-        name: job.name,
+        name: job.name || '', // Ensure name is never null
         client: job.client || '', // Handle case where client column might not exist
-        hourlyRate: job.hourly_rate,
-        color: job.color,
+        hourlyRate: job.hourly_rate || 0,
+        color: job.color || '#3B82F6',
         settings: job.settings,
         createdAt: new Date(job.created_at).getTime(),
       }));
@@ -576,10 +576,10 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
           if (fallbackData && !fallbackError) {
             result.jobs = fallbackData.map(job => ({
               id: job.id,
-              name: job.name,
+              name: job.name || '', // Ensure name is never null
               client: '', // Default empty client
-              hourlyRate: job.hourly_rate,
-              color: job.color,
+              hourlyRate: job.hourly_rate || 0,
+              color: job.color || '#3B82F6',
               settings: job.settings,
               createdAt: new Date(job.created_at).getTime(),
             }));

@@ -19,7 +19,7 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: NodeJS.Timeout | null;
+  backgroundSyncInterval: ReturnType<typeof setTimeout> | null;
   isLoading: boolean;
   _currentUser: UserAccount | null;
   
@@ -114,9 +114,22 @@ export const useJobsStore = create<JobsState>()(
       _currentUser: null,
       
       addJob: (jobData) => {
+        // Validate required fields
+        if (!jobData.name || !jobData.name.trim()) {
+          throw new Error('Job name is required');
+        }
+        if (!jobData.client || !jobData.client.trim()) {
+          throw new Error('Client name is required');
+        }
+        if (!jobData.hourlyRate || jobData.hourlyRate <= 0) {
+          throw new Error('Valid hourly rate is required');
+        }
+        
         const job: Job = {
           ...jobData,
           id: `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          name: jobData.name.trim(),
+          client: jobData.client.trim(),
           createdAt: Date.now(),
         };
         
@@ -142,9 +155,27 @@ export const useJobsStore = create<JobsState>()(
       },
       
       updateJob: (id, updates) => {
+        // Validate updates if they include required fields
+        if (updates.name !== undefined && (!updates.name || !updates.name.trim())) {
+          throw new Error('Job name cannot be empty');
+        }
+        if (updates.client !== undefined && (!updates.client || !updates.client.trim())) {
+          throw new Error('Client name cannot be empty');
+        }
+        if (updates.hourlyRate !== undefined && (!updates.hourlyRate || updates.hourlyRate <= 0)) {
+          throw new Error('Valid hourly rate is required');
+        }
+        
+        // Trim string fields if they exist
+        const cleanUpdates = {
+          ...updates,
+          ...(updates.name && { name: updates.name.trim() }),
+          ...(updates.client && { client: updates.client.trim() }),
+        };
+        
         set(state => ({
           jobs: state.jobs.map(job => 
-            job.id === id ? { ...job, ...updates } : job
+            job.id === id ? { ...job, ...cleanUpdates } : job
           )
         }));
         
@@ -380,10 +411,27 @@ export const useJobsStore = create<JobsState>()(
         try {
           console.log('Creating new time entry:', entryData);
           
+          // Validate required fields
+          if (!entryData.jobId || !entryData.jobId.trim()) {
+            throw new Error('Job ID is required for time entry');
+          }
+          if (!entryData.startTime || entryData.startTime <= 0) {
+            throw new Error('Valid start time is required for time entry');
+          }
+          
+          // Verify the job exists
+          const job = get().jobs.find(j => j.id === entryData.jobId);
+          if (!job) {
+            throw new Error('Cannot create time entry for non-existent job');
+          }
+          
           const timeEntry: TimeEntry = {
             ...entryData,
             id: `entry_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+            jobId: entryData.jobId.trim(),
+            note: entryData.note || '',
             breaks: entryData.breaks || [],
+            isOnBreak: entryData.isOnBreak || false,
             createdAt: Date.now(),
           };
           
@@ -1018,7 +1066,7 @@ export const useJobsStore = create<JobsState>()(
           }
         }, 2 * 60 * 60 * 1000); // Every 2 hours
         
-        set({ backgroundSyncInterval: interval as any });
+        set({ backgroundSyncInterval: interval });
       },
       
       stopBackgroundSync: () => {
