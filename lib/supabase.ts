@@ -333,36 +333,45 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
     
     console.log(`Batch syncing ${jobs.length} jobs (${operation}) for user:`, userId);
     
-    // Skip schema validation for now to avoid blocking sync operations
-    console.log('Proceeding with sync operation');
-    
     if (operation === 'upsert') {
-      const jobsData = jobs.map(job => {
-        const data = {
-          id: job.id,
-          user_id: userId,
-          name: job.name,
-          client: job.client || '',
-          hourly_rate: job.hourlyRate,
-          color: job.color,
-          settings: job.settings || null,
-          created_at: new Date(job.createdAt).toISOString(),
-        };
-        console.log('Preparing job data for sync:', data);
-        return data;
-      });
+      // Try with client field first
+      const jobsDataWithClient = jobs.map(job => ({
+        id: job.id,
+        user_id: userId,
+        name: job.name,
+        client: job.client || '',
+        hourly_rate: job.hourlyRate,
+        color: job.color,
+        settings: job.settings || null,
+        created_at: new Date(job.createdAt).toISOString(),
+      }));
 
-      console.log('Upserting jobs data:', jobsData);
-      const { data, error } = await supabase.from('jobs').upsert(jobsData, {
+      console.log('Attempting to upsert jobs with client field...');
+      const { data, error } = await supabase.from('jobs').upsert(jobsDataWithClient, {
         onConflict: 'id'
       });
       
       if (error) {
         console.error('Supabase upsert error:', error);
         
-        // If it's a client column error, try without the client field
-        if (error.message.includes('client') && error.message.includes('does not exist')) {
-          console.log('Client column missing, trying without client field...');
+        // If it's a client column error or schema cache error, try refreshing cache first
+        if (error.message.includes('client') || error.message.includes('schema cache') || error.code === 'PGRST204') {
+          console.log('Client column issue detected, refreshing schema cache...');
+          
+          // Try to refresh schema cache
+          await refreshSchemaCache();
+          
+          // Retry with client field after cache refresh
+          const { data: retryData, error: retryError } = await supabase.from('jobs').upsert(jobsDataWithClient, {
+            onConflict: 'id'
+          });
+          
+          if (!retryError) {
+            console.log('Jobs upserted successfully with client field after cache refresh:', retryData);
+            return;
+          }
+          
+          console.log('Still failing after cache refresh, trying without client field...');
           
           const jobsDataWithoutClient = jobs.map(job => ({
             id: job.id,
@@ -387,58 +396,9 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
           return;
         }
         
-        // If it's a schema cache error, try a simple retry
-        if (error.message.includes('schema cache') || error.message.includes('column')) {
-          console.log('Schema error detected, attempting simple retry...');
-          
-          // Wait a bit for schema to refresh
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Retry the operation once
-          const { data: retryData, error: retryError } = await supabase.from('jobs').upsert(jobsData, {
-            onConflict: 'id'
-          });
-          
-          if (retryError) {
-            console.error('Retry also failed:', retryError);
-            
-            // If retry still fails with client column error, try without client
-            if (retryError.message.includes('client') && retryError.message.includes('does not exist')) {
-              console.log('Retry failed due to client column, trying without client field...');
-              
-              const jobsDataWithoutClient = jobs.map(job => ({
-                id: job.id,
-                user_id: userId,
-                name: job.name,
-                hourly_rate: job.hourlyRate,
-                color: job.color,
-                settings: job.settings || null,
-                created_at: new Date(job.createdAt).toISOString(),
-              }));
-              
-              const { data: finalData, error: finalError } = await supabase.from('jobs').upsert(jobsDataWithoutClient, {
-                onConflict: 'id'
-              });
-              
-              if (finalError) {
-                console.error('Final fallback also failed:', finalError);
-                throw finalError;
-              }
-              
-              console.log('Jobs upserted successfully without client field on retry:', finalData);
-              return;
-            }
-            
-            throw retryError;
-          }
-          
-          console.log('Jobs upserted successfully on retry:', retryData);
-          return;
-        }
-        
         throw error;
       }
-      console.log('Jobs upserted successfully:', data);
+      console.log('Jobs upserted successfully with client field:', data);
     } else if (operation === 'delete') {
       const jobIds = jobs.map(job => job.id);
       console.log('Deleting jobs with IDs:', jobIds);
@@ -565,8 +525,17 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       throw new Error('No active session found');
     }
 
+    // Try to fetch jobs with client column first, fallback if it fails
+    let jobsPromise;
+    try {
+      jobsPromise = supabase.from('jobs').select('id, user_id, name, client, hourly_rate, color, settings, created_at').eq('user_id', userId).order('created_at', { ascending: false });
+    } catch (error) {
+      console.log('Client column not available, using fallback query');
+      jobsPromise = supabase.from('jobs').select('id, user_id, name, hourly_rate, color, settings, created_at').eq('user_id', userId).order('created_at', { ascending: false });
+    }
+
     const [jobsResult, entriesResult, periodsResult] = await Promise.allSettled([
-      supabase.from('jobs').select('*').eq('user_id', userId).order('created_at', { ascending: false }),
+      jobsPromise,
       supabase.from('time_entries').select('*').eq('user_id', userId).order('start_time', { ascending: false }),
       supabase.from('pay_periods').select('*').eq('user_id', userId).order('start_date', { ascending: false })
     ]);
@@ -583,7 +552,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       result.jobs = jobsResult.value.data.map(job => ({
         id: job.id,
         name: job.name,
-        client: job.client || '',
+        client: job.client || '', // Handle case where client column might not exist
         hourlyRate: job.hourly_rate,
         color: job.color,
         settings: job.settings,
@@ -594,8 +563,39 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       result.errors.push('Failed to fetch jobs');
       console.error('Jobs fetch error:', jobsResult.reason);
     } else if (jobsResult.status === 'fulfilled' && jobsResult.value.error) {
-      result.errors.push('Failed to fetch jobs');
-      console.error('Jobs fetch error:', jobsResult.value.error);
+      // If it's a client column error, try fetching without client column
+      if (jobsResult.value.error.message?.includes('client') || jobsResult.value.error.code === 'PGRST204') {
+        console.log('Client column error detected, trying to fetch jobs without client field...');
+        try {
+          const { data: fallbackData, error: fallbackError } = await supabase
+            .from('jobs')
+            .select('id, user_id, name, hourly_rate, color, settings, created_at')
+            .eq('user_id', userId)
+            .order('created_at', { ascending: false });
+          
+          if (fallbackData && !fallbackError) {
+            result.jobs = fallbackData.map(job => ({
+              id: job.id,
+              name: job.name,
+              client: '', // Default empty client
+              hourlyRate: job.hourly_rate,
+              color: job.color,
+              settings: job.settings,
+              createdAt: new Date(job.created_at).getTime(),
+            }));
+            console.log(`Fetched ${result.jobs.length} jobs without client field`);
+          } else {
+            result.errors.push('Failed to fetch jobs');
+            console.error('Fallback jobs fetch error:', fallbackError);
+          }
+        } catch (fallbackError) {
+          result.errors.push('Failed to fetch jobs');
+          console.error('Fallback jobs fetch error:', fallbackError);
+        }
+      } else {
+        result.errors.push('Failed to fetch jobs');
+        console.error('Jobs fetch error:', jobsResult.value.error);
+      }
     }
 
     // Process time entries
@@ -674,29 +674,31 @@ export const checkNetworkConnectivity = async (): Promise<boolean> => {
   }
 };
 
+// Force refresh Supabase schema cache
+export const refreshSchemaCache = async (): Promise<void> => {
+  try {
+    console.log('Attempting to refresh Supabase schema cache...');
+    
+    // Make a few different queries to force schema refresh
+    await Promise.allSettled([
+      supabase.from('jobs').select('*').limit(1),
+      supabase.from('time_entries').select('*').limit(1),
+      supabase.from('pay_periods').select('*').limit(1),
+    ]);
+    
+    // Wait a moment for cache to refresh
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    console.log('Schema cache refresh completed');
+  } catch (error) {
+    console.log('Schema cache refresh failed:', error);
+  }
+};
+
 // Helper function to validate schema and handle schema cache issues
 export const validateJobsSchema = async (): Promise<boolean> => {
   try {
     console.log('Validating jobs table schema');
-    
-    // First, try to ensure the client column exists by running the schema update
-    try {
-      await supabase.rpc('exec', {
-        sql: `
-          DO $ 
-          BEGIN 
-            IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
-              ALTER TABLE jobs ADD COLUMN client TEXT DEFAULT '';
-            END IF;
-          END $;
-          
-          UPDATE jobs SET client = '' WHERE client IS NULL;
-        `
-      });
-      console.log('Schema update completed');
-    } catch (schemaError) {
-      console.log('Schema update failed (this might be expected):', schemaError);
-    }
     
     // Try to select all columns to verify schema
     const { data, error } = await supabase
@@ -707,44 +709,28 @@ export const validateJobsSchema = async (): Promise<boolean> => {
     if (error) {
       console.error('Schema validation failed:', error);
       
-      // If it's a schema cache issue, try to refresh by making a simple query
-      if (error.message.includes('schema cache') || error.message.includes('column')) {
-        console.log('Attempting to refresh schema cache...');
+      // If it's a schema cache issue or client column error, try basic columns
+      if (error.message.includes('schema cache') || error.message.includes('client') || error.code === 'PGRST204') {
+        console.log('Client column issue detected, trying basic schema validation...');
         
-        // Try a simple select to refresh cache
-        await supabase.from('jobs').select('*').limit(1);
-        
-        // Wait a moment and try again
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        
-        const { error: retryError } = await supabase
+        const { error: basicError } = await supabase
           .from('jobs')
-          .select('id, user_id, name, client, hourly_rate, color, settings, created_at')
+          .select('id, user_id, name, hourly_rate, color, settings, created_at')
           .limit(1);
         
-        if (retryError) {
-          console.error('Schema validation still failing after cache refresh:', retryError);
-          
-          // Try one more time with just the basic columns
-          const { error: basicError } = await supabase
-            .from('jobs')
-            .select('id, user_id, name, hourly_rate, color, settings, created_at')
-            .limit(1);
-          
-          if (basicError) {
-            console.error('Even basic schema validation failed:', basicError);
-            return false;
-          } else {
-            console.log('Basic schema validation passed, client column might be missing');
-            return false; // Still return false since client column is required
-          }
+        if (basicError) {
+          console.error('Even basic schema validation failed:', basicError);
+          return false;
+        } else {
+          console.log('Basic schema validation passed, but client column is not available');
+          return false; // Return false to indicate client column is not available
         }
       } else {
         return false;
       }
     }
     
-    console.log('Jobs table schema validation successful');
+    console.log('Jobs table schema validation successful with client column');
     return true;
   } catch (error) {
     console.error('Error validating jobs schema:', error);

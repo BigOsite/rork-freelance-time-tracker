@@ -19,7 +19,7 @@ interface JobsState {
   syncQueue: SyncQueueItem[];
   lastSyncTimestamp: number | null;
   networkInfo: NetworkInfo;
-  backgroundSyncInterval: any;
+  backgroundSyncInterval: NodeJS.Timeout | null;
   isLoading: boolean;
   _currentUser: UserAccount | null;
   
@@ -1016,7 +1016,7 @@ export const useJobsStore = create<JobsState>()(
             // Reschedule even if there was an error
             get().initializeBackgroundSync(userId);
           }
-        }, 2 * 60 * 60 * 1000) as unknown as number; // Every 2 hours
+        }, 2 * 60 * 60 * 1000); // Every 2 hours
         
         set({ backgroundSyncInterval: interval });
       },

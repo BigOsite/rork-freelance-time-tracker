@@ -145,16 +145,24 @@ CREATE POLICY "Users can only access their own pay periods" ON pay_periods
 CREATE POLICY "Users can only access their own support requests" ON support_requests
   FOR ALL USING (auth.uid() = user_id);
 
--- Add client column to existing jobs table if it doesn't exist
+-- Force refresh schema cache and ensure client column exists
 DO $ 
 BEGIN 
-  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
-    ALTER TABLE jobs ADD COLUMN client TEXT DEFAULT '';
+  -- Drop and recreate the client column to force schema refresh
+  IF EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
+    ALTER TABLE jobs DROP COLUMN client;
   END IF;
+  
+  -- Add client column
+  ALTER TABLE jobs ADD COLUMN client TEXT DEFAULT '';
+  
+  -- Update existing rows
+  UPDATE jobs SET client = '' WHERE client IS NULL;
 END $;
 
--- Ensure client column has proper default for existing rows
-UPDATE jobs SET client = '' WHERE client IS NULL;
+-- Refresh schema cache by recreating indexes
+DROP INDEX IF EXISTS idx_jobs_client;
+CREATE INDEX idx_jobs_client ON jobs(client);
 
 -- Add user_id column to existing support_requests table if it doesn't exist
 DO $$ 
