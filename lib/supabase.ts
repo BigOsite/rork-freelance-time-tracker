@@ -344,7 +344,7 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
         const data = {
           id: job.id,
           user_id: userId,
-          name: job.title,
+          name: job.name,
           client: job.client || '',
           hourly_rate: job.hourlyRate,
           color: job.color,
@@ -528,7 +528,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
     if (jobsResult.status === 'fulfilled' && jobsResult.value.data) {
       result.jobs = jobsResult.value.data.map(job => ({
         id: job.id,
-        title: job.name,
+        name: job.name,
         client: job.client || '',
         hourlyRate: job.hourly_rate,
         color: job.color,

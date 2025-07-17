@@ -48,7 +48,7 @@ export default function JobCard({
     return null;
   }
   
-  const { title, client, hourlyRate, color, totalDuration, isActive, id, settings } = job;
+  const { name, client, hourlyRate, color, totalDuration, isActive, id, settings } = job;
   
   const earnings = (totalDuration / (1000 * 60 * 60)) * hourlyRate;
   const hasPaidEarnings = paidEarnings > 0;
@@ -159,7 +159,7 @@ export default function JobCard({
   const handleDelete = React.useCallback(() => {
     Alert.alert(
       "Delete Job",
-      `Are you sure you want to delete "${title}"? This will also delete all time entries and cannot be undone.`,
+      `Are you sure you want to delete "${name}"? This will also delete all time entries and cannot be undone.`,
       [
         {
           text: "Cancel",
@@ -185,7 +185,7 @@ export default function JobCard({
         }
       ]
     );
-  }, [title, onDelete, translateX]);
+  }, [name, onDelete, translateX]);
 
   const renderTagsAndLocation = () => {
     if (!hasTagsOrLocation) return null;
@@ -226,7 +226,7 @@ export default function JobCard({
         <View style={styles.content}>
           <View style={styles.header}>
             <View style={styles.titleSection}>
-              <Text style={styles.title} numberOfLines={1}>{title || 'Untitled Job'}</Text>
+              <Text style={styles.title} numberOfLines={1}>{name || 'Untitled Job'}</Text>
               <Text style={styles.client} numberOfLines={1}>{client || 'No Client'}</Text>
               {renderTagsAndLocation()}
             </View>
@@ -315,7 +315,7 @@ export default function JobCard({
           <View style={styles.content}>
             <View style={styles.header}>
               <View style={styles.titleSection}>
-                <Text style={styles.title} numberOfLines={1}>{title || 'Untitled Job'}</Text>
+                <Text style={styles.title} numberOfLines={1}>{name || 'Untitled Job'}</Text>
                 <Text style={styles.client} numberOfLines={1}>{client || 'No Client'}</Text>
                 {renderTagsAndLocation()}
               </View>

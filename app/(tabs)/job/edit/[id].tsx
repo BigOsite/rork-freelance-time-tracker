@@ -14,7 +14,7 @@ export default function EditJobScreen() {
   const job = id && typeof id === 'string' ? getJobById(id) : undefined;
   
   const handleSubmit = React.useCallback((
-    title: string, 
+    name: string, 
     client: string, 
     hourlyRate: number, 
     color: string,
@@ -24,7 +24,7 @@ export default function EditJobScreen() {
     
     try {
       updateJob(id, {
-        title,
+        name,
         client,
         hourlyRate,
         color,
@@ -68,7 +68,7 @@ export default function EditJobScreen() {
       <View style={styles.container}>
         <JobForm
           initialValues={{
-            title: job.title,
+            name: job.name,
             client: job.client,
             hourlyRate: job.hourlyRate,
             color: job.color,

@@ -1,6 +1,6 @@
 export interface Job {
   id: string;
-  title: string;
+  name: string;
   client: string;
   hourlyRate: number;
   color: string;

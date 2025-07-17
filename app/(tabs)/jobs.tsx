@@ -45,7 +45,7 @@ export default function JobsScreen() {
       if (!job) return false;
       
       // Safely handle undefined/null values for title and client
-      const title = (job.title || '').toLowerCase();
+      const title = (job.name || '').toLowerCase();
       const client = (job.client || '').toLowerCase();
       
       const titleMatch = title.includes(query);
@@ -79,14 +79,14 @@ export default function JobsScreen() {
           // Sort active jobs first, then by title A-Z
           if (a.isActive && !b.isActive) return -1;
           if (!a.isActive && b.isActive) return 1;
-          return (a.title || '').localeCompare(b.title || '');
+          return (a.name || '').localeCompare(b.name || '');
         });
       case 'titleZA':
         return jobsToSort.sort((a, b) => {
           // Sort active jobs first, then by title Z-A
           if (a.isActive && !b.isActive) return -1;
           if (!a.isActive && b.isActive) return 1;
-          return (b.title || '').localeCompare(a.title || '');
+          return (b.name || '').localeCompare(a.name || '');
         });
       case 'clientAZ':
         return jobsToSort.sort((a, b) => {

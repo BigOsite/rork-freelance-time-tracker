@@ -94,7 +94,7 @@ export default function NewTimeEntryScreen() {
         <TimeEntryForm
           onSubmit={handleSubmit}
           onCancel={handleCancel}
-          jobName={job.title}
+          jobName={job.name}
           isNewEntry={true}
         />
       </View>

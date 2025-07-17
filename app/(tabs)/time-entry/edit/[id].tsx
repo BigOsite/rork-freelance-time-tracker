@@ -110,7 +110,7 @@ export default function EditTimeEntryScreen() {
           onSubmit={handleSubmit}
           onCancel={handleCancel}
           onDelete={handleDelete}
-          jobName={job.title}
+          jobName={job.name}
           isNewEntry={false}
         />
       </View>
