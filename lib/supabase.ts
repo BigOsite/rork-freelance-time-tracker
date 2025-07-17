@@ -549,7 +549,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
 
     // Process jobs
     if (jobsResult.status === 'fulfilled' && jobsResult.value.data) {
-      result.jobs = jobsResult.value.data.map(job => ({
+      result.jobs = jobsResult.value.data.map((job: any) => ({
         id: job.id,
         name: job.name,
         client: job.client || '', // Handle case where client column might not exist
