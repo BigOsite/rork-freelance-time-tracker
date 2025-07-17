@@ -82,7 +82,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   id TEXT PRIMARY KEY,
   user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
-  client TEXT,
+  client TEXT DEFAULT '',
   hourly_rate DECIMAL(10,2) NOT NULL,
   color TEXT NOT NULL,
   settings JSONB,
@@ -146,12 +146,15 @@ CREATE POLICY "Users can only access their own support requests" ON support_requ
   FOR ALL USING (auth.uid() = user_id);
 
 -- Add client column to existing jobs table if it doesn't exist
-DO $$ 
+DO $ 
 BEGIN 
   IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'jobs' AND column_name = 'client') THEN
-    ALTER TABLE jobs ADD COLUMN client TEXT;
+    ALTER TABLE jobs ADD COLUMN client TEXT DEFAULT '';
   END IF;
-END $$;
+END $;
+
+-- Ensure client column has proper default for existing rows
+UPDATE jobs SET client = '' WHERE client IS NULL;
 
 -- Add user_id column to existing support_requests table if it doesn't exist
 DO $$ 

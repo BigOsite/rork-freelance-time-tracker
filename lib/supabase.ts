@@ -90,7 +90,7 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
-          client: string | null;
+          client: string;
           hourly_rate: number;
           color: string;
           settings: any | null;
@@ -100,7 +100,7 @@ export interface Database {
           id: string;
           user_id: string;
           name: string;
-          client?: string | null;
+          client?: string;
           hourly_rate: number;
           color: string;
           settings?: any | null;
@@ -110,7 +110,7 @@ export interface Database {
           id?: string;
           user_id?: string;
           name?: string;
-          client?: string | null;
+          client?: string;
           hourly_rate?: number;
           color?: string;
           settings?: any | null;
@@ -333,31 +333,69 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
     
     console.log(`Batch syncing ${jobs.length} jobs (${operation}) for user:`, userId);
     
+    // Validate schema before attempting sync
+    const schemaValid = await validateJobsSchema();
+    if (!schemaValid) {
+      throw new Error('Jobs table schema validation failed');
+    }
+    
     if (operation === 'upsert') {
-      const jobsData = jobs.map(job => ({
-        id: job.id,
-        user_id: userId,
-        name: job.title,
-        client: job.client || null,
-        hourly_rate: job.hourlyRate,
-        color: job.color,
-        settings: job.settings || null,
-        created_at: new Date(job.createdAt).toISOString(),
-      }));
+      const jobsData = jobs.map(job => {
+        const data = {
+          id: job.id,
+          user_id: userId,
+          name: job.title,
+          client: job.client || '',
+          hourly_rate: job.hourlyRate,
+          color: job.color,
+          settings: job.settings || null,
+          created_at: new Date(job.createdAt).toISOString(),
+        };
+        console.log('Preparing job data for sync:', data);
+        return data;
+      });
 
-      const { error } = await supabase.from('jobs').upsert(jobsData, {
+      console.log('Upserting jobs data:', jobsData);
+      const { data, error } = await supabase.from('jobs').upsert(jobsData, {
         onConflict: 'id'
       });
       
-      if (error) throw error;
-      console.log('Jobs upserted successfully');
+      if (error) {
+        console.error('Supabase upsert error:', error);
+        
+        // If it's a schema error, try to validate and refresh schema
+        if (error.message.includes('schema cache') || error.message.includes('column')) {
+          console.log('Schema error detected, attempting to refresh and retry...');
+          await validateJobsSchema();
+          
+          // Retry the operation once
+          const { data: retryData, error: retryError } = await supabase.from('jobs').upsert(jobsData, {
+            onConflict: 'id'
+          });
+          
+          if (retryError) {
+            console.error('Retry also failed:', retryError);
+            throw retryError;
+          }
+          
+          console.log('Jobs upserted successfully on retry:', retryData);
+          return;
+        }
+        
+        throw error;
+      }
+      console.log('Jobs upserted successfully:', data);
     } else if (operation === 'delete') {
       const jobIds = jobs.map(job => job.id);
+      console.log('Deleting jobs with IDs:', jobIds);
       const { error } = await supabase.from('jobs').delete()
         .in('id', jobIds)
         .eq('user_id', userId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase delete error:', error);
+        throw error;
+      }
       console.log('Jobs deleted successfully');
     }
   } catch (error) {
@@ -578,6 +616,52 @@ export const checkNetworkConnectivity = async (): Promise<boolean> => {
     return isConnected;
   } catch (error) {
     console.log('Network connectivity check failed:', error);
+    return false;
+  }
+};
+
+// Helper function to validate schema and handle schema cache issues
+export const validateJobsSchema = async (): Promise<boolean> => {
+  try {
+    console.log('Validating jobs table schema');
+    
+    // Try to select all columns to verify schema
+    const { data, error } = await supabase
+      .from('jobs')
+      .select('id, user_id, name, client, hourly_rate, color, settings, created_at')
+      .limit(1);
+    
+    if (error) {
+      console.error('Schema validation failed:', error);
+      
+      // If it's a schema cache issue, try to refresh by making a simple query
+      if (error.message.includes('schema cache') || error.message.includes('column')) {
+        console.log('Attempting to refresh schema cache...');
+        
+        // Try a simple select to refresh cache
+        await supabase.from('jobs').select('*').limit(1);
+        
+        // Wait a moment and try again
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const { error: retryError } = await supabase
+          .from('jobs')
+          .select('id, user_id, name, client, hourly_rate, color, settings, created_at')
+          .limit(1);
+        
+        if (retryError) {
+          console.error('Schema validation still failing after cache refresh:', retryError);
+          return false;
+        }
+      } else {
+        return false;
+      }
+    }
+    
+    console.log('Jobs table schema validation successful');
+    return true;
+  } catch (error) {
+    console.error('Error validating jobs schema:', error);
     return false;
   }
 };
