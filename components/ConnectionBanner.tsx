@@ -6,21 +6,39 @@ import { useServerHealth } from '@/hooks/useServerHealth';
 export function ConnectionBanner() {
   const { isOnline, isChecking, error, checkHealth } = useServerHealth();
 
-  if (isOnline) {
+  // Don't show banner if everything is working fine
+  if (isOnline && !error) {
     return null;
+  }
+
+  // Determine the message based on error type
+  let title = 'Connection Issue';
+  let subtitle = 'Using offline mode. Your data will sync when connection is restored.';
+  let iconColor = '#f59e0b';
+  
+  if (error === 'No internet connection') {
+    title = 'No Internet Connection';
+    subtitle = 'Please check your network connection and try again.';
+    iconColor = '#ef4444';
+  } else if (error?.includes('Server')) {
+    title = 'Server Unavailable';
+    subtitle = 'The server is temporarily unavailable. Using offline mode.';
+    iconColor = '#f59e0b';
+  } else if (error?.includes('timeout')) {
+    title = 'Connection Timeout';
+    subtitle = 'Request timed out. Please check your connection.';
+    iconColor = '#f59e0b';
   }
 
   return (
     <View style={styles.banner}>
       <View style={styles.content}>
-        <AlertCircle size={20} color="#f59e0b" />
+        <AlertCircle size={20} color={iconColor} />
         <View style={styles.textContainer}>
-          <Text style={styles.title}>Server Connection Issue</Text>
-          <Text style={styles.subtitle}>
-            Using offline mode. Your data will sync when connection is restored.
-          </Text>
-          {error && (
-            <Text style={styles.error}>Error: {error}</Text>
+          <Text style={styles.title}>{title}</Text>
+          <Text style={styles.subtitle}>{subtitle}</Text>
+          {error && error !== 'No internet connection' && (
+            <Text style={styles.error}>Details: {error}</Text>
           )}
         </View>
         <TouchableOpacity 

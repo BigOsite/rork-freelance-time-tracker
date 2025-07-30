@@ -133,16 +133,48 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting login process for:', email);
       
+      // Check network connectivity first
+      let isNetworkAvailable = true;
+      try {
+        // Simple network check with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        await fetch('https://www.google.com/favicon.ico', {
+          method: 'HEAD',
+          signal: controller.signal,
+          mode: 'no-cors'
+        });
+        clearTimeout(timeoutId);
+      } catch (networkError) {
+        console.log('Network connectivity check failed:', networkError);
+        isNetworkAvailable = false;
+      }
+      
+      if (!isNetworkAvailable) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+      
       // Always try direct Supabase auth first for better reliability
       let response;
       
       console.log('Using direct Supabase authentication');
       
       try {
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+        // Add timeout to Supabase auth request
+        const authPromise = supabase.auth.signInWithPassword({
           email,
           password,
         });
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Authentication request timed out')), 15000);
+        });
+        
+        const { data: authData, error: authError } = await Promise.race([
+          authPromise,
+          timeoutPromise
+        ]) as any;
 
         if (authError) {
           throw new Error(authError.message);
@@ -176,14 +208,40 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Try tRPC as fallback if Supabase fails
         try {
           console.log('Trying tRPC login as fallback');
-          response = await trpcClient.auth.login.mutate({
+          
+          // Add timeout to tRPC request as well
+          const trpcPromise = trpcClient.auth.login.mutate({
             email,
             password,
           });
+          
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('tRPC request timed out')), 15000);
+          });
+          
+          response = await Promise.race([
+            trpcPromise,
+            timeoutPromise
+          ]) as any;
+          
           console.log('tRPC login successful as fallback');
         } catch (trpcError: any) {
           console.error('Both Supabase and tRPC login failed:', trpcError);
-          throw new Error(supabaseError.message || 'Login failed. Please check your credentials and try again.');
+          
+          // Provide more specific error messages based on the error type
+          let errorMessage = 'Login failed. Please try again.';
+          
+          if (supabaseError.message?.includes('timeout') || trpcError.message?.includes('timeout')) {
+            errorMessage = 'Request timed out. Please check your connection and try again.';
+          } else if (supabaseError.message?.includes('Network request failed') || trpcError.message?.includes('Network request failed')) {
+            errorMessage = 'Network error. Please check your internet connection and try again.';
+          } else if (supabaseError.message?.includes('Invalid login credentials')) {
+            errorMessage = 'Invalid email or password. Please check your credentials.';
+          } else if (supabaseError.message) {
+            errorMessage = supabaseError.message;
+          }
+          
+          throw new Error(errorMessage);
         }
       }
 
@@ -242,13 +300,36 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting registration process for:', email);
       
+      // Check network connectivity first
+      let isNetworkAvailable = true;
+      try {
+        // Simple network check with timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        
+        await fetch('https://www.google.com/favicon.ico', {
+          method: 'HEAD',
+          signal: controller.signal,
+          mode: 'no-cors'
+        });
+        clearTimeout(timeoutId);
+      } catch (networkError) {
+        console.log('Network connectivity check failed:', networkError);
+        isNetworkAvailable = false;
+      }
+      
+      if (!isNetworkAvailable) {
+        throw new Error('No internet connection. Please check your network and try again.');
+      }
+      
       // Always try direct Supabase auth first for better reliability
       let response;
       
       console.log('Using direct Supabase authentication');
       
       try {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
+        // Add timeout to Supabase auth request
+        const authPromise = supabase.auth.signUp({
           email,
           password,
           options: {
@@ -257,6 +338,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
             }
           }
         });
+        
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Registration request timed out')), 15000);
+        });
+        
+        const { data: authData, error: authError } = await Promise.race([
+          authPromise,
+          timeoutPromise
+        ]) as any;
 
         if (authError) {
           throw new Error(authError.message);
@@ -289,15 +379,41 @@ export function AuthProvider({ children }: AuthProviderProps) {
         // Try tRPC as fallback if Supabase fails
         try {
           console.log('Trying tRPC registration as fallback');
-          response = await trpcClient.auth.register.mutate({
+          
+          // Add timeout to tRPC request as well
+          const trpcPromise = trpcClient.auth.register.mutate({
             email,
             password,
             displayName,
           });
+          
+          const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error('tRPC registration request timed out')), 15000);
+          });
+          
+          response = await Promise.race([
+            trpcPromise,
+            timeoutPromise
+          ]) as any;
+          
           console.log('tRPC registration successful as fallback');
         } catch (trpcError: any) {
           console.error('Both Supabase and tRPC registration failed:', trpcError);
-          throw new Error(supabaseError.message || 'Registration failed. Please try again.');
+          
+          // Provide more specific error messages based on the error type
+          let errorMessage = 'Registration failed. Please try again.';
+          
+          if (supabaseError.message?.includes('timeout') || trpcError.message?.includes('timeout')) {
+            errorMessage = 'Request timed out. Please check your connection and try again.';
+          } else if (supabaseError.message?.includes('Network request failed') || trpcError.message?.includes('Network request failed')) {
+            errorMessage = 'Network error. Please check your internet connection and try again.';
+          } else if (supabaseError.message?.includes('User already registered')) {
+            errorMessage = 'An account with this email already exists. Please sign in instead.';
+          } else if (supabaseError.message) {
+            errorMessage = supabaseError.message;
+          }
+          
+          throw new Error(errorMessage);
         }
       }
 

@@ -17,7 +17,26 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.rork.freelance-time-tracker-uce14g7",
       "infoPlist": {
-        "NSContactsUsageDescription": "This app uses your contacts only to help sync client-related job data. No data is shared."
+        "NSContactsUsageDescription": "This app uses your contacts only to help sync client-related job data. No data is shared.",
+        "NSFaceIDUsageDescription": "Allow $(PRODUCT_NAME) to access your Face ID biometric data.",
+        "NSPhotoLibraryUsageDescription": "Allow $(PRODUCT_NAME) to access your photos",
+        "NSCameraUsageDescription": "Allow $(PRODUCT_NAME) to access your camera",
+        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone"
+      },
+      "entitlements": {
+        "com": {
+          "apple": {
+            "developer": {
+              "networking": {
+                "wifi-info": true
+              }
+            }
+          }
+        }
+      },
+      "accessesContactNotes": true,
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {
@@ -25,7 +44,15 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "package": "app.rork.freelance-time-tracker-uce14g7"
+      "package": "app.rork.freelance-time-tracker-uce14g7",
+      "permissions": [
+        "READ_CONTACTS",
+        "WRITE_CONTACTS",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "INTERNET",
+        "CAMERA"
+      ]
     },
     "web": {
       "favicon": "./assets/images/favicon.png"
@@ -35,6 +62,25 @@
         "expo-router",
         {
           "origin": "https://rork.com/"
+        }
+      ],
+      [
+        "expo-contacts",
+        {
+          "contactsPermission": "Allow $(PRODUCT_NAME) to access your contacts."
+        }
+      ],
+      [
+        "expo-secure-store",
+        {
+          "configureAndroidBackup": true,
+          "faceIDPermission": "Allow $(PRODUCT_NAME) to access your Face ID biometric data."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The app accesses your photos to let you share them with your friends."
         }
       ]
     ],

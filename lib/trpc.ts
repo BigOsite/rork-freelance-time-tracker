@@ -81,10 +81,23 @@ export const trpcClient = trpc.createClient({
             body: options?.body,
           };
 
-          // Skip health check for now to avoid double failures
-          // The main request will handle server availability
+          // Check basic network connectivity first
+          try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000);
+            
+            await fetch('https://www.google.com/favicon.ico', {
+              method: 'HEAD',
+              signal: controller.signal,
+              mode: 'no-cors'
+            });
+            clearTimeout(timeoutId);
+          } catch (networkError) {
+            console.log('Network connectivity check failed before tRPC request:', networkError);
+            throw new Error('Network error. Please check your internet connection and try again.');
+          }
 
-          const response = await fetchWithTimeout(requestUrl, requestInit, 30000);
+          const response = await fetchWithTimeout(requestUrl, requestInit, 20000);
 
           console.log('tRPC response status:', response.status);
 
@@ -142,17 +155,21 @@ export const trpcClient = trpc.createClient({
             throw new Error('Request timed out. Please try again.');
           }
           
-          // Handle network connection errors
-          if (error.name === 'TypeError' && error.message?.includes('fetch')) {
-            throw new Error('Network error. Please check your connection and try again.');
+          // Handle network connection errors with more specific messages
+          if (error.name === 'TypeError' && (error.message?.includes('fetch') || error.message?.includes('Network request failed'))) {
+            throw new Error('Network error. Please check your internet connection and try again.');
           }
           
-          if (error.message?.includes('timeout')) {
-            throw new Error('Request timed out. Please try again.');
+          if (error.message?.includes('timeout') || error.message?.includes('timed out')) {
+            throw new Error('Request timed out. Please check your connection and try again.');
           }
           
-          if (error.message?.includes('Failed to fetch') || error.message?.includes('Network request failed')) {
-            throw new Error('Network error. Please check your connection and try again.');
+          if (error.message?.includes('Failed to fetch')) {
+            throw new Error('Unable to connect to server. Please check your internet connection and try again.');
+          }
+          
+          if (error.message?.includes('Network request failed')) {
+            throw new Error('Network request failed. Please check your internet connection and try again.');
           }
           
           if (error.message?.includes('Server did not start')) {

@@ -10,6 +10,7 @@ import { formatCurrency } from '@/utils/helpers';
 import StatCard from '@/components/StatCard';
 import JobCard from '@/components/JobCard';
 import EmptyState from '@/components/EmptyState';
+import { ConnectionBanner } from '@/components/ConnectionBanner';
 import { useTheme } from '@/contexts/ThemeContext';
 import { JobWithDuration } from '@/types';
 
@@ -159,6 +160,7 @@ export default function DashboardScreen() {
   
   return (
     <View style={styles.container}>
+      <ConnectionBanner />
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
