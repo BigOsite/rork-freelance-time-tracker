@@ -41,18 +41,33 @@ export function useServerHealth() {
         return false;
       }
       
-      // Then check server health
+      // Then check server health - try multiple endpoints
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
-      const response = await fetch('https://8e23p8rts6cegks6ymhco.rork.com/health', {
-        method: 'GET',
-        signal: controller.signal,
-        headers: {
-          'Accept': 'application/json',
-          'Cache-Control': 'no-cache',
-        },
-      });
+      // Try the main server endpoint first
+      let response;
+      try {
+        response = await fetch('https://dev-8e23p8rts6cegks6ymhco.rorktest.dev/health', {
+          method: 'GET',
+          signal: controller.signal,
+          headers: {
+            'Accept': 'application/json',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      } catch (primaryError) {
+        console.log('Primary server check failed, trying fallback:', primaryError);
+        // Try fallback endpoint
+        response = await fetch('https://hrymwfavjfvnksxjezoy.supabase.co/rest/v1/', {
+          method: 'HEAD',
+          signal: controller.signal,
+          headers: {
+            'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhyeW13ZmF2amZ2bmtzeGplem95Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg2MzExNTMsImV4cCI6MjA2NDIwNzE1M30.o3aPJsDW8JHSCdAE0ACYrLj4Y6u9UR3kPbujBzEcapY',
+            'Cache-Control': 'no-cache',
+          },
+        });
+      }
       
       clearTimeout(timeoutId);
       

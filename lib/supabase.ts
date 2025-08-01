@@ -552,7 +552,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       result.jobs = jobsResult.value.data.map((job: any) => ({
         id: job.id,
         name: job.name || '', // Ensure name is never null
-        client: job.client || '', // Handle case where client column might not exist
+        client: job.client !== undefined ? job.client || '' : '', // Handle case where client column might not exist
         hourlyRate: job.hourly_rate || 0,
         color: job.color || '#3B82F6',
         settings: job.settings,
@@ -663,11 +663,38 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
 export const checkNetworkConnectivity = async (): Promise<boolean> => {
   try {
     console.log('Checking network connectivity');
-    // Simple connectivity check by making a lightweight request to Supabase
-    const { error } = await supabase.from('jobs').select('id').limit(1);
-    const isConnected = !error;
-    console.log('Network connectivity:', isConnected ? 'connected' : 'disconnected');
-    return isConnected;
+    
+    // First check basic internet connectivity
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000);
+      
+      await fetch('https://www.google.com/favicon.ico', {
+        method: 'HEAD',
+        signal: controller.signal,
+        mode: 'no-cors'
+      });
+      clearTimeout(timeoutId);
+    } catch (networkError) {
+      console.log('Basic network connectivity failed:', networkError);
+      return false;
+    }
+    
+    // Then check Supabase connectivity
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000);
+      
+      const { error } = await supabase.from('jobs').select('id').limit(1).abortSignal(controller.signal);
+      clearTimeout(timeoutId);
+      
+      const isConnected = !error;
+      console.log('Supabase connectivity:', isConnected ? 'connected' : 'disconnected');
+      return isConnected;
+    } catch (supabaseError) {
+      console.log('Supabase connectivity check failed:', supabaseError);
+      return false;
+    }
   } catch (error) {
     console.log('Network connectivity check failed:', error);
     return false;
