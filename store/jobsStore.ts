@@ -1066,7 +1066,7 @@ export const useJobsStore = create<JobsState>()(
           }
         }, 2 * 60 * 60 * 1000); // Every 2 hours
         
-        set({ backgroundSyncInterval: interval as any });
+        set({ backgroundSyncInterval: interval as ReturnType<typeof setTimeout> });
       },
       
       stopBackgroundSync: () => {

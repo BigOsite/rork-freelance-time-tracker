@@ -552,7 +552,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       result.jobs = jobsResult.value.data.map((job: any) => ({
         id: job.id,
         name: job.name || '', // Ensure name is never null
-        client: job.client !== undefined ? job.client || '' : '', // Handle case where client column might not exist
+        client: job.client || '', // Client column should exist based on schema
         hourlyRate: job.hourly_rate || 0,
         color: job.color || '#3B82F6',
         settings: job.settings,
@@ -713,8 +713,15 @@ export const refreshSchemaCache = async (): Promise<void> => {
       supabase.from('pay_periods').select('*').limit(1),
     ]);
     
+    // Try to force a schema refresh by making a specific query that should work
+    try {
+      await supabase.rpc('version'); // This should force a schema refresh
+    } catch (rpcError) {
+      console.log('RPC version call failed (expected):', rpcError);
+    }
+    
     // Wait a moment for cache to refresh
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    await new Promise(resolve => setTimeout(resolve, 3000));
     
     console.log('Schema cache refresh completed');
   } catch (error) {
