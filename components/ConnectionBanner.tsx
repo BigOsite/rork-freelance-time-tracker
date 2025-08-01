@@ -31,7 +31,21 @@ export function ConnectionBanner() {
   }, [isOnline, error, fadeAnim]);
 
   // Don't render if connection is good and fade animation is complete
-  if (isOnline && !error && fadeAnim._value === 0) {
+  // Note: We can't access _value directly in production, so we'll use a state to track visibility
+  const [isVisible, setIsVisible] = React.useState(true);
+  
+  React.useEffect(() => {
+    if (isOnline && !error) {
+      const timer = setTimeout(() => {
+        setIsVisible(false);
+      }, 2500); // Hide after fade animation completes
+      return () => clearTimeout(timer);
+    } else {
+      setIsVisible(true);
+    }
+  }, [isOnline, error]);
+  
+  if (!isVisible) {
     return null;
   }
 

@@ -1064,7 +1064,7 @@ export const useJobsStore = create<JobsState>()(
             // Reschedule even if there was an error
             get().initializeBackgroundSync(userId);
           }
-        }, 2 * 60 * 60 * 1000) as NodeJS.Timeout; // Every 2 hours
+        }, 2 * 60 * 60 * 1000); // Every 2 hours
         
         set({ backgroundSyncInterval: interval });
       },
