@@ -69,6 +69,7 @@ interface JobsState {
   processSyncQueue: (userId: string) => Promise<void>;
   syncWithSupabase: (userId: string) => Promise<void>;
   clearSyncQueue: () => void;
+  cleanupSyncQueue: () => void;
   setNetworkInfo: (info: NetworkInfo) => void;
   
   // Background sync
@@ -877,9 +878,16 @@ export const useJobsStore = create<JobsState>()(
           retryCount: 0,
         };
         
-        set(state => ({
-          syncQueue: [...state.syncQueue, queueItem]
-        }));
+        set(state => {
+          // Remove any existing items for the same entity to prevent duplicates
+          const filteredQueue = state.syncQueue.filter(
+            existingItem => !(existingItem.entityType === item.entityType && existingItem.entityId === item.entityId)
+          );
+          
+          return {
+            syncQueue: [...filteredQueue, queueItem]
+          };
+        });
       },
       
       processSyncQueue: async (userId: string) => {
@@ -896,10 +904,26 @@ export const useJobsStore = create<JobsState>()(
         }
         
         try {
-          // Group items by entity type and operation
-          const jobItems = state.syncQueue.filter(item => item.entityType === 'job');
-          const timeEntryItems = state.syncQueue.filter(item => item.entityType === 'timeEntry');
-          const payPeriodItems = state.syncQueue.filter(item => item.entityType === 'payPeriod');
+          console.log(`Processing sync queue with ${state.syncQueue.length} items`);
+          
+          // Helper function to deduplicate items by entity ID, keeping the latest
+          const deduplicateItems = <T extends { entityId: string; timestamp: number }>(items: T[]): T[] => {
+            const itemMap = new Map<string, T>();
+            items.forEach(item => {
+              const existing = itemMap.get(item.entityId);
+              if (!existing || item.timestamp > existing.timestamp) {
+                itemMap.set(item.entityId, item);
+              }
+            });
+            return Array.from(itemMap.values());
+          };
+          
+          // Group items by entity type and deduplicate
+          const jobItems = deduplicateItems(state.syncQueue.filter(item => item.entityType === 'job'));
+          const timeEntryItems = deduplicateItems(state.syncQueue.filter(item => item.entityType === 'timeEntry'));
+          const payPeriodItems = deduplicateItems(state.syncQueue.filter(item => item.entityType === 'payPeriod'));
+          
+          console.log(`Deduplicated: ${jobItems.length} jobs, ${timeEntryItems.length} time entries, ${payPeriodItems.length} pay periods`);
           
           // Process jobs
           if (jobItems.length > 0) {
@@ -911,9 +935,11 @@ export const useJobsStore = create<JobsState>()(
               .map(item => item.data as Job);
             
             if (jobsToUpsert.length > 0) {
+              console.log(`Upserting ${jobsToUpsert.length} jobs`);
               await batchSyncJobs(jobsToUpsert, userId, 'upsert');
             }
             if (jobsToDelete.length > 0) {
+              console.log(`Deleting ${jobsToDelete.length} jobs`);
               await batchSyncJobs(jobsToDelete, userId, 'delete');
             }
           }
@@ -928,9 +954,11 @@ export const useJobsStore = create<JobsState>()(
               .map(item => item.data as TimeEntry);
             
             if (entriesToUpsert.length > 0) {
+              console.log(`Upserting ${entriesToUpsert.length} time entries`);
               await batchSyncTimeEntries(entriesToUpsert, userId, 'upsert');
             }
             if (entriesToDelete.length > 0) {
+              console.log(`Deleting ${entriesToDelete.length} time entries`);
               await batchSyncTimeEntries(entriesToDelete, userId, 'delete');
             }
           }
@@ -945,9 +973,11 @@ export const useJobsStore = create<JobsState>()(
               .map(item => item.data as PayPeriod);
             
             if (periodsToUpsert.length > 0) {
+              console.log(`Upserting ${periodsToUpsert.length} pay periods`);
               await batchSyncPayPeriods(periodsToUpsert, userId, 'upsert');
             }
             if (periodsToDelete.length > 0) {
+              console.log(`Deleting ${periodsToDelete.length} pay periods`);
               await batchSyncPayPeriods(periodsToDelete, userId, 'delete');
             }
           }
@@ -1042,6 +1072,43 @@ export const useJobsStore = create<JobsState>()(
         set({ syncQueue: [] });
       },
       
+      cleanupSyncQueue: () => {
+        set(state => {
+          // Remove items that have failed too many times or are too old
+          const now = Date.now();
+          const maxAge = 24 * 60 * 60 * 1000; // 24 hours
+          
+          const cleanedQueue = state.syncQueue.filter(item => {
+            // Remove items that are too old or have failed too many times
+            if (item.retryCount >= 3 || (now - item.timestamp) > maxAge) {
+              console.log(`Removing stale sync queue item: ${item.entityType}:${item.entityId}`);
+              return false;
+            }
+            return true;
+          });
+          
+          // Deduplicate by keeping only the latest item for each entity
+          const deduplicatedQueue = cleanedQueue.reduce((acc, item) => {
+            const key = `${item.entityType}:${item.entityId}`;
+            const existing = acc.get(key);
+            
+            if (!existing || item.timestamp > existing.timestamp) {
+              acc.set(key, item);
+            }
+            
+            return acc;
+          }, new Map<string, SyncQueueItem>());
+          
+          const finalQueue = Array.from(deduplicatedQueue.values());
+          
+          if (finalQueue.length !== state.syncQueue.length) {
+            console.log(`Cleaned sync queue: ${state.syncQueue.length} -> ${finalQueue.length} items`);
+          }
+          
+          return { syncQueue: finalQueue };
+        });
+      },
+      
       setNetworkInfo: (info) => {
         set({ networkInfo: info });
       },
@@ -1056,7 +1123,12 @@ export const useJobsStore = create<JobsState>()(
         // Set up new background sync interval (every 2 hours)
         const interval = setTimeout(async () => {
           try {
+            // Clean up the sync queue first
+            get().cleanupSyncQueue();
+            
+            // Then process remaining items
             await get().processSyncQueue(userId);
+            
             // Reschedule the next sync
             get().initializeBackgroundSync(userId);
           } catch (error) {
@@ -1066,7 +1138,7 @@ export const useJobsStore = create<JobsState>()(
           }
         }, 2 * 60 * 60 * 1000); // Every 2 hours
         
-        set({ backgroundSyncInterval: interval as ReturnType<typeof setTimeout> });
+        set({ backgroundSyncInterval: interval as any });
       },
       
       stopBackgroundSync: () => {
