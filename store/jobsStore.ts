@@ -10,6 +10,7 @@ import {
   fetchAllUserData,
   checkNetworkConnectivity 
 } from '@/lib/supabase';
+import { getPayPeriodDates } from '@/utils/time';
 
 interface JobsState {
   jobs: Job[];
@@ -57,6 +58,7 @@ interface JobsState {
   getPayPeriod: (id: string) => PayPeriod | undefined;
   markPayPeriodAsPaid: (id: string) => void;
   markPayPeriodAsUnpaid: (id: string) => void;
+  recalculatePayPeriodsForJob: (jobId: string) => void;
   getJobWithPayPeriods: (jobId: string) => Job & { payPeriods: PayPeriod[]; paidEarnings: number; paidDuration: number } | undefined;
   getPaidEarningsForJob: (jobId: string) => number;
   
@@ -398,6 +400,9 @@ export const useJobsStore = create<JobsState>()(
           operation: 'update',
           data: updatedEntry,
         });
+
+        // Recalculate pay periods for this job after stopping entry
+        get().recalculatePayPeriodsForJob(updatedEntry.jobId);
         
         // Try immediate save to Supabase
         const currentUser = get().getCurrentUser();
@@ -450,6 +455,9 @@ export const useJobsStore = create<JobsState>()(
             data: timeEntry,
           });
           console.log('Time entry added to sync queue');
+
+          // Recalculate pay periods for this job so manual entries appear immediately
+          get().recalculatePayPeriodsForJob(timeEntry.jobId);
           
           // Try immediate save to Supabase
           const currentUser = get().getCurrentUser();
@@ -489,6 +497,9 @@ export const useJobsStore = create<JobsState>()(
             operation: 'update',
             data: updatedEntry,
           });
+
+          // Recalculate pay periods for this job to keep periods in sync
+          get().recalculatePayPeriodsForJob(updatedEntry.jobId);
           
           // Try immediate save to Supabase
           const currentUser = get().getCurrentUser();
@@ -516,6 +527,9 @@ export const useJobsStore = create<JobsState>()(
           operation: 'delete',
           data: entry,
         });
+
+        // Recalculate pay periods after deletion
+        get().recalculatePayPeriodsForJob(entry.jobId);
       },
       
       getTimeEntry: (id) => {
@@ -599,6 +613,9 @@ export const useJobsStore = create<JobsState>()(
           operation: 'update',
           data: updatedEntry,
         });
+
+        // Recalculate pay periods for this job after clock out
+        get().recalculatePayPeriodsForJob(updatedEntry.jobId);
         
         // Try immediate save to Supabase
         const currentUser = get().getCurrentUser();
@@ -767,16 +784,66 @@ export const useJobsStore = create<JobsState>()(
       },
       
       markPayPeriodAsPaid: (id) => {
+        const period = get().payPeriods.find(p => p.id === id);
+        if (!period) return;
+
         get().updatePayPeriod(id, { 
           isPaid: true, 
           paidDate: Date.now() 
         });
+
+        // Update associated time entries to reflect paid status
+        set(state => ({
+          timeEntries: state.timeEntries.map(te => 
+            te.jobId === period.jobId && period.timeEntryIds.includes(te.id)
+              ? { ...te, paidInPeriodId: id }
+              : te
+          )
+        }));
+
+        // Queue updates for affected time entries
+        period.timeEntryIds.forEach(entryId => {
+          const te = get().timeEntries.find(e => e.id === entryId);
+          if (te) {
+            get().addToSyncQueue({
+              entityType: 'timeEntry',
+              entityId: te.id,
+              operation: 'update',
+              data: te,
+            });
+          }
+        });
       },
       
       markPayPeriodAsUnpaid: (id) => {
+        const period = get().payPeriods.find(p => p.id === id);
+        if (!period) return;
+
         get().updatePayPeriod(id, { 
           isPaid: false, 
           paidDate: undefined 
+        });
+
+        // Clear paid flags on associated entries
+        set(state => ({
+          timeEntries: state.timeEntries.map(te => 
+            te.jobId === period.jobId && period.timeEntryIds.includes(te.id)
+              ? { ...te, paidInPeriodId: undefined }
+              : te
+          )
+        }));
+
+        // Queue updates for affected time entries
+        period.timeEntryIds.forEach(entryId => {
+          const te = get().timeEntries.find(e => e.id === entryId);
+          if (te) {
+            get().addToSyncQueue({
+              entityType: 'timeEntry',
+              entityId: te.id,
+              operation: 'update',
+              data: te,
+            });
+          }
         });
       },
       
@@ -795,10 +862,135 @@ export const useJobsStore = create<JobsState>()(
         
         return {
           ...job,
-          payPeriods,
+          payPeriods: payPeriods.sort((a, b) => b.startDate - a.startDate),
           paidEarnings,
           paidDuration,
         };
+      },
+      
+      recalculatePayPeriodsForJob: (jobId: string) => {
+        try {
+          const state = get();
+          const job = state.jobs.find(j => j.id === jobId);
+          if (!job) return;
+
+          const payType = job.settings?.payPeriodType ?? 'weekly';
+          const startDay = job.settings?.payPeriodStartDay ?? 0;
+
+          const existingForJob = state.payPeriods.filter(p => p.jobId === jobId);
+          const existingMap = new Map<string, PayPeriod>();
+          existingForJob.forEach(p => {
+            const key = `${p.startDate}_${p.endDate}`;
+            existingMap.set(key, p);
+          });
+
+          const entries = state.timeEntries.filter(e => e.jobId === jobId && e.endTime !== null);
+
+          type TempPeriod = {
+            key: string;
+            startDate: number;
+            endDate: number;
+            timeEntryIds: string[];
+            totalDuration: number;
+            totalEarnings: number;
+          };
+
+          const periodMap = new Map<string, TempPeriod>();
+
+          entries.forEach(entry => {
+            if (!entry || entry.endTime === null) return;
+            const { start, end } = getPayPeriodDates(entry.startTime, payType, startDay);
+            const startMs = start.getTime();
+            const endMs = end.getTime();
+            const key = `${startMs}_${endMs}`;
+
+            let totalBreak = 0;
+            (entry.breaks || []).forEach(b => {
+              if (b?.endTime) totalBreak += (b.endTime - b.startTime);
+            });
+            const duration = Math.max(0, (entry.endTime - entry.startTime) - totalBreak);
+            const earnings = (duration / (1000 * 60 * 60)) * (job.hourlyRate || 0);
+
+            if (!periodMap.has(key)) {
+              periodMap.set(key, {
+                key,
+                startDate: startMs,
+                endDate: endMs,
+                timeEntryIds: [entry.id],
+                totalDuration: duration,
+                totalEarnings: earnings,
+              });
+            } else {
+              const agg = periodMap.get(key)!;
+              agg.timeEntryIds.push(entry.id);
+              agg.totalDuration += duration;
+              agg.totalEarnings += earnings;
+            }
+          });
+
+          const newPeriods: PayPeriod[] = Array.from(periodMap.values()).map(tp => {
+            const exist = existingMap.get(`${tp.startDate}_${tp.endDate}`);
+            return {
+              id: exist?.id || `period_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              jobId,
+              startDate: tp.startDate,
+              endDate: tp.endDate,
+              totalDuration: tp.totalDuration,
+              totalEarnings: tp.totalEarnings,
+              isPaid: exist?.isPaid ?? false,
+              paidDate: exist?.paidDate,
+              timeEntryIds: tp.timeEntryIds,
+              createdAt: exist?.createdAt ?? Date.now(),
+            } as PayPeriod;
+          }).sort((a, b) => b.startDate - a.startDate);
+
+          const entryToPeriod: Record<string, PayPeriod> = {};
+          newPeriods.forEach(p => {
+            p.timeEntryIds.forEach(eid => { entryToPeriod[eid] = p; });
+          });
+
+          const updatedTimeEntries = state.timeEntries.map(te => {
+            if (te.jobId !== jobId || te.endTime === null) return te;
+            const p = entryToPeriod[te.id];
+            const newPaid = p?.isPaid ? p.id : undefined;
+            if (te.paidInPeriodId !== newPaid) {
+              return { ...te, paidInPeriodId: newPaid };
+            }
+            return te;
+          });
+
+          const otherPeriods = state.payPeriods.filter(p => p.jobId !== jobId);
+
+          const toCreate = newPeriods.filter(p => !existingForJob.find(ep => ep.id === p.id));
+          const toUpdate = newPeriods.filter(p => existingForJob.find(ep => ep.id === p.id && (
+            ep.totalDuration !== p.totalDuration || ep.totalEarnings !== p.totalEarnings ||
+            ep.timeEntryIds.length !== p.timeEntryIds.length
+          )));
+
+          set({
+            payPeriods: [...otherPeriods, ...newPeriods],
+            timeEntries: updatedTimeEntries,
+          });
+
+          toCreate.forEach(p => {
+            get().addToSyncQueue({
+              entityType: 'payPeriod',
+              entityId: p.id,
+              operation: 'create',
+              data: p,
+            });
+          });
+          toUpdate.forEach(p => {
+            get().addToSyncQueue({
+              entityType: 'payPeriod',
+              entityId: p.id,
+              operation: 'update',
+              data: p,
+            });
+          });
+        } catch (error) {
+          console.error('Error recalculating pay periods:', error);
+        }
       },
       
       getPaidEarningsForJob: (jobId) => {
@@ -1057,6 +1249,13 @@ export const useJobsStore = create<JobsState>()(
             payPeriods: mergedPayPeriods,
             lastSyncTimestamp: Date.now(),
             isLoading: false,
+          });
+
+          // Recalculate pay periods for all jobs to ensure manual entries are included
+          mergedJobs.forEach(j => {
+            if (j?.id) {
+              get().recalculatePayPeriodsForJob(j.id);
+            }
           });
           
           console.log('Intelligent sync with Supabase completed');
