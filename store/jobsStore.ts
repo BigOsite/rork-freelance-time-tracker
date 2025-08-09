@@ -909,7 +909,85 @@ export const useJobsStore = create<JobsState>()(
               if (b?.endTime) totalBreak += (b.endTime - b.startTime);
             });
             const duration = Math.max(0, (entry.endTime - entry.startTime) - totalBreak);
-            const earnings = (duration / (1000 * 60 * 60)) * (job.hourlyRate || 0);
+            
+            // Calculate earnings with overtime support
+            let earnings = 0;
+            if (job.settings) {
+              const durationHours = duration / (1000 * 60 * 60);
+              const { 
+                dailyOvertime, 
+                dailyOvertimeThreshold = 8, 
+                dailyOvertimeRate = 1.5,
+                weeklyOvertime,
+                weeklyOvertimeThreshold = 40,
+                weeklyOvertimeRate = 1.5
+              } = job.settings;
+              
+              // Daily overtime calculation
+              if (dailyOvertime === 'daily' && durationHours > dailyOvertimeThreshold) {
+                const straightTimeHours = dailyOvertimeThreshold;
+                const overtimeHours = durationHours - dailyOvertimeThreshold;
+                
+                const straightTimeEarnings = straightTimeHours * job.hourlyRate;
+                const overtimeEarnings = overtimeHours * job.hourlyRate * dailyOvertimeRate;
+                earnings = straightTimeEarnings + overtimeEarnings;
+              }
+              // Weekly overtime calculation
+              else if (weeklyOvertime === 'weekly') {
+                // Get all entries for this job in the same week as this entry
+                const entryDate = new Date(entry.startTime);
+                const weekStart = new Date(entryDate);
+                weekStart.setDate(entryDate.getDate() - entryDate.getDay()); // Start of week (Sunday)
+                weekStart.setHours(0, 0, 0, 0);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                weekEnd.setHours(23, 59, 59, 999);
+                
+                // Get all completed time entries for this job in the same week
+                const weekEntries = entries.filter(e => {
+                  if (!e.endTime) return false; // Only completed entries
+                  const eDate = new Date(e.startTime);
+                  return eDate >= weekStart && eDate <= weekEnd;
+                });
+                
+                // Calculate total hours for the week
+                let totalWeekHours = 0;
+                weekEntries.forEach(e => {
+                  if (e.endTime) {
+                    const eDuration = e.endTime - e.startTime;
+                    const eBreakDuration = (e.breaks || []).reduce((total, breakItem) => {
+                      if (breakItem?.endTime) {
+                        return total + (breakItem.endTime - breakItem.startTime);
+                      }
+                      return total;
+                    }, 0);
+                    const eWorkDuration = Math.max(0, eDuration - eBreakDuration);
+                    totalWeekHours += eWorkDuration / (1000 * 60 * 60);
+                  }
+                });
+                
+                // Check if weekly overtime threshold is exceeded
+                if (totalWeekHours > weeklyOvertimeThreshold) {
+                  // Calculate how much of this entry contributes to overtime
+                  const entryOvertimeHours = Math.max(0, Math.min(durationHours, totalWeekHours - weeklyOvertimeThreshold));
+                  const entryStraightTimeHours = durationHours - entryOvertimeHours;
+                  
+                  const entryStraightTimeEarnings = entryStraightTimeHours * job.hourlyRate;
+                  const entryOvertimeEarnings = entryOvertimeHours * job.hourlyRate * weeklyOvertimeRate;
+                  earnings = entryStraightTimeEarnings + entryOvertimeEarnings;
+                } else {
+                  // No overtime for this entry
+                  earnings = durationHours * job.hourlyRate;
+                }
+              }
+              // No overtime
+              else {
+                earnings = (duration / (1000 * 60 * 60)) * job.hourlyRate;
+              }
+            } else {
+              // No job settings, use basic calculation
+              earnings = (duration / (1000 * 60 * 60)) * job.hourlyRate;
+            }
 
             if (!periodMap.has(key)) {
               periodMap.set(key, {
@@ -1025,8 +1103,86 @@ export const useJobsStore = create<JobsState>()(
             }, 0);
             
             const workDuration = Math.max(0, entryDuration - breakDuration);
-            const durationHours = workDuration / (1000 * 60 * 60);
-            totalEarnings += durationHours * job.hourlyRate;
+            
+            // Calculate earnings with overtime support (same logic as pay period calculation)
+            if (entry.endTime && job.settings) {
+              const durationHours = workDuration / (1000 * 60 * 60);
+              const { 
+                dailyOvertime, 
+                dailyOvertimeThreshold = 8, 
+                dailyOvertimeRate = 1.5,
+                weeklyOvertime,
+                weeklyOvertimeThreshold = 40,
+                weeklyOvertimeRate = 1.5
+              } = job.settings;
+              
+              // Daily overtime calculation
+              if (dailyOvertime === 'daily' && durationHours > dailyOvertimeThreshold) {
+                const straightTimeHours = dailyOvertimeThreshold;
+                const overtimeHours = durationHours - dailyOvertimeThreshold;
+                
+                const straightTimeEarnings = straightTimeHours * job.hourlyRate;
+                const overtimeEarnings = overtimeHours * job.hourlyRate * dailyOvertimeRate;
+                totalEarnings += straightTimeEarnings + overtimeEarnings;
+              }
+              // Weekly overtime calculation
+              else if (weeklyOvertime === 'weekly') {
+                // Get all entries for this job in the same week as this entry
+                const entryDate = new Date(entry.startTime);
+                const weekStart = new Date(entryDate);
+                weekStart.setDate(entryDate.getDate() - entryDate.getDay()); // Start of week (Sunday)
+                weekStart.setHours(0, 0, 0, 0);
+                const weekEnd = new Date(weekStart);
+                weekEnd.setDate(weekStart.getDate() + 6);
+                weekEnd.setHours(23, 59, 59, 999);
+                
+                // Get all completed time entries for this job in the same week
+                const weekEntries = entries.filter(e => {
+                  if (!e.endTime) return false; // Only completed entries
+                  const eDate = new Date(e.startTime);
+                  return eDate >= weekStart && eDate <= weekEnd;
+                });
+                
+                // Calculate total hours for the week
+                let totalWeekHours = 0;
+                weekEntries.forEach(e => {
+                  if (e.endTime) {
+                    const eDuration = e.endTime - e.startTime;
+                    const eBreakDuration = (e.breaks || []).reduce((total, breakItem) => {
+                      if (breakItem?.endTime) {
+                        return total + (breakItem.endTime - breakItem.startTime);
+                      }
+                      return total;
+                    }, 0);
+                    const eWorkDuration = Math.max(0, eDuration - eBreakDuration);
+                    totalWeekHours += eWorkDuration / (1000 * 60 * 60);
+                  }
+                });
+                
+                // Check if weekly overtime threshold is exceeded
+                if (totalWeekHours > weeklyOvertimeThreshold) {
+                  // Calculate how much of this entry contributes to overtime
+                  const entryOvertimeHours = Math.max(0, Math.min(durationHours, totalWeekHours - weeklyOvertimeThreshold));
+                  const entryStraightTimeHours = durationHours - entryOvertimeHours;
+                  
+                  const entryStraightTimeEarnings = entryStraightTimeHours * job.hourlyRate;
+                  const entryOvertimeEarnings = entryOvertimeHours * job.hourlyRate * weeklyOvertimeRate;
+                  totalEarnings += entryStraightTimeEarnings + entryOvertimeEarnings;
+                } else {
+                  // No overtime for this entry
+                  totalEarnings += durationHours * job.hourlyRate;
+                }
+              }
+              // No overtime
+              else {
+                const durationHours = workDuration / (1000 * 60 * 60);
+                totalEarnings += durationHours * job.hourlyRate;
+              }
+            } else {
+              // For active entries or jobs without settings, use basic calculation
+              const durationHours = workDuration / (1000 * 60 * 60);
+              totalEarnings += durationHours * job.hourlyRate;
+            }
           });
         });
         
