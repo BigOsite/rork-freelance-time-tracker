@@ -98,16 +98,8 @@ export default function TimeEntryForm({
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
         setIsSubmitting(false);
-      } else {
-        // Reset form state on successful submission
-        setIsSubmitting(false);
-        // Reset form to default values for new entries
-        if (isNewEntry) {
-          setStartTime(Date.now());
-          setEndTime(null);
-          setNote('');
-        }
       }
+      // Don't reset state here - let the parent handle navigation and cleanup
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');

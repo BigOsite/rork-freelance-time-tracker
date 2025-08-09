@@ -38,10 +38,8 @@ export default function NewTimeEntryScreen() {
       
       if (entryId) {
         console.log('Time entry created successfully, navigating back');
-        // Add a small delay to allow the form to show success state
-        setTimeout(() => {
-          router.replace(`/(tabs)/job/${jobId}`);
-        }, 100);
+        // Navigate immediately after successful creation
+        router.replace(`/(tabs)/job/${jobId}`);
         return true;
       } else {
         console.error('Time entry creation failed - no ID returned');
@@ -56,7 +54,7 @@ export default function NewTimeEntryScreen() {
   const handleCancel = () => {
     // Navigate directly to the specific job details page
     if (jobId && typeof jobId === 'string') {
-      router.replace(`/(tabs)/job/${jobId}`);
+      router.back();
     } else {
       // Fallback to jobs list if no valid jobId
       router.replace('/(tabs)/jobs');
