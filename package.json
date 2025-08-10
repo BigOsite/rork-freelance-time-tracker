@@ -19,6 +19,7 @@
     "@trpc/client": "^11.2.0",
     "@trpc/react-query": "^11.2.0",
     "@trpc/server": "^11.3.0",
+    "eas-cli": "^16.17.4",
     "expo": "^53.0.4",
     "expo-auth-session": "~6.1.5",
     "expo-blur": "~14.1.4",
