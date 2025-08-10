@@ -97,12 +97,12 @@ export default function TimeEntryForm({
       
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
-        setIsSubmitting(false);
       }
-      // Don't reset state here - let the parent handle navigation and cleanup
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
+    } finally {
+      // Always reset submitting state so the button is never stuck when navigating back to this screen again
       setIsSubmitting(false);
     }
   };
@@ -208,6 +208,7 @@ export default function TimeEntryForm({
 
         <View style={styles.buttonContainer}>
           <TouchableOpacity 
+            testID="timeEntryCancelButton"
             style={[styles.button, styles.cancelButton]} 
             onPress={handleCancel}
             disabled={isSubmitting}
@@ -216,6 +217,7 @@ export default function TimeEntryForm({
           </TouchableOpacity>
 
           <TouchableOpacity
+            testID="timeEntrySubmitButton"
             style={[styles.button, styles.submitButton, isButtonDisabled && styles.submitButtonDisabled]}
             onPress={handleSubmit}
             disabled={isButtonDisabled}
