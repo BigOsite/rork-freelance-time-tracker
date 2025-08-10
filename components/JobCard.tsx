@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { 
   StyleSheet, 
   Text, 
@@ -6,7 +6,9 @@ import {
   TouchableOpacity, 
   Animated, 
   PanResponder,
-  Alert
+  Alert,
+  LayoutChangeEvent,
+  Platform
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Clock, CheckCircle, Play, Square, Trash2, MapPin, Tag } from 'lucide-react-native';
@@ -23,9 +25,13 @@ type JobCardProps = {
   onDelete?: () => void;
   paidEarnings?: number;
   showSwipeToDelete?: boolean;
+  openJobId?: string | null;
+  onRequestOpen?: (id: string) => void;
+  onRequestClose?: () => void;
 };
 
-const SWIPE_THRESHOLD = 48;
+const DELETE_BUTTON_MIN_INTERACTABLE_PCT = 0.28 as const;
+const OPEN_THRESHOLD_PCT = 0.35 as const;
 const DELETE_BUTTON_WIDTH = 80;
 
 export default function JobCard({ 
@@ -34,13 +40,20 @@ export default function JobCard({
   onClockOut, 
   onDelete, 
   paidEarnings = 0,
-  showSwipeToDelete = true 
+  showSwipeToDelete = true,
+  openJobId = null,
+  onRequestOpen,
+  onRequestClose,
 }: JobCardProps) {
   const router = useRouter();
   const { taxSettings } = useBusinessStore();
   const { colors } = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
-  const [isSwipeActive, setIsSwipeActive] = useState(false);
+  const [isSwipeActive, setIsSwipeActive] = useState<boolean>(false);
+  const [cardWidth, setCardWidth] = useState<number>(0);
+  const [isOpen, setIsOpen] = useState<boolean>(false);
+  const openThreshold = useMemo(() => (cardWidth > 0 ? cardWidth * OPEN_THRESHOLD_PCT : 120), [cardWidth]);
+  const interactableThreshold = useMemo(() => (cardWidth > 0 ? cardWidth * DELETE_BUTTON_MIN_INTERACTABLE_PCT : 96), [cardWidth]);
   
   const { name, client, hourlyRate, color, totalDuration, isActive, id, settings } = job;
   
@@ -54,87 +67,105 @@ export default function JobCard({
   
   const panResponder = useRef(
     PanResponder.create({
-      onMoveShouldSetPanResponder: (evt, gestureState) => {
-        // Only respond to horizontal swipes and only if delete is enabled
-        if (!showSwipeToDelete || !onDelete) {
-          return false;
-        }
-        // More responsive gesture recognition
-        const shouldRespond = Math.abs(gestureState.dx) > Math.abs(gestureState.dy) && 
-               Math.abs(gestureState.dx) > 5;
+      onMoveShouldSetPanResponder: (_evt, gestureState) => {
+        if (!showSwipeToDelete || !onDelete) return false;
+        const dx = Math.abs(gestureState.dx);
+        const dy = Math.abs(gestureState.dy);
+        const shouldRespond = dx > dy && dx > 5;
         return shouldRespond;
       },
       onPanResponderGrant: () => {
-        // Reset any previous swipe state for instant responsiveness
         setIsSwipeActive(false);
+        if (onRequestOpen && id) {
+          onRequestOpen(id);
+        }
       },
-      onPanResponderMove: (evt, gestureState) => {
-        // Only allow left swipe (negative dx)
+      onPanResponderMove: (_evt, gestureState) => {
         if (gestureState.dx < 0) {
-          const newValue = Math.max(gestureState.dx, -DELETE_BUTTON_WIDTH);
+          const newValue = Math.max(gestureState.dx, -Math.max(DELETE_BUTTON_WIDTH, interactableThreshold));
           translateX.setValue(newValue);
-          
-          // Set swipe active when meaningfully moving
           if (!isSwipeActive && Math.abs(gestureState.dx) > 10) {
             setIsSwipeActive(true);
           }
+        } else {
+          translateX.setValue(0);
         }
       },
-      onPanResponderRelease: (evt, gestureState) => {
-        // Reset swipe active state
+      onPanResponderRelease: (_evt, gestureState) => {
         setIsSwipeActive(false);
-        
-        // Use velocity and distance for natural feel
-        const velocity = Math.abs(gestureState.vx);
         const distance = Math.abs(gestureState.dx);
-        const shouldReveal = distance > SWIPE_THRESHOLD || (velocity > 0.3 && distance > 20);
-        
-        if (shouldReveal && gestureState.dx < 0) {
-          // Reveal delete button with smooth spring animation
+        const shouldOpen = gestureState.dx < 0 && distance >= openThreshold;
+        if (shouldOpen) {
           Animated.spring(translateX, {
-            toValue: -DELETE_BUTTON_WIDTH,
+            toValue: -Math.max(DELETE_BUTTON_WIDTH, interactableThreshold),
             useNativeDriver: true,
             tension: 300,
-            friction: 8,
+            friction: 25,
             velocity: gestureState.vx,
-          }).start();
+          }).start(() => {
+            setIsOpen(true);
+            if (Platform.OS !== 'web') {
+              try {
+                import('expo-haptics').then((Haptics) => Haptics.impactAsync?.(Haptics.ImpactFeedbackStyle?.Light));
+              } catch {}
+            }
+          });
         } else {
-          // Reset to original position with smooth animation
           Animated.spring(translateX, {
             toValue: 0,
             useNativeDriver: true,
             tension: 300,
-            friction: 8,
+            friction: 25,
             velocity: gestureState.vx,
-          }).start();
+          }).start(() => {
+            setIsOpen(false);
+            if (onRequestClose) onRequestClose();
+          });
         }
       },
       onPanResponderTerminate: () => {
-        // Ensure state is reset if gesture is interrupted
         setIsSwipeActive(false);
         Animated.spring(translateX, {
           toValue: 0,
           useNativeDriver: true,
           tension: 300,
-          friction: 8,
-        }).start();
+          friction: 25,
+        }).start(() => {
+          setIsOpen(false);
+          if (onRequestClose) onRequestClose();
+        });
       },
     })
   ).current;
   
   const handlePress = React.useCallback(() => {
-    if (id && !isSwipeActive) {
-      // Reset swipe position before navigating
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: true,
-        tension: 300,
-        friction: 8,
-      }).start(() => {
-        router.push(`/job/${id}`);
-      });
-    }
-  }, [id, router, isSwipeActive, translateX]);
+    if (!id) return;
+    translateX.stopAnimation((value?: number) => {
+      const openNow = (value ?? 0) <= -1;
+      if (openNow) {
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 300,
+          friction: 20,
+        }).start(() => {
+          setIsOpen(false);
+          if (onRequestClose) onRequestClose();
+        });
+        return;
+      }
+      if (!isSwipeActive) {
+        Animated.spring(translateX, {
+          toValue: 0,
+          useNativeDriver: true,
+          tension: 300,
+          friction: 20,
+        }).start(() => {
+          router.push(`/job/${id}`);
+        });
+      }
+    });
+  }, [id, router, isSwipeActive, translateX, onRequestClose]);
   
   const handleClockAction = React.useCallback((e: any) => {
     e.stopPropagation();
@@ -159,19 +190,26 @@ export default function JobCard({
           text: "Cancel",
           style: "cancel",
           onPress: () => {
-            // Reset swipe position with smooth animation
             Animated.spring(translateX, {
               toValue: 0,
               useNativeDriver: true,
               tension: 300,
-              friction: 8,
-            }).start();
+              friction: 20,
+            }).start(() => {
+              setIsOpen(false);
+              if (onRequestClose) onRequestClose();
+            });
           }
         },
         { 
           text: "Delete", 
           style: "destructive",
           onPress: () => {
+            if (Platform.OS !== 'web') {
+              try {
+                import('expo-haptics').then((Haptics) => Haptics.notificationAsync?.(Haptics.NotificationFeedbackType?.Success));
+              } catch {}
+            }
             if (onDelete) {
               onDelete();
             }
@@ -179,7 +217,7 @@ export default function JobCard({
         }
       ]
     );
-  }, [name, onDelete, translateX]);
+  }, [name, onDelete, translateX, onRequestClose]);
 
   const renderTagsAndLocation = () => {
     if (!hasTagsOrLocation) return null;
@@ -207,6 +245,32 @@ export default function JobCard({
   };
   
   const styles = createStyles(colors);
+
+  const onCardLayout = (e: LayoutChangeEvent) => {
+    const w = e.nativeEvent.layout.width;
+    if (w && w !== cardWidth) setCardWidth(w);
+  };
+
+  useEffect(() => {
+    if (openJobId && openJobId !== id && isOpen) {
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 20,
+      }).start(() => {
+        setIsOpen(false);
+      });
+    }
+    if (!openJobId && isOpen) {
+      Animated.spring(translateX, {
+        toValue: 0,
+        useNativeDriver: true,
+        tension: 300,
+        friction: 20,
+      }).start(() => setIsOpen(false));
+    }
+  }, [openJobId, id, isOpen, translateX]);
   
   // If swipe to delete is disabled or no delete handler, render simple card
   if (!showSwipeToDelete || !onDelete) {
@@ -286,6 +350,9 @@ export default function JobCard({
           onPress={handleDelete}
           activeOpacity={0.8}
           testID="jobCard-delete-button"
+          accessibilityRole="button"
+          accessibilityLabel={`Delete job ${name ?? ''}`}
+          disabled={!isOpen}
         >
           <Trash2 size={20} color="#FFFFFF" />
           <Text style={styles.deleteButtonText}>Delete</Text>
@@ -306,6 +373,7 @@ export default function JobCard({
           onPress={handlePress}
           activeOpacity={0.7}
           disabled={isSwipeActive}
+          onLayout={onCardLayout}
         >
           <View style={[styles.colorIndicator, { backgroundColor: color || colors.primary }]} />
           <View style={styles.content}>

@@ -9,6 +9,8 @@ import EmptyState from '@/components/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
 import { JobWithDuration } from '@/types';
 
+import { useFocusEffect } from '@react-navigation/native';
+
 type SortOption = 'dateNewest' | 'dateOldest' | 'titleAZ' | 'titleZA' | 'clientAZ' | 'clientZA';
 
 export default function JobsScreen() {
@@ -19,6 +21,7 @@ export default function JobsScreen() {
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
   const [sortOption, setSortOption] = useState<SortOption>('dateNewest');
+  const [openJobId, setOpenJobId] = useState<string | null>(null);
   
   // Get store instance
   const store = useJobsStore();
@@ -213,11 +216,18 @@ export default function JobsScreen() {
         onDelete={() => handleDeleteJob(item.id)}
         paidEarnings={jobPaidEarnings[item.id] || 0}
         showSwipeToDelete={true}
+        openJobId={openJobId}
+        onRequestOpen={(id) => setOpenJobId(id)}
+        onRequestClose={() => setOpenJobId(null)}
       />
     );
-  }, [handleClockIn, handleClockOut, handleDeleteJob, jobPaidEarnings]);
+  }, [handleClockIn, handleClockOut, handleDeleteJob, jobPaidEarnings, openJobId]);
   
   const styles = createStyles(colors);
+
+  useFocusEffect(React.useCallback(() => {
+    return () => setOpenJobId(null);
+  }, []));
   
   return (
     <View style={styles.container}>
@@ -282,6 +292,9 @@ export default function JobsScreen() {
           refreshing={refreshing}
           onRefresh={onRefresh}
           showsVerticalScrollIndicator={false}
+          onScrollBeginDrag={() => setOpenJobId(null)}
+          onMomentumScrollBegin={() => setOpenJobId(null)}
+          extraData={openJobId}
         />
       ) : (
         <View style={styles.emptyContainer}>
