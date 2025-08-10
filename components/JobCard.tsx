@@ -6,7 +6,6 @@ import {
   TouchableOpacity, 
   Animated, 
   PanResponder,
-  Dimensions,
   Alert
 } from 'react-native';
 import { useRouter } from 'expo-router';
@@ -26,8 +25,7 @@ type JobCardProps = {
   showSwipeToDelete?: boolean;
 };
 
-const SCREEN_WIDTH = Dimensions.get('window').width;
-const SWIPE_THRESHOLD = 60;
+const SWIPE_THRESHOLD = 48;
 const DELETE_BUTTON_WIDTH = 80;
 
 export default function JobCard({ 
@@ -43,10 +41,6 @@ export default function JobCard({
   const { colors } = useTheme();
   const translateX = useRef(new Animated.Value(0)).current;
   const [isSwipeActive, setIsSwipeActive] = useState(false);
-  
-  if (!job) {
-    return null;
-  }
   
   const { name, client, hourlyRate, color, totalDuration, isActive, id, settings } = job;
   
@@ -286,11 +280,12 @@ export default function JobCard({
   return (
     <View style={styles.cardContainer}>
       {/* Delete Button Background - positioned to extend under the card */}
-      <View style={styles.deleteButtonBackground}>
+      <View style={styles.deleteButtonBackground} testID="jobCard-delete-bg">
         <TouchableOpacity 
           style={styles.deleteButton}
           onPress={handleDelete}
           activeOpacity={0.8}
+          testID="jobCard-delete-button"
         >
           <Trash2 size={20} color="#FFFFFF" />
           <Text style={styles.deleteButtonText}>Delete</Text>
@@ -304,6 +299,7 @@ export default function JobCard({
           { transform: [{ translateX }] }
         ]}
         {...panResponder.panHandlers}
+        testID="jobCard-swipeable"
       >
         <TouchableOpacity 
           style={[styles.container, isActive && styles.activeContainer]} 
@@ -389,11 +385,10 @@ const createStyles = (colors: any) => StyleSheet.create({
     position: 'absolute',
     top: 0,
     bottom: 0,
-    right: -DELETE_BUTTON_WIDTH,
-    width: DELETE_BUTTON_WIDTH + 40, // Extra width to ensure it's hidden
+    left: 0,
+    right: 0,
     justifyContent: 'center',
     alignItems: 'flex-end',
-    paddingRight: 40, // Push the button content to the visible area
   },
   deleteButton: {
     backgroundColor: colors.danger,
@@ -401,7 +396,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
-    borderRadius: 0, // No border radius to ensure clean edge
+    borderTopRightRadius: 20,
+    borderBottomRightRadius: 20,
     shadowColor: '#000',
     shadowOffset: { width: -2, height: 2 },
     shadowOpacity: 0.1,
