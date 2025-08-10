@@ -334,71 +334,54 @@ export const batchSyncJobs = async (jobs: Job[], userId: string, operation: 'ups
     console.log(`Batch syncing ${jobs.length} jobs (${operation}) for user:`, userId);
     
     if (operation === 'upsert') {
-      // Try with client field first
-      const jobsDataWithClient = jobs.map(job => ({
+      const hasClientColumn = await validateJobsSchema();
+
+      if (hasClientColumn) {
+        const jobsDataWithClient = jobs.map(job => ({
+          id: job.id,
+          user_id: userId,
+          name: job.name || 'Untitled Job',
+          client: job.client || '',
+          hourly_rate: job.hourlyRate || 0,
+          color: job.color || '#3B82F6',
+          settings: job.settings || null,
+          created_at: new Date(job.createdAt).toISOString(),
+        }));
+
+        const { data, error } = await supabase.from('jobs').upsert(jobsDataWithClient, { onConflict: 'id' });
+        if (error) {
+          // Last-resort schema refresh once if client column unexpectedly errors
+          if (error.message.includes('client') || error.message.includes('schema cache') || error.code === 'PGRST204') {
+            await refreshSchemaCache();
+            const { data: retryData, error: retryError } = await supabase.from('jobs').upsert(jobsDataWithClient, { onConflict: 'id' });
+            if (!retryError) {
+              console.log('Jobs upserted after schema refresh with client field');
+              return;
+            }
+          }
+          console.error('Jobs upsert failed with client column, falling back without it:', error);
+        } else {
+          console.log('Jobs upserted successfully with client field:', data);
+          return;
+        }
+      }
+
+      const jobsDataWithoutClient = jobs.map(job => ({
         id: job.id,
         user_id: userId,
-        name: job.name || 'Untitled Job', // Ensure name is never null or empty
-        client: job.client || '',
+        name: job.name || 'Untitled Job',
         hourly_rate: job.hourlyRate || 0,
         color: job.color || '#3B82F6',
         settings: job.settings || null,
         created_at: new Date(job.createdAt).toISOString(),
       }));
 
-      console.log('Attempting to upsert jobs with client field...');
-      const { data, error } = await supabase.from('jobs').upsert(jobsDataWithClient, {
-        onConflict: 'id'
-      });
-      
-      if (error) {
-        console.error('Supabase upsert error:', error);
-        
-        // If it's a client column error or schema cache error, try refreshing cache first
-        if (error.message.includes('client') || error.message.includes('schema cache') || error.code === 'PGRST204') {
-          console.log('Client column issue detected, refreshing schema cache...');
-          
-          // Try to refresh schema cache
-          await refreshSchemaCache();
-          
-          // Retry with client field after cache refresh
-          const { data: retryData, error: retryError } = await supabase.from('jobs').upsert(jobsDataWithClient, {
-            onConflict: 'id'
-          });
-          
-          if (!retryError) {
-            console.log('Jobs upserted successfully with client field after cache refresh:', retryData);
-            return;
-          }
-          
-          console.log('Still failing after cache refresh, trying without client field...');
-          
-          const jobsDataWithoutClient = jobs.map(job => ({
-            id: job.id,
-            user_id: userId,
-            name: job.name || 'Untitled Job', // Ensure name is never null or empty
-            hourly_rate: job.hourlyRate || 0,
-            color: job.color || '#3B82F6',
-            settings: job.settings || null,
-            created_at: new Date(job.createdAt).toISOString(),
-          }));
-          
-          const { data: fallbackData, error: fallbackError } = await supabase.from('jobs').upsert(jobsDataWithoutClient, {
-            onConflict: 'id'
-          });
-          
-          if (fallbackError) {
-            console.error('Fallback upsert also failed:', fallbackError);
-            throw fallbackError;
-          }
-          
-          console.log('Jobs upserted successfully without client field:', fallbackData);
-          return;
-        }
-        
-        throw error;
+      const { data: fallbackData, error: fallbackError } = await supabase.from('jobs').upsert(jobsDataWithoutClient, { onConflict: 'id' });
+      if (fallbackError) {
+        console.error('Jobs upsert failed without client column:', fallbackError);
+        throw fallbackError;
       }
-      console.log('Jobs upserted successfully with client field:', data);
+      console.log('Jobs upserted successfully without client field:', fallbackData);
     } else if (operation === 'delete') {
       const jobIds = jobs.map(job => job.id);
       console.log('Deleting jobs with IDs:', jobIds);
