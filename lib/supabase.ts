@@ -508,10 +508,15 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       throw new Error('No active session found');
     }
 
-    // Fetch jobs without assuming optional columns like client exist
+    // Fetch jobs with runtime-validated optional columns
+    const hasClient = await validateJobsSchema();
+    const jobSelect = hasClient
+      ? 'id, user_id, name, hourly_rate, color, settings, created_at, client'
+      : 'id, user_id, name, hourly_rate, color, settings, created_at';
+
     const jobsPromise = supabase
       .from('jobs')
-      .select('id, user_id, name, hourly_rate, color, settings, created_at, client')
+      .select(jobSelect)
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
@@ -533,7 +538,7 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       result.jobs = jobsResult.value.data.map((job: any) => ({
         id: job.id,
         name: job.name || '',
-        client: job.client ?? '',
+        client: (job as any)?.client ?? '',
         hourlyRate: job.hourly_rate || 0,
         color: job.color || '#3B82F6',
         settings: job.settings,
@@ -544,8 +549,34 @@ export const fetchAllUserData = async (userId: string, retryCount = 0): Promise<
       result.errors.push('Failed to fetch jobs');
       console.error('Jobs fetch error:', jobsResult.reason);
     } else if (jobsResult.status === 'fulfilled' && jobsResult.value.error) {
-      result.errors.push('Failed to fetch jobs');
-      console.error('Jobs fetch error:', jobsResult.value.error);
+      const err = jobsResult.value.error as any;
+      console.error('Jobs fetch error:', err);
+      // Handle stale schema cache or missing column by retrying without client column once
+      if (err?.code === 'PGRST204' || err?.code === '42703' || err?.message?.includes('client')) {
+        console.log('Client column issue detected, refreshing schema cache and retrying without client field...');
+        await refreshSchemaCache();
+        const retry = await supabase
+          .from('jobs')
+          .select('id, user_id, name, hourly_rate, color, settings, created_at')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
+        if (!retry.error && retry.data) {
+          result.jobs = retry.data.map((job: any) => ({
+            id: job.id,
+            name: job.name || '',
+            client: '',
+            hourlyRate: job.hourly_rate || 0,
+            color: job.color || '#3B82F6',
+            settings: job.settings,
+            createdAt: new Date(job.created_at).getTime(),
+          }));
+          console.log(`Fetched ${result.jobs.length} jobs after retry without client`);
+        } else {
+          result.errors.push('Failed to fetch jobs');
+        }
+      } else {
+        result.errors.push('Failed to fetch jobs');
+      }
     }
 
     // Process time entries
