@@ -39,10 +39,8 @@ export default function NewTimeEntryScreen() {
       if (entryId) {
         console.log('Time entry created successfully, navigating back');
         
-        // Use setTimeout to allow the form to process the success response first
-        setTimeout(() => {
-          router.replace(`/(tabs)/job/${jobId}`);
-        }, 100);
+        // Navigate immediately - no setTimeout needed
+        router.replace(`/(tabs)/job/${jobId}`);
         
         return true;
       } else {

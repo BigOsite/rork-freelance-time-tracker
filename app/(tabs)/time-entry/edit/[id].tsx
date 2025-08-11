@@ -27,10 +27,8 @@ export default function EditTimeEntryScreen() {
       
       console.log('Time entry updated successfully, navigating back');
       
-      // Use setTimeout to allow the form to process the success response first
-      setTimeout(() => {
-        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-      }, 100);
+      // Navigate immediately - no setTimeout needed
+      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
       
       return true;
     } catch (error) {
