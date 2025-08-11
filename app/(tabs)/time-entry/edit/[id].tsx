@@ -25,8 +25,13 @@ export default function EditTimeEntryScreen() {
         note: values.note,
       });
       
-      // Navigate immediately without delay
-      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+      console.log('Time entry updated successfully, navigating back');
+      
+      // Use setTimeout to allow the form to process the success response first
+      setTimeout(() => {
+        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+      }, 100);
+      
       return true;
     } catch (error) {
       console.error('Error updating time entry:', error);
