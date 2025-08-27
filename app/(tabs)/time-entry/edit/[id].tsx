@@ -29,14 +29,8 @@ export default function EditTimeEntryScreen() {
       });
       
       console.log('EDIT ENTRY: Time entry updated successfully, navigating back');
-      // Use setTimeout to ensure state updates are complete before navigation
-      setTimeout(() => {
-        if (router.canGoBack()) {
-          router.back();
-        } else {
-          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-        }
-      }, 100);
+      // Navigate back immediately without setTimeout
+      router.back();
       return true;
     } catch (error) {
       console.error('EDIT ENTRY: Error updating time entry:', error);
@@ -47,14 +41,8 @@ export default function EditTimeEntryScreen() {
   const handleCancel = useCallback(() => {
     console.log('EDIT ENTRY: Cancel button pressed');
     // Navigate back to the previous screen
-    if (router.canGoBack()) {
-      router.back();
-    } else if (timeEntry) {
-      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-    } else {
-      router.replace('/(tabs)/jobs');
-    }
-  }, [router, timeEntry]);
+    router.back();
+  }, [router]);
   
   const handleDelete = useCallback(() => {
     if (!id || typeof id !== 'string') return;
@@ -64,19 +52,11 @@ export default function EditTimeEntryScreen() {
       deleteTimeEntry(id);
       console.log('EDIT ENTRY: Time entry deleted successfully, navigating back');
       // Navigate back to the previous screen after deletion
-      setTimeout(() => {
-        if (router.canGoBack()) {
-          router.back();
-        } else if (timeEntry) {
-          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-        } else {
-          router.replace('/(tabs)/jobs');
-        }
-      }, 100);
+      router.back();
     } catch (error) {
       console.error('EDIT ENTRY: Error deleting time entry:', error);
     }
-  }, [id, deleteTimeEntry, router, timeEntry]);
+  }, [id, deleteTimeEntry, router]);
   
   // Render error states
   if (!id || typeof id !== 'string') {

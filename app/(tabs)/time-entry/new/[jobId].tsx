@@ -38,14 +38,8 @@ export default function NewTimeEntryScreen() {
       
       if (entryId) {
         console.log('NEW ENTRY: Time entry created successfully, navigating back');
-        // Use setTimeout to ensure state updates are complete before navigation
-        setTimeout(() => {
-          if (router.canGoBack()) {
-            router.back();
-          } else {
-            router.replace(`/(tabs)/job/${jobId}`);
-          }
-        }, 100);
+        // Navigate back immediately without setTimeout
+        router.back();
         return true;
       } else {
         console.error('NEW ENTRY: Time entry creation failed - no ID returned');
@@ -60,12 +54,8 @@ export default function NewTimeEntryScreen() {
   const handleCancel = useCallback(() => {
     console.log('NEW ENTRY: Cancel button pressed');
     // Navigate back to the previous screen
-    if (router.canGoBack()) {
-      router.back();
-    } else {
-      router.replace(`/(tabs)/job/${jobId}`);
-    }
-  }, [router, jobId]);
+    router.back();
+  }, [router]);
   
   // Render error states
   if (!jobId || typeof jobId !== 'string') {

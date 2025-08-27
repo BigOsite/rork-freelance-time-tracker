@@ -98,11 +98,9 @@ export default function TimeEntryForm({
       if (result === false) {
         Alert.alert('Error', 'Failed to save time entry. Please try again.');
         setIsSubmitting(false);
-      } else {
-        // Keep submitting state true to prevent double-submission
-        // Component will unmount when navigation happens
-        console.log('Time entry submitted successfully, keeping submitting state');
       }
+      // If result is true, navigation will happen in parent component
+      // Don't reset isSubmitting here to prevent double-submission
     } catch (error) {
       console.error('Error submitting time entry:', error);
       Alert.alert('Error', 'Failed to save time entry. Please try again.');
@@ -111,8 +109,7 @@ export default function TimeEntryForm({
   };
 
   const handleCancel = () => {
-    // Reset submitting state and call parent cancel
-    setIsSubmitting(false);
+    if (isSubmitting) return; // Prevent cancel during submission
     onCancel();
   };
 
