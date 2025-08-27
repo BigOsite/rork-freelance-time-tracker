@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useJobsStore } from '@/store/jobsStore';
@@ -15,42 +15,68 @@ export default function EditTimeEntryScreen() {
   const timeEntry = timeEntries.find(entry => entry?.id === id);
   const job = timeEntry ? getJobById(timeEntry.jobId) : undefined;
   
-  const handleSubmit = async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
+  const handleSubmit = useCallback(async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
     if (!timeEntry) return false;
     
     try {
+      console.log('EDIT ENTRY: Updating time entry with values:', values);
+      console.log('EDIT ENTRY: Time entry ID:', timeEntry.id);
+      
       updateTimeEntry(timeEntry.id, {
         startTime: values.startTime,
         endTime: values.endTime,
         note: values.note,
       });
       
-      console.log('Time entry updated successfully, navigating back');
-      // Use router.back() to go back to the previous screen (job details)
-      router.back();
+      console.log('EDIT ENTRY: Time entry updated successfully, navigating back');
+      // Use setTimeout to ensure state updates are complete before navigation
+      setTimeout(() => {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+        }
+      }, 100);
       return true;
     } catch (error) {
-      console.error('Error updating time entry:', error);
+      console.error('EDIT ENTRY: Error updating time entry:', error);
       return false;
     }
-  };
+  }, [timeEntry, updateTimeEntry, router]);
   
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
+    console.log('EDIT ENTRY: Cancel button pressed');
     // Navigate back to the previous screen
-    router.back();
-  };
+    if (router.canGoBack()) {
+      router.back();
+    } else if (timeEntry) {
+      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+    } else {
+      router.replace('/(tabs)/jobs');
+    }
+  }, [router, timeEntry]);
   
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (!id || typeof id !== 'string') return;
     
     try {
+      console.log('EDIT ENTRY: Deleting time entry with ID:', id);
       deleteTimeEntry(id);
+      console.log('EDIT ENTRY: Time entry deleted successfully, navigating back');
       // Navigate back to the previous screen after deletion
-      router.back();
+      setTimeout(() => {
+        if (router.canGoBack()) {
+          router.back();
+        } else if (timeEntry) {
+          router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+        } else {
+          router.replace('/(tabs)/jobs');
+        }
+      }, 100);
     } catch (error) {
-      console.error('Error deleting time entry:', error);
+      console.error('EDIT ENTRY: Error deleting time entry:', error);
     }
-  };
+  }, [id, deleteTimeEntry, router, timeEntry]);
   
   // Render error states
   if (!id || typeof id !== 'string') {

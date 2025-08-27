@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { useJobsStore } from '@/store/jobsStore';
@@ -14,15 +14,15 @@ export default function NewTimeEntryScreen() {
   
   const job = jobId ? getJobById(jobId) : undefined;
   
-  const handleSubmit = async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
+  const handleSubmit = useCallback(async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
     if (!jobId || typeof jobId !== 'string') {
       console.error('Invalid jobId:', jobId);
       return false;
     }
     
     try {
-      console.log('Submitting time entry with values:', values);
-      console.log('Job ID:', jobId);
+      console.log('NEW ENTRY: Submitting time entry with values:', values);
+      console.log('NEW ENTRY: Job ID:', jobId);
       
       const entryId = addTimeEntry({
         jobId,
@@ -34,27 +34,38 @@ export default function NewTimeEntryScreen() {
         paidInPeriodId: undefined
       });
       
-      console.log('Time entry created with ID:', entryId);
+      console.log('NEW ENTRY: Time entry created with ID:', entryId);
       
       if (entryId) {
-        console.log('Time entry created successfully, navigating back');
-        // Use router.back() to go back to the previous screen (job details)
-        router.back();
+        console.log('NEW ENTRY: Time entry created successfully, navigating back');
+        // Use setTimeout to ensure state updates are complete before navigation
+        setTimeout(() => {
+          if (router.canGoBack()) {
+            router.back();
+          } else {
+            router.replace(`/(tabs)/job/${jobId}`);
+          }
+        }, 100);
         return true;
       } else {
-        console.error('Time entry creation failed - no ID returned');
+        console.error('NEW ENTRY: Time entry creation failed - no ID returned');
         return false;
       }
     } catch (error) {
-      console.error('Error creating time entry:', error);
+      console.error('NEW ENTRY: Error creating time entry:', error);
       return false;
     }
-  };
+  }, [jobId, addTimeEntry, router]);
   
-  const handleCancel = () => {
+  const handleCancel = useCallback(() => {
+    console.log('NEW ENTRY: Cancel button pressed');
     // Navigate back to the previous screen
-    router.back();
-  };
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.replace(`/(tabs)/job/${jobId}`);
+    }
+  }, [router, jobId]);
   
   // Render error states
   if (!jobId || typeof jobId !== 'string') {
