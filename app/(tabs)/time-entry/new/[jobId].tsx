@@ -16,27 +16,22 @@ export default function NewTimeEntryScreen() {
   
   const navigateBackSafe = useCallback(() => {
     try {
-      // Prefer dismiss for modals
-      if (router.dismiss) {
-        router.dismiss();
+      console.log('NEW ENTRY: navigateBackSafe called');
+      if (jobId && typeof jobId === 'string') {
+        console.log('NEW ENTRY: Navigating with replace to job details for jobId', jobId);
+        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
         return;
       }
       if (router.canGoBack?.()) {
+        console.log('NEW ENTRY: No jobId provided, going back');
         router.back();
         return;
       }
-      if (jobId && typeof jobId === 'string') {
-        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
-        return;
-      }
+      console.log('NEW ENTRY: No history, replacing to history list');
       router.replace('/(tabs)/history');
     } catch (e) {
-      console.error('NEW ENTRY: Navigation error, falling back to replace', e);
-      if (jobId && typeof jobId === 'string') {
-        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
-      } else {
-        router.replace('/(tabs)/history');
-      }
+      console.error('NEW ENTRY: Navigation error, falling back to history', e);
+      router.replace('/(tabs)/history');
     }
   }, [router, jobId]);
 
@@ -63,7 +58,7 @@ export default function NewTimeEntryScreen() {
       console.log('NEW ENTRY: Time entry created with ID:', entryId);
 
       if (entryId) {
-        console.log('NEW ENTRY: Time entry created successfully, dismissing modal');
+        console.log('NEW ENTRY: Time entry created successfully, navigating to previous context');
         navigateBackSafe();
         return true;
       } else {
