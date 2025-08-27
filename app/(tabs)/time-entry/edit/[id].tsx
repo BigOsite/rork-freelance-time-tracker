@@ -19,8 +19,9 @@ export default function EditTimeEntryScreen() {
     try {
       console.log('EDIT ENTRY: navigateBackSafe called with', { from, jobId });
       if (jobId && typeof jobId === 'string') {
-        console.log('EDIT ENTRY: Returning to job details via replace for jobId', jobId);
-        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
+        console.log('EDIT ENTRY: Returning to job details for jobId', jobId);
+        // Use push with direct path for consistent behavior
+        router.push(`/(tabs)/job/${jobId}`);
         return;
       }
       if (router.canGoBack?.()) {
@@ -28,11 +29,11 @@ export default function EditTimeEntryScreen() {
         router.back();
         return;
       }
-      console.log('EDIT ENTRY: No history, replacing to history list');
-      router.replace('/(tabs)/history');
+      console.log('EDIT ENTRY: No history, navigating to history list');
+      router.push('/(tabs)/history');
     } catch (e) {
-      console.error('EDIT ENTRY: Navigation error, falling back to replace', e);
-      router.replace('/(tabs)/history');
+      console.error('EDIT ENTRY: Navigation error, falling back to history', e);
+      router.push('/(tabs)/history');
     }
   }, [router, jobId, from]);
 
@@ -49,14 +50,25 @@ export default function EditTimeEntryScreen() {
         note: values.note,
       });
 
-      console.log('EDIT ENTRY: Time entry updated successfully, dismissing modal');
-      navigateBackSafe();
+      console.log('EDIT ENTRY: Time entry updated successfully');
+      
+      // Use setTimeout to ensure the state update completes before navigation
+      setTimeout(() => {
+        if (jobId && typeof jobId === 'string') {
+          console.log('EDIT ENTRY: Navigating to job details after update');
+          router.push(`/(tabs)/job/${jobId}`);
+        } else {
+          console.log('EDIT ENTRY: No jobId, using navigateBackSafe');
+          navigateBackSafe();
+        }
+      }, 100);
+      
       return true;
     } catch (error) {
       console.error('EDIT ENTRY: Error updating time entry:', error);
       return false;
     }
-  }, [timeEntry, updateTimeEntry, navigateBackSafe]);
+  }, [timeEntry, updateTimeEntry, navigateBackSafe, jobId, router]);
   
   const handleCancel = useCallback(() => {
     console.log('EDIT ENTRY: Cancel button pressed');
@@ -69,12 +81,22 @@ export default function EditTimeEntryScreen() {
     try {
       console.log('EDIT ENTRY: Deleting time entry with ID:', id);
       deleteTimeEntry(id);
-      console.log('EDIT ENTRY: Time entry deleted successfully, dismissing modal');
-      navigateBackSafe();
+      console.log('EDIT ENTRY: Time entry deleted successfully');
+      
+      // Use setTimeout to ensure the state update completes before navigation
+      setTimeout(() => {
+        if (jobId && typeof jobId === 'string') {
+          console.log('EDIT ENTRY: Navigating to job details after delete');
+          router.push(`/(tabs)/job/${jobId}`);
+        } else {
+          console.log('EDIT ENTRY: No jobId, using navigateBackSafe');
+          navigateBackSafe();
+        }
+      }, 100);
     } catch (error) {
       console.error('EDIT ENTRY: Error deleting time entry:', error);
     }
-  }, [id, deleteTimeEntry, navigateBackSafe]);
+  }, [id, deleteTimeEntry, navigateBackSafe, jobId, router]);
   
   // Render error states
   if (!id || typeof id !== 'string') {

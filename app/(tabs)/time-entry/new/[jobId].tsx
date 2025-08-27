@@ -18,8 +18,9 @@ export default function NewTimeEntryScreen() {
     try {
       console.log('NEW ENTRY: navigateBackSafe called');
       if (jobId && typeof jobId === 'string') {
-        console.log('NEW ENTRY: Navigating with replace to job details for jobId', jobId);
-        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
+        console.log('NEW ENTRY: Navigating to job details for jobId', jobId);
+        // Use push instead of replace to ensure consistent behavior
+        router.push(`/(tabs)/job/${jobId}`);
         return;
       }
       if (router.canGoBack?.()) {
@@ -27,11 +28,11 @@ export default function NewTimeEntryScreen() {
         router.back();
         return;
       }
-      console.log('NEW ENTRY: No history, replacing to history list');
-      router.replace('/(tabs)/history');
+      console.log('NEW ENTRY: No history, navigating to history list');
+      router.push('/(tabs)/history');
     } catch (e) {
       console.error('NEW ENTRY: Navigation error, falling back to history', e);
-      router.replace('/(tabs)/history');
+      router.push('/(tabs)/history');
     }
   }, [router, jobId]);
 
@@ -58,8 +59,11 @@ export default function NewTimeEntryScreen() {
       console.log('NEW ENTRY: Time entry created with ID:', entryId);
 
       if (entryId) {
-        console.log('NEW ENTRY: Time entry created successfully, navigating to previous context');
-        navigateBackSafe();
+        console.log('NEW ENTRY: Time entry created successfully, navigating to job details');
+        // Use a direct path to ensure consistent navigation
+        setTimeout(() => {
+          router.push(`/(tabs)/job/${jobId}`);
+        }, 100);
         return true;
       } else {
         console.error('NEW ENTRY: Time entry creation failed - no ID returned');
@@ -69,7 +73,7 @@ export default function NewTimeEntryScreen() {
       console.error('NEW ENTRY: Error creating time entry:', error);
       return false;
     }
-  }, [jobId, addTimeEntry, navigateBackSafe]);
+  }, [jobId, addTimeEntry, router]);
 
   const handleCancel = useCallback(() => {
     console.log('NEW ENTRY: Cancel button pressed');
