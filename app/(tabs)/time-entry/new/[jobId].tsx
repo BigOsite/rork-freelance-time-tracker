@@ -37,9 +37,9 @@ export default function NewTimeEntryScreen() {
       console.log('Time entry created with ID:', entryId);
       
       if (entryId) {
-        console.log('Time entry created successfully, navigating to job details');
-        // Use replace to ensure clean navigation and prevent back button issues
-        router.replace(`/(tabs)/job/${jobId}`);
+        console.log('Time entry created successfully, navigating back');
+        // Use router.back() to go back to the previous screen (job details)
+        router.back();
         return true;
       } else {
         console.error('Time entry creation failed - no ID returned');
@@ -52,8 +52,8 @@ export default function NewTimeEntryScreen() {
   };
   
   const handleCancel = () => {
-    // Navigate back to the job details page
-    router.replace(`/(tabs)/job/${jobId}`);
+    // Navigate back to the previous screen
+    router.back();
   };
   
   // Render error states

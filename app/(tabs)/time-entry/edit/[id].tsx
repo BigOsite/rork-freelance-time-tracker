@@ -25,9 +25,9 @@ export default function EditTimeEntryScreen() {
         note: values.note,
       });
       
-      console.log('Time entry updated successfully, navigating to job details');
-      // Use replace to ensure clean navigation and prevent back button issues
-      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+      console.log('Time entry updated successfully, navigating back');
+      // Use router.back() to go back to the previous screen (job details)
+      router.back();
       return true;
     } catch (error) {
       console.error('Error updating time entry:', error);
@@ -36,12 +36,8 @@ export default function EditTimeEntryScreen() {
   };
   
   const handleCancel = () => {
-    // Navigate back to the job details page
-    if (timeEntry) {
-      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-    } else {
-      router.replace('/(tabs)/jobs');
-    }
+    // Navigate back to the previous screen
+    router.back();
   };
   
   const handleDelete = () => {
@@ -49,12 +45,8 @@ export default function EditTimeEntryScreen() {
     
     try {
       deleteTimeEntry(id);
-      // Navigate back to the job details page after deletion
-      if (timeEntry) {
-        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
-      } else {
-        router.replace('/(tabs)/jobs');
-      }
+      // Navigate back to the previous screen after deletion
+      router.back();
     } catch (error) {
       console.error('Error deleting time entry:', error);
     }
