@@ -14,16 +14,42 @@ export default function NewTimeEntryScreen() {
   
   const job = jobId ? getJobById(jobId) : undefined;
   
+  const navigateBackSafe = useCallback(() => {
+    try {
+      // Prefer dismiss for modals
+      if (router.dismiss) {
+        router.dismiss();
+        return;
+      }
+      if (router.canGoBack?.()) {
+        router.back();
+        return;
+      }
+      if (jobId && typeof jobId === 'string') {
+        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
+        return;
+      }
+      router.replace('/(tabs)/history');
+    } catch (e) {
+      console.error('NEW ENTRY: Navigation error, falling back to replace', e);
+      if (jobId && typeof jobId === 'string') {
+        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
+      } else {
+        router.replace('/(tabs)/history');
+      }
+    }
+  }, [router, jobId]);
+
   const handleSubmit = useCallback(async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
     if (!jobId || typeof jobId !== 'string') {
       console.error('Invalid jobId:', jobId);
       return false;
     }
-    
+
     try {
       console.log('NEW ENTRY: Submitting time entry with values:', values);
       console.log('NEW ENTRY: Job ID:', jobId);
-      
+
       const entryId = addTimeEntry({
         jobId,
         startTime: values.startTime,
@@ -31,15 +57,14 @@ export default function NewTimeEntryScreen() {
         note: values.note,
         breaks: [],
         isOnBreak: false,
-        paidInPeriodId: undefined
+        paidInPeriodId: undefined,
       });
-      
+
       console.log('NEW ENTRY: Time entry created with ID:', entryId);
-      
+
       if (entryId) {
-        console.log('NEW ENTRY: Time entry created successfully, navigating back');
-        // Navigate back immediately without setTimeout
-        router.back();
+        console.log('NEW ENTRY: Time entry created successfully, dismissing modal');
+        navigateBackSafe();
         return true;
       } else {
         console.error('NEW ENTRY: Time entry creation failed - no ID returned');
@@ -49,13 +74,12 @@ export default function NewTimeEntryScreen() {
       console.error('NEW ENTRY: Error creating time entry:', error);
       return false;
     }
-  }, [jobId, addTimeEntry, router]);
-  
+  }, [jobId, addTimeEntry, navigateBackSafe]);
+
   const handleCancel = useCallback(() => {
     console.log('NEW ENTRY: Cancel button pressed');
-    // Navigate back to the previous screen
-    router.back();
-  }, [router]);
+    navigateBackSafe();
+  }, [navigateBackSafe]);
   
   // Render error states
   if (!jobId || typeof jobId !== 'string') {

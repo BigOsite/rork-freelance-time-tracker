@@ -15,34 +15,45 @@ export default function EditTimeEntryScreen() {
   const timeEntry = timeEntries.find(entry => entry?.id === id);
   const job = timeEntry ? getJobById(timeEntry.jobId) : undefined;
   
+  const navigateBackSafe = useCallback(() => {
+    try {
+      if (router.canGoBack?.()) {
+        router.back();
+      } else {
+        router.replace('/(tabs)/history');
+      }
+    } catch (e) {
+      console.error('EDIT ENTRY: Navigation error, falling back to replace', e);
+      router.replace('/(tabs)/history');
+    }
+  }, [router]);
+
   const handleSubmit = useCallback(async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
     if (!timeEntry) return false;
-    
+
     try {
       console.log('EDIT ENTRY: Updating time entry with values:', values);
       console.log('EDIT ENTRY: Time entry ID:', timeEntry.id);
-      
+
       updateTimeEntry(timeEntry.id, {
         startTime: values.startTime,
         endTime: values.endTime,
         note: values.note,
       });
-      
-      console.log('EDIT ENTRY: Time entry updated successfully, navigating back');
-      // Navigate back immediately without setTimeout
-      router.back();
+
+      console.log('EDIT ENTRY: Time entry updated successfully, dismissing modal');
+      navigateBackSafe();
       return true;
     } catch (error) {
       console.error('EDIT ENTRY: Error updating time entry:', error);
       return false;
     }
-  }, [timeEntry, updateTimeEntry, router]);
+  }, [timeEntry, updateTimeEntry, navigateBackSafe]);
   
   const handleCancel = useCallback(() => {
     console.log('EDIT ENTRY: Cancel button pressed');
-    // Navigate back to the previous screen
-    router.back();
-  }, [router]);
+    navigateBackSafe();
+  }, [navigateBackSafe]);
   
   const handleDelete = useCallback(() => {
     if (!id || typeof id !== 'string') return;
@@ -50,13 +61,12 @@ export default function EditTimeEntryScreen() {
     try {
       console.log('EDIT ENTRY: Deleting time entry with ID:', id);
       deleteTimeEntry(id);
-      console.log('EDIT ENTRY: Time entry deleted successfully, navigating back');
-      // Navigate back to the previous screen after deletion
-      router.back();
+      console.log('EDIT ENTRY: Time entry deleted successfully, dismissing modal');
+      navigateBackSafe();
     } catch (error) {
       console.error('EDIT ENTRY: Error deleting time entry:', error);
     }
-  }, [id, deleteTimeEntry, router]);
+  }, [id, deleteTimeEntry, navigateBackSafe]);
   
   // Render error states
   if (!id || typeof id !== 'string') {
