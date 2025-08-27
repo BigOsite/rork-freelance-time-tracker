@@ -7,7 +7,7 @@ import EmptyState from '@/components/EmptyState';
 import { useTheme } from '@/contexts/ThemeContext';
 
 export default function EditTimeEntryScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, from, jobId } = useLocalSearchParams<{ id: string; from?: string; jobId?: string }>();
   const router = useRouter();
   const { timeEntries, updateTimeEntry, getJobById, deleteTimeEntry } = useJobsStore();
   const { colors } = useTheme();
@@ -17,16 +17,24 @@ export default function EditTimeEntryScreen() {
   
   const navigateBackSafe = useCallback(() => {
     try {
-      if (router.canGoBack?.()) {
-        router.back();
-      } else {
-        router.replace('/(tabs)/history');
+      console.log('EDIT ENTRY: navigateBackSafe called with', { from, jobId });
+      if (jobId && typeof jobId === 'string') {
+        console.log('EDIT ENTRY: Returning to job details via replace for jobId', jobId);
+        router.replace({ pathname: '/(tabs)/job/[id]', params: { id: jobId } });
+        return;
       }
+      if (router.canGoBack?.()) {
+        console.log('EDIT ENTRY: No jobId param, going back');
+        router.back();
+        return;
+      }
+      console.log('EDIT ENTRY: No history, replacing to history list');
+      router.replace('/(tabs)/history');
     } catch (e) {
       console.error('EDIT ENTRY: Navigation error, falling back to replace', e);
       router.replace('/(tabs)/history');
     }
-  }, [router]);
+  }, [router, jobId, from]);
 
   const handleSubmit = useCallback(async (values: { startTime: number; endTime: number | null; note: string }): Promise<boolean> => {
     if (!timeEntry) return false;

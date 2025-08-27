@@ -340,8 +340,12 @@ export default function JobDetailScreen() {
   }, []);
   
   const handleEditTimeEntry = React.useCallback((entryId: string) => {
-    router.push(`/(tabs)/time-entry/edit/${entryId}`);
-  }, [router]);
+    if (!id || typeof id !== 'string') {
+      router.push(`/(tabs)/time-entry/edit/${entryId}`);
+      return;
+    }
+    router.push({ pathname: '/(tabs)/time-entry/edit/[id]', params: { id: entryId, from: 'job', jobId: id } });
+  }, [router, id]);
   
   const handleDeleteTimeEntry = React.useCallback((entryId: string) => {
     Alert.alert(
