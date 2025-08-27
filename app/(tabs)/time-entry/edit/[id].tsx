@@ -27,8 +27,10 @@ export default function EditTimeEntryScreen() {
       
       console.log('Time entry updated successfully, navigating back');
       
-      // Navigate immediately - no setTimeout needed
-      router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+      // Use setTimeout to ensure state updates complete before navigation
+      setTimeout(() => {
+        router.replace(`/(tabs)/job/${timeEntry.jobId}`);
+      }, 100);
       
       return true;
     } catch (error) {

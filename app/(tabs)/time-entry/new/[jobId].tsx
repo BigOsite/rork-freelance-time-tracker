@@ -39,8 +39,10 @@ export default function NewTimeEntryScreen() {
       if (entryId) {
         console.log('Time entry created successfully, navigating back');
         
-        // Navigate immediately - no setTimeout needed
-        router.replace(`/(tabs)/job/${jobId}`);
+        // Use setTimeout to ensure state updates complete before navigation
+        setTimeout(() => {
+          router.replace(`/(tabs)/job/${jobId}`);
+        }, 100);
         
         return true;
       } else {
