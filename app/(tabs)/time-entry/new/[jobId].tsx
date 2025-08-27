@@ -19,8 +19,8 @@ export default function NewTimeEntryScreen() {
       console.log('NEW ENTRY: navigateBackSafe called');
       if (jobId && typeof jobId === 'string') {
         console.log('NEW ENTRY: Navigating to job details for jobId', jobId);
-        // Use push instead of replace to ensure consistent behavior
-        router.push(`/(tabs)/job/${jobId}`);
+        // Use navigate instead of push/replace for more reliable navigation
+        router.navigate(`/(tabs)/job/${jobId}`);
         return;
       }
       if (router.canGoBack?.()) {
@@ -29,10 +29,10 @@ export default function NewTimeEntryScreen() {
         return;
       }
       console.log('NEW ENTRY: No history, navigating to history list');
-      router.push('/(tabs)/history');
+      router.navigate('/(tabs)/history');
     } catch (e) {
       console.error('NEW ENTRY: Navigation error, falling back to history', e);
-      router.push('/(tabs)/history');
+      router.navigate('/(tabs)/history');
     }
   }, [router, jobId]);
 
@@ -60,10 +60,8 @@ export default function NewTimeEntryScreen() {
 
       if (entryId) {
         console.log('NEW ENTRY: Time entry created successfully, navigating to job details');
-        // Use a direct path to ensure consistent navigation
-        setTimeout(() => {
-          router.push(`/(tabs)/job/${jobId}`);
-        }, 100);
+        // Use a direct navigation with no setTimeout to ensure immediate redirect
+        router.navigate(`/(tabs)/job/${jobId}`);
         return true;
       } else {
         console.error('NEW ENTRY: Time entry creation failed - no ID returned');

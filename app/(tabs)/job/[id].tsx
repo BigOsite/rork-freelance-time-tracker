@@ -328,7 +328,8 @@ export default function JobDetailScreen() {
   
   const handleAddTimeEntry = React.useCallback(() => {
     if (!id) return;
-    router.push(`/(tabs)/time-entry/new/${id}`);
+    // Use navigate instead of push for more reliable navigation
+    router.navigate(`/(tabs)/time-entry/new/${id}`);
   }, [router, id]);
   
   const handleCreateInvoice = React.useCallback(() => {
@@ -341,10 +342,11 @@ export default function JobDetailScreen() {
   
   const handleEditTimeEntry = React.useCallback((entryId: string) => {
     if (!id || typeof id !== 'string') {
-      router.push(`/(tabs)/time-entry/edit/${entryId}`);
+      router.navigate(`/(tabs)/time-entry/edit/${entryId}`);
       return;
     }
-    router.push({ pathname: '/(tabs)/time-entry/edit/[id]', params: { id: entryId, from: 'job', jobId: id } });
+    // Use navigate with params for more reliable navigation
+    router.navigate({ pathname: '/(tabs)/time-entry/edit/[id]', params: { id: entryId, from: 'job', jobId: id } });
   }, [router, id]);
   
   const handleDeleteTimeEntry = React.useCallback((entryId: string) => {
