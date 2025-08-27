@@ -328,7 +328,7 @@ export default function JobDetailScreen() {
   
   const handleAddTimeEntry = React.useCallback(() => {
     if (!id) return;
-    router.push(`/time-entry/new/${id}`);
+    router.push(`/(tabs)/time-entry/new/${id}`);
   }, [router, id]);
   
   const handleCreateInvoice = React.useCallback(() => {
@@ -474,7 +474,7 @@ export default function JobDetailScreen() {
     <>
       <Stack.Screen 
         options={{
-          title: isInvalidId ? "Invalid Job" : isJobNotFound ? "Job Not Found" : (job?.title || 'Job Details'),
+          title: isInvalidId ? "Invalid Job" : isJobNotFound ? "Job Not Found" : (job?.name || 'Job Details'),
           headerRight: () => (
             !isInvalidId && !isJobNotFound ? (
               <TouchableOpacity 

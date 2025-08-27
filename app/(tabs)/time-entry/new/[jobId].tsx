@@ -56,7 +56,7 @@ export default function NewTimeEntryScreen() {
   const handleCancel = () => {
     // Navigate directly to the specific job details page
     if (jobId && typeof jobId === 'string') {
-      router.back();
+      router.replace(`/(tabs)/job/${jobId}`);
     } else {
       // Fallback to jobs list if no valid jobId
       router.replace('/(tabs)/jobs');
