@@ -1,7 +1,7 @@
 import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { supabase } from "@/lib/supabase";
+import { db } from "../db";
 
 // Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
@@ -83,7 +83,7 @@ function getHTTPStatusCodeFromError(error: any): number {
 export const router = t.router;
 export const publicProcedure = t.procedure;
 export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
-  // Validate the JWT token with Supabase
+  // Validate the token with backend database
   if (!ctx.token) {
     throw new TRPCError({
       code: 'UNAUTHORIZED',
@@ -92,14 +92,24 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
   }
 
   try {
-    // Verify token with Supabase
-    const { data: { user }, error } = await supabase.auth.getUser(ctx.token);
+    // Verify token with backend database
+    const session = await db.findSessionByToken(ctx.token);
     
-    if (error || !user) {
-      console.error('Token validation error:', error);
+    if (!session) {
+      console.error('Token validation error: Invalid or expired session');
       throw new TRPCError({
         code: 'UNAUTHORIZED',
         message: 'Invalid or expired token',
+      });
+    }
+
+    const user = await db.findUserById(session.userId);
+    
+    if (!user) {
+      console.error('Token validation error: User not found');
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message: 'User not found',
       });
     }
 
@@ -109,7 +119,16 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
       ctx: {
         ...ctx,
         userId: user.id,
-        user,
+        user: {
+          id: user.id,
+          email: user.email,
+          user_metadata: {
+            display_name: user.displayName,
+            avatar_url: user.photoURL,
+            photo_url: user.photoURL,
+          },
+          created_at: new Date(user.createdAt).toISOString(),
+        },
       },
     });
   } catch (error: any) {

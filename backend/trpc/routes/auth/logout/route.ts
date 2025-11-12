@@ -1,18 +1,14 @@
 import { protectedProcedure } from '../../../create-context';
-import { supabase } from '@/lib/supabase';
-import { TRPCError } from '@trpc/server';
+import { db } from '../../../../db';
 
 export const logoutProcedure = protectedProcedure
   .mutation(async ({ ctx }) => {
     try {
       console.log('Logout attempt for user:', ctx.userId);
       
-      // Sign out from Supabase
-      const { error } = await supabase.auth.signOut();
-      
-      if (error) {
-        console.error('Supabase logout error:', error);
-        // Don't throw error for logout - just log it
+      // Delete session from database
+      if (ctx.token) {
+        await db.deleteSession(ctx.token);
       }
 
       console.log('Logout successful for user:', ctx.userId);

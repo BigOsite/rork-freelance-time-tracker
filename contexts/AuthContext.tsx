@@ -1,12 +1,9 @@
 import React, { createContext, useContext, ReactNode, useEffect } from 'react';
 import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
-import * as FileSystem from 'expo-file-system';
-import * as ImagePicker from 'expo-image-picker';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
 import { trpcClient } from '@/lib/trpc';
-import { supabase, refreshSessionIfNeeded, initializeSession } from '@/lib/supabase';
 import { AuthState, UserAccount } from '@/types';
 
 interface AuthContextType extends AuthState {
@@ -14,11 +11,6 @@ interface AuthContextType extends AuthState {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
-  forgotPassword: (email: string) => Promise<void>;
-  resetPassword: (newPassword: string) => Promise<void>;
-  changePassword: (newPassword: string) => Promise<void>;
-  updateDisplayName: (displayName: string) => Promise<void>;
-  updateProfilePhoto: (imageUri?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -56,24 +48,6 @@ const secureStorage = {
   },
 };
 
-// Helper function for fetch with timeout
-const fetchWithTimeout = async (url: string, options: RequestInit = {}, timeoutMs: number = 30000): Promise<Response> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-    });
-    clearTimeout(timeoutId);
-    return response;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    throw error;
-  }
-};
-
 export function AuthProvider({ children }: AuthProviderProps) {
   const { 
     userAccount, 
@@ -84,48 +58,12 @@ export function AuthProvider({ children }: AuthProviderProps) {
     clearAuth 
   } = useBusinessStore();
 
-  const { syncWithSupabase, initializeBackgroundSync, stopBackgroundSync, setCurrentUser } = useJobsStore();
+  const { setCurrentUser } = useJobsStore();
 
   // Set up the current user in the jobs store whenever userAccount changes
   useEffect(() => {
     setCurrentUser(userAccount);
   }, [userAccount, setCurrentUser]);
-
-  // Helper function to establish Supabase session
-  const establishSupabaseSession = async (email: string, password: string) => {
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.log('Supabase session establishment failed:', error);
-        return false;
-      }
-
-      return !!data.session;
-    } catch (error) {
-      console.log('Error establishing Supabase session:', error);
-      return false;
-    }
-  };
-
-  // Helper function to ensure we have an active Supabase session
-  const ensureSupabaseSession = async () => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session && session.user) {
-        // Check if session needs refresh
-        await refreshSessionIfNeeded();
-        return session;
-      }
-      return null;
-    } catch (error) {
-      console.log('Error ensuring Supabase session:', error);
-      return null;
-    }
-  };
 
   const login = async (email: string, password: string) => {
     try {
@@ -133,131 +71,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting login process for:', email);
       
-      // Check network connectivity first
-      let isNetworkAvailable = true;
-      try {
-        // Simple network check with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        await fetch('https://www.google.com/favicon.ico', {
-          method: 'HEAD',
-          signal: controller.signal,
-          mode: 'no-cors'
-        });
-        clearTimeout(timeoutId);
-      } catch (networkError) {
-        console.log('Network connectivity check failed:', networkError);
-        isNetworkAvailable = false;
-      }
-      
-      if (!isNetworkAvailable) {
-        throw new Error('No internet connection. Please check your network and try again.');
-      }
-      
-      // Always try direct Supabase auth first for better reliability
-      let response;
-      
-      console.log('Using direct Supabase authentication');
-      
-      try {
-        // Add timeout to Supabase auth request
-        const authPromise = supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Authentication request timed out')), 15000);
-        });
-        
-        const { data: authData, error: authError } = await Promise.race([
-          authPromise,
-          timeoutPromise
-        ]) as any;
-
-        if (authError) {
-          throw new Error(authError.message);
-        }
-
-        if (!authData.user || !authData.session) {
-          throw new Error('Login failed - no user data returned');
-        }
-
-        const displayName = authData.user.user_metadata?.display_name || 
-                           authData.user.email?.split('@')[0] || 
-                           'User';
-
-        response = {
-          success: true,
-          user: {
-            uid: authData.user.id,
-            email: authData.user.email!,
-            displayName,
-            photoURL: authData.user.user_metadata?.avatar_url || authData.user.user_metadata?.photo_url || null,
-            isLoggedIn: true,
-            createdAt: new Date(authData.user.created_at).getTime(),
-          },
-          token: authData.session.access_token,
-        };
-        
-        console.log('Direct Supabase login successful');
-      } catch (supabaseError: any) {
-        console.error('Direct Supabase login failed:', supabaseError);
-        
-        // Try tRPC as fallback if Supabase fails
-        try {
-          console.log('Trying tRPC login as fallback');
-          
-          // Add timeout to tRPC request as well
-          const trpcPromise = trpcClient.auth.login.mutate({
-            email,
-            password,
-          });
-          
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('tRPC request timed out')), 15000);
-          });
-          
-          response = await Promise.race([
-            trpcPromise,
-            timeoutPromise
-          ]) as any;
-          
-          console.log('tRPC login successful as fallback');
-        } catch (trpcError: any) {
-          console.error('Both Supabase and tRPC login failed:', trpcError);
-          
-          // Provide more specific error messages based on the error type
-          let errorMessage = 'Login failed. Please try again.';
-          
-          if (supabaseError.message?.includes('timeout') || trpcError.message?.includes('timeout')) {
-            errorMessage = 'Request timed out. Please check your connection and try again.';
-          } else if (supabaseError.message?.includes('Network request failed') || trpcError.message?.includes('Network request failed')) {
-            errorMessage = 'Network error. Please check your internet connection and try again.';
-          } else if (supabaseError.message?.includes('Invalid login credentials')) {
-            errorMessage = 'Invalid email or password. Please check your credentials.';
-          } else if (supabaseError.message) {
-            errorMessage = supabaseError.message;
-          }
-          
-          throw new Error(errorMessage);
-        }
-      }
-
+      // Use tRPC for authentication
+      const response = await trpcClient.auth.login.mutate({
+        email,
+        password,
+      });
 
       console.log('Login response received:', response.success);
 
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
       
-      // Establish Supabase session for profile operations
-      await establishSupabaseSession(email, password);
-      
       // Update state - make sure user is marked as logged in
       const loggedInUser: UserAccount = {
         ...response.user,
-        id: response.user.uid, // Map uid to id for compatibility
+        id: response.user.uid,
         isLoggedIn: true,
         photoURL: response.user.photoURL || null,
       };
@@ -270,22 +98,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null 
       });
 
-      console.log('User state updated, initializing background sync');
-
-      // Initialize background sync for the authenticated user
-      initializeBackgroundSync(response.user.uid);
-
-      // Sync data with Supabase after successful login
-      try {
-        await syncWithSupabase(response.user.uid);
-        console.log('Data sync completed successfully');
-      } catch (syncError) {
-        console.log('Data sync failed, but login successful:', syncError);
-      }
+      console.log('User state updated successfully');
 
     } catch (error: any) {
       console.error('Login failed:', error);
-      const errorMessage = getCleanErrorMessage(error);
+      const errorMessage = error.message || 'Login failed. Please try again.';
       setAuthState({ 
         isLoading: false, 
         error: errorMessage
@@ -300,136 +117,22 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting registration process for:', email);
       
-      // Check network connectivity first
-      let isNetworkAvailable = true;
-      try {
-        // Simple network check with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
-        
-        await fetch('https://www.google.com/favicon.ico', {
-          method: 'HEAD',
-          signal: controller.signal,
-          mode: 'no-cors'
-        });
-        clearTimeout(timeoutId);
-      } catch (networkError) {
-        console.log('Network connectivity check failed:', networkError);
-        isNetworkAvailable = false;
-      }
-      
-      if (!isNetworkAvailable) {
-        throw new Error('No internet connection. Please check your network and try again.');
-      }
-      
-      // Always try direct Supabase auth first for better reliability
-      let response;
-      
-      console.log('Using direct Supabase authentication');
-      
-      try {
-        // Add timeout to Supabase auth request
-        const authPromise = supabase.auth.signUp({
-          email,
-          password,
-          options: {
-            data: {
-              display_name: displayName,
-            }
-          }
-        });
-        
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Registration request timed out')), 15000);
-        });
-        
-        const { data: authData, error: authError } = await Promise.race([
-          authPromise,
-          timeoutPromise
-        ]) as any;
-
-        if (authError) {
-          throw new Error(authError.message);
-        }
-
-        if (!authData.user) {
-          throw new Error('Registration failed - no user data returned');
-        }
-
-        // For signup, we might not have a session immediately if email confirmation is required
-        const token = authData.session?.access_token || 'pending_confirmation';
-
-        response = {
-          success: true,
-          user: {
-            uid: authData.user.id,
-            email: authData.user.email!,
-            displayName,
-            photoURL: authData.user.user_metadata?.avatar_url || authData.user.user_metadata?.photo_url || null,
-            isLoggedIn: !!authData.session,
-            createdAt: new Date(authData.user.created_at).getTime(),
-          },
-          token,
-        };
-        
-        console.log('Direct Supabase registration successful');
-      } catch (supabaseError: any) {
-        console.error('Direct Supabase registration failed:', supabaseError);
-        
-        // Try tRPC as fallback if Supabase fails
-        try {
-          console.log('Trying tRPC registration as fallback');
-          
-          // Add timeout to tRPC request as well
-          const trpcPromise = trpcClient.auth.register.mutate({
-            email,
-            password,
-            displayName,
-          });
-          
-          const timeoutPromise = new Promise((_, reject) => {
-            setTimeout(() => reject(new Error('tRPC registration request timed out')), 15000);
-          });
-          
-          response = await Promise.race([
-            trpcPromise,
-            timeoutPromise
-          ]) as any;
-          
-          console.log('tRPC registration successful as fallback');
-        } catch (trpcError: any) {
-          console.error('Both Supabase and tRPC registration failed:', trpcError);
-          
-          // Provide more specific error messages based on the error type
-          let errorMessage = 'Registration failed. Please try again.';
-          
-          if (supabaseError.message?.includes('timeout') || trpcError.message?.includes('timeout')) {
-            errorMessage = 'Request timed out. Please check your connection and try again.';
-          } else if (supabaseError.message?.includes('Network request failed') || trpcError.message?.includes('Network request failed')) {
-            errorMessage = 'Network error. Please check your internet connection and try again.';
-          } else if (supabaseError.message?.includes('User already registered')) {
-            errorMessage = 'An account with this email already exists. Please sign in instead.';
-          } else if (supabaseError.message) {
-            errorMessage = supabaseError.message;
-          }
-          
-          throw new Error(errorMessage);
-        }
-      }
-
+      // Use tRPC for registration
+      const response = await trpcClient.auth.register.mutate({
+        email,
+        password,
+        displayName,
+      });
 
       console.log('Registration response received:', response.success);
 
       // Store token securely
       await secureStorage.setItem(TOKEN_KEY, response.token);
       
-      // Establish Supabase session for profile operations
-      await establishSupabaseSession(email, password);
-      
       // Update state - make sure user is marked as logged in
       const loggedInUser: UserAccount = {
         ...response.user,
-        id: response.user.uid, // Map uid to id for compatibility
+        id: response.user.uid,
         isLoggedIn: true,
         photoURL: response.user.photoURL || null,
       };
@@ -442,22 +145,11 @@ export function AuthProvider({ children }: AuthProviderProps) {
         error: null 
       });
 
-      console.log('User state updated, initializing background sync');
-
-      // Initialize background sync for the authenticated user
-      initializeBackgroundSync(response.user.uid);
-
-      // Sync data with Supabase after successful registration
-      try {
-        await syncWithSupabase(response.user.uid);
-        console.log('Data sync completed successfully');
-      } catch (syncError) {
-        console.log('Data sync failed, but registration successful:', syncError);
-      }
+      console.log('User state updated successfully');
 
     } catch (error: any) {
       console.error('Registration failed:', error);
-      const errorMessage = getCleanErrorMessage(error);
+      const errorMessage = error.message || 'Registration failed. Please try again.';
       setAuthState({ 
         isLoading: false, 
         error: errorMessage
@@ -470,9 +162,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('Starting logout process');
       
-      // Stop background sync
-      stopBackgroundSync();
-      
       // Call logout endpoint if authenticated
       if (authState.isAuthenticated) {
         try {
@@ -481,14 +170,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
         } catch (error) {
           console.log('Logout API call failed:', error);
         }
-      }
-      
-      // Sign out from Supabase
-      try {
-        await supabase.auth.signOut();
-        console.log('Supabase signout successful');
-      } catch (error) {
-        console.log('Supabase signout failed:', error);
       }
     } catch (error) {
       console.log('Logout process failed:', error);
@@ -506,45 +187,18 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Refreshing profile');
       
-      // Refresh session if needed
-      await refreshSessionIfNeeded();
-      
-      let profile;
-      
-      // Always use Supabase directly for profile data
-      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
-      if (error || !currentUser) {
-        throw new Error('Failed to get user profile');
-      }
-      
-      profile = {
-        uid: currentUser.id,
-        email: currentUser.email!,
-        displayName: currentUser.user_metadata?.display_name || currentUser.email?.split('@')[0] || 'User',
-        photoURL: currentUser.user_metadata?.avatar_url || currentUser.user_metadata?.photo_url || null,
-        isLoggedIn: true,
-        createdAt: new Date(currentUser.created_at).getTime(),
-      };
-      
-      // Get updated profile data from Supabase auth
-      const { data: { user: updatedUser } } = await supabase.auth.getUser();
-      const photoURL = updatedUser?.user_metadata?.avatar_url || updatedUser?.user_metadata?.photo_url || profile.photoURL;
+      // Get profile from backend
+      const profile = await trpcClient.auth.profile.query();
       
       const loggedInUser: UserAccount = {
         ...profile,
-        id: profile.uid, // Map uid to id for compatibility
+        id: profile.uid,
         isLoggedIn: true,
-        photoURL: photoURL || null,
+        photoURL: profile.photoURL || null,
       };
       setUserAccount(loggedInUser);
 
-      // Sync data after profile refresh
-      try {
-        await syncWithSupabase(profile.uid);
-        console.log('Data sync completed after profile refresh');
-      } catch (syncError) {
-        console.log('Data sync failed during profile refresh:', syncError);
-      }
+      console.log('Profile refreshed successfully');
     } catch (error) {
       console.log('Failed to refresh profile:', error);
       // If profile fetch fails, user might be logged out
@@ -552,400 +206,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     }
   };
 
-  const forgotPassword = async (email: string) => {
-    try {
-      setAuthState({ isLoading: true, error: null });
-      
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: Platform.OS === 'web' 
-          ? `${window.location.origin}/settings/reset-password`
-          : 'myapp://reset-password'
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      setAuthState({ isLoading: false, error: null });
-    } catch (error: any) {
-      const errorMessage = getCleanErrorMessage(error);
-      setAuthState({ 
-        isLoading: false, 
-        error: errorMessage
-      });
-      throw new Error(errorMessage);
-    }
-  };
-
-  const resetPassword = async (newPassword: string) => {
-    try {
-      setAuthState({ isLoading: true, error: null });
-      
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      setAuthState({ isLoading: false, error: null });
-    } catch (error: any) {
-      const errorMessage = getCleanErrorMessage(error);
-      setAuthState({ 
-        isLoading: false, 
-        error: errorMessage
-      });
-      throw new Error(errorMessage);
-    }
-  };
-
-  const changePassword = async (newPassword: string) => {
-    try {
-      setAuthState({ isLoading: true, error: null });
-      
-      // Ensure we have an active Supabase session
-      const session = await ensureSupabaseSession();
-      if (!session) {
-        throw new Error('Session expired. Please sign in again.');
-      }
-      
-      const { error } = await supabase.auth.updateUser({
-        password: newPassword
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      setAuthState({ isLoading: false, error: null });
-    } catch (error: any) {
-      const errorMessage = getCleanErrorMessage(error);
-      setAuthState({ 
-        isLoading: false, 
-        error: errorMessage
-      });
-      throw new Error(errorMessage);
-    }
-  };
-
-  const updateDisplayName = async (displayName: string) => {
-    try {
-      setAuthState({ isLoading: true, error: null });
-      
-      // Ensure we have an active Supabase session
-      const session = await ensureSupabaseSession();
-      if (!session) {
-        throw new Error('Session expired. Please sign in again.');
-      }
-      
-      const { error } = await supabase.auth.updateUser({
-        data: { display_name: displayName }
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      // Update local user state
-      if (userAccount) {
-        const updatedUser: UserAccount = {
-          ...userAccount,
-          displayName,
-        };
-        setUserAccount(updatedUser);
-      }
-
-      setAuthState({ isLoading: false, error: null });
-    } catch (error: any) {
-      const errorMessage = getCleanErrorMessage(error);
-      setAuthState({ 
-        isLoading: false, 
-        error: errorMessage
-      });
-      throw new Error(errorMessage);
-    }
-  };
-
-  const updateProfilePhoto = async (imageUri?: string) => {
-    try {
-      setAuthState({ isLoading: true, error: null });
-
-      // If no imageUri provided, launch image picker
-      let finalImageUri = imageUri;
-      if (!finalImageUri) {
-        // Request permissions first with better error handling
-        try {
-          const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-          if (status !== 'granted') {
-            throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
-          }
-        } catch (permissionError) {
-          console.log('Media library permission error:', permissionError);
-          // Fallback to image picker permission
-          try {
-            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-            if (status !== 'granted') {
-              throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
-            }
-          } catch (fallbackError) {
-            console.log('Image picker permission error:', fallbackError);
-            throw new Error('Permission to access media library is required to change your profile photo. Please enable it in Settings.');
-          }
-        }
-
-        try {
-          const result = await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ImagePicker.MediaTypeOptions.Images,
-            allowsEditing: true,
-            aspect: [1, 1],
-            quality: 0.8,
-            exif: false, // Reduce metadata for smaller file size
-          });
-
-          if (result.canceled || !result.assets || result.assets.length === 0) {
-            setAuthState({ isLoading: false, error: null });
-            return;
-          }
-
-          finalImageUri = result.assets[0].uri;
-        } catch (pickerError) {
-          console.log('Image picker error:', pickerError);
-          throw new Error('Failed to select image. Please try again.');
-        }
-      }
-
-      // Ensure we have an active Supabase session
-      const session = await ensureSupabaseSession();
-      if (!session || !session.user) {
-        throw new Error('Session expired. Please sign in again.');
-      }
-
-      const userId = session.user.id;
-
-      // Validate the image file exists
-      try {
-        const fileInfo = await FileSystem.getInfoAsync(finalImageUri);
-        if (!fileInfo.exists) {
-          throw new Error('Selected image file not found. Please try selecting another image.');
-        }
-      } catch (fileError) {
-        console.log('File validation error:', fileError);
-        throw new Error('Failed to access selected image. Please try selecting another image.');
-      }
-
-      // Create a unique filename
-      const fileExt = finalImageUri.split('.').pop()?.toLowerCase() || 'jpg';
-      const fileName = `avatar-${Date.now()}.${fileExt}`;
-      const filePath = `${userId}/${fileName}`;
-
-      let uploadData;
-      let uploadError;
-
-      if (Platform.OS === 'web') {
-        // On web, convert image URI to File object
-        try {
-          const response = await fetch(finalImageUri);
-          if (!response.ok) {
-            throw new Error('Failed to fetch image data');
-          }
-          const blob = await response.blob();
-          const file = new File([blob], fileName, { type: `image/${fileExt}` });
-          
-          const result = await supabase.storage
-            .from('avatars')
-            .upload(filePath, file, {
-              cacheControl: '3600',
-              upsert: true
-            });
-          
-          uploadData = result.data;
-          uploadError = result.error;
-        } catch (fetchError) {
-          console.log('Web file conversion error:', fetchError);
-          throw new Error('Failed to process image file. Please try selecting another image.');
-        }
-      } else {
-        // On native platforms, read as base64 and convert to Uint8Array
-        try {
-          const base64 = await FileSystem.readAsStringAsync(finalImageUri, {
-            encoding: FileSystem.EncodingType.Base64,
-          });
-
-          if (!base64) {
-            throw new Error('Failed to read image file');
-          }
-
-          // Convert base64 to Uint8Array
-          const binaryString = atob(base64);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let i = 0; i < binaryString.length; i++) {
-            bytes[i] = binaryString.charCodeAt(i);
-          }
-          
-          const result = await supabase.storage
-            .from('avatars')
-            .upload(filePath, bytes, {
-              cacheControl: '3600',
-              upsert: true,
-              contentType: `image/${fileExt}`
-            });
-          
-          uploadData = result.data;
-          uploadError = result.error;
-        } catch (conversionError) {
-          console.log('Native file conversion error:', conversionError);
-          throw new Error('Failed to process image file. Please try selecting another image.');
-        }
-      }
-
-      if (uploadError) {
-        console.log('Upload error:', uploadError);
-        if (uploadError.message?.includes('row-level security')) {
-          throw new Error('Upload permission denied. Please try signing out and back in.');
-        }
-        throw new Error('Upload failed. Please check your connection and try again.');
-      }
-
-      if (!uploadData) {
-        throw new Error('Upload failed - no data returned. Please try again.');
-      }
-
-      // Get public URL
-      const { data: urlData } = supabase.storage
-        .from('avatars')
-        .getPublicUrl(filePath);
-
-      if (!urlData?.publicUrl) {
-        throw new Error('Failed to get public URL for uploaded image. Please try again.');
-      }
-
-      // Update user profile with new photo URL
-      const { error: updateError } = await supabase.auth.updateUser({
-        data: { 
-          avatar_url: urlData.publicUrl,
-          photo_url: urlData.publicUrl 
-        }
-      });
-
-      if (updateError) {
-        console.log('Profile update error:', updateError);
-        throw updateError;
-      }
-
-      // Update local user state
-      if (userAccount) {
-        const updatedUser: UserAccount = {
-          ...userAccount,
-          photoURL: urlData.publicUrl,
-        };
-        setUserAccount(updatedUser);
-      }
-
-      setAuthState({ isLoading: false, error: null });
-    } catch (error: any) {
-      const errorMessage = getCleanErrorMessage(error);
-      setAuthState({ 
-        isLoading: false, 
-        error: errorMessage
-      });
-      throw new Error(errorMessage);
-    }
-  };
-
-  // Helper function to clean up error messages
-  const getCleanErrorMessage = (error: any): string => {
-    if (!error) return 'An unexpected error occurred.';
-    
-    const message = typeof error === 'string' ? error : error.message || '';
-    
-    // Handle common network errors first
-    if (message.includes('Network error') || message.includes('fetch') || message.includes('Network request failed')) {
-      return 'Network error. Please check your internet connection and try again.';
-    }
-    
-    if (message.includes('Server is not available') || message.includes('Server returned HTML')) {
-      return 'Server is not available. Please try again later.';
-    }
-    
-    if (message.includes('Request timed out') || message.includes('timeout')) {
-      return 'Request timed out. Please check your connection and try again.';
-    }
-    
-    if (message.includes('ECONNREFUSED') || message.includes('Connection refused')) {
-      return 'Unable to connect to server. Please check your internet connection and try again.';
-    }
-    
-    // Handle common Supabase/auth errors with user-friendly messages
-    if (message.includes('Invalid login credentials')) {
-      return 'Invalid email or password. Please check your credentials and try again.';
-    }
-    if (message.includes('User already registered')) {
-      return 'An account with this email already exists. Please sign in instead.';
-    }
-    if (message.includes('Password should be at least 6 characters')) {
-      return 'Password must be at least 6 characters long.';
-    }
-    if (message.includes('Unable to validate email address')) {
-      return 'Please enter a valid email address.';
-    }
-    if (message.includes('Email not confirmed')) {
-      return 'Please check your email and confirm your account before signing in.';
-    }
-    if (message.includes('Too many requests')) {
-      return 'Too many attempts. Please wait a moment before trying again.';
-    }
-    if (message.includes('signup is disabled')) {
-      return 'Account registration is currently disabled. Please contact support.';
-    }
-    if (message.includes('Email rate limit exceeded')) {
-      return 'Too many emails sent. Please wait before requesting another reset link.';
-    }
-    if (message.includes('The resource was not found')) {
-      return 'Upload failed. Please try again.';
-    }
-    if (message.includes('Image file not found') || message.includes('Selected image file not found')) {
-      return 'Selected image could not be found. Please try selecting another image.';
-    }
-    if (message.includes('Session expired')) {
-      return 'Session expired. Please sign in again.';
-    }
-    if (message.includes('Auth session missing') || message.includes('No active session')) {
-      return 'Session expired. Please sign in again.';
-    }
-    if (message.includes('new row violates row-level security policy') || message.includes('Upload permission denied')) {
-      return 'Upload permission denied. Please try signing out and back in.';
-    }
-    if (message.includes('Creating blobs from') || message.includes('ArrayBuffer')) {
-      return 'Upload failed. Please try again.';
-    }
-    if (message.includes('Failed to process image file')) {
-      return 'Failed to process image file. Please try selecting another image.';
-    }
-    if (message.includes('Upload failed - no data returned')) {
-      return 'Upload failed. Please check your connection and try again.';
-    }
-    if (message.includes('Permission to access media library is required')) {
-      return message; // Return the full permission message
-    }
-    if (message.includes('Failed to select image')) {
-      return 'Failed to select image. Please try again.';
-    }
-    if (message.includes('Failed to access selected image')) {
-      return 'Failed to access selected image. Please try selecting another image.';
-    }
-    if (message.includes('Server did not start')) {
-      return 'Server is not available. Please try again later.';
-    }
-    if (message.includes('JSON Parse error') || message.includes('Unexpected character')) {
-      return 'Server error. Please try again later.';
-    }
-    
-    // Return the original message if it's already user-friendly
-    return message || 'An unexpected error occurred. Please try again.';
-  };
-
-  // Initialize auth state on app start with better session management
+  // Initialize auth state on app start
   useEffect(() => {
     const initializeAuth = async () => {
       try {
@@ -953,64 +214,30 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         console.log('Initializing auth state');
         
-        // Initialize Supabase session first
-        const session = await initializeSession();
-        
         const token = await secureStorage.getItem(TOKEN_KEY);
         console.log('Stored token found:', !!token);
-        console.log('Supabase session found:', !!session);
         
-        if (token && session) {
+        if (token) {
           setAuthToken(token);
-          
           setAuthState({ isAuthenticated: true, isLoading: false, error: null });
+          
           // Try to refresh profile to get latest user data
           try {
             console.log('Refreshing profile on app start');
-            let profile;
-            
-            // Always use Supabase directly for profile data
-            const { data: { user: initUser }, error } = await supabase.auth.getUser();
-            if (error || !initUser) {
-              throw new Error('Failed to get user profile on init');
-            }
-            
-            profile = {
-              uid: initUser.id,
-              email: initUser.email!,
-              displayName: initUser.user_metadata?.display_name || initUser.email?.split('@')[0] || 'User',
-              photoURL: initUser.user_metadata?.avatar_url || initUser.user_metadata?.photo_url || null,
-              isLoggedIn: true,
-              createdAt: new Date(initUser.created_at).getTime(),
-            };
-            
-            // Get updated profile data from Supabase auth
-            const { data: { user: profileUser } } = await supabase.auth.getUser();
-            const photoURL = profileUser?.user_metadata?.avatar_url || profileUser?.user_metadata?.photo_url || profile.photoURL;
+            const profile = await trpcClient.auth.profile.query();
             
             const loggedInUser: UserAccount = {
               ...profile,
-              id: profile.uid, // Map uid to id for compatibility
+              id: profile.uid,
               isLoggedIn: true,
-              photoURL: photoURL || null,
+              photoURL: profile.photoURL || null,
             };
             setUserAccount(loggedInUser);
 
-            console.log('Profile refreshed, initializing background sync');
-
-            // Initialize background sync for authenticated user
-            initializeBackgroundSync(profile.uid);
-
-            // Sync data on app start if user is authenticated
-            try {
-              await syncWithSupabase(profile.uid);
-              console.log('Data sync completed on app start');
-            } catch (syncError) {
-              console.log('Data sync failed on app start:', syncError);
-            }
+            console.log('Profile refreshed successfully');
           } catch (error) {
             console.log('Failed to refresh profile on init:', error);
-            // If profile fetch fails, clear auth but don't logout from Supabase
+            // If profile fetch fails, clear auth
             await secureStorage.removeItem(TOKEN_KEY);
             clearAuth();
           }
@@ -1027,30 +254,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
   }, []);
 
-  // Set up auth state change listener for better session management
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event, !!session);
-        
-        if (event === 'SIGNED_OUT' || !session) {
-          // Handle sign out - but don't clear if user is still authenticated via our backend
-          if (!authState.isAuthenticated) {
-            clearAuth();
-          }
-        } else if (event === 'TOKEN_REFRESHED') {
-          // Session was refreshed successfully
-          console.log('Session refreshed successfully');
-        } else if (event === 'SIGNED_IN') {
-          // User signed in via Supabase
-          console.log('User signed in via Supabase');
-        }
-      }
-    );
-
-    return () => subscription.unsubscribe();
-  }, [authState.isAuthenticated, clearAuth]);
-
   const contextValue: AuthContextType = {
     isAuthenticated: authState.isAuthenticated,
     user: userAccount,
@@ -1061,11 +264,6 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     refreshProfile,
-    forgotPassword,
-    resetPassword,
-    changePassword,
-    updateDisplayName,
-    updateProfilePhoto,
   };
 
   return (
