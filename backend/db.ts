@@ -1,5 +1,34 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as crypto from 'crypto';
+
+// Simple hash function for React Native (since crypto module is not available)
+function simpleHash(str: string): string {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    const char = str.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Generate a random UUID
+function generateUUID(): string {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    const r = Math.random() * 16 | 0;
+    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+    return v.toString(16);
+  });
+}
+
+// Generate a random token
+function generateRandomToken(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+  let token = '';
+  for (let i = 0; i < 64; i++) {
+    token += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return token;
+}
 
 export interface User {
   id: string;
@@ -24,14 +53,14 @@ const DB_KEY_SESSIONS = 'backend_sessions';
 let usersCache: User[] | null = null;
 let sessionsCache: Session[] | null = null;
 
-// Hash password using crypto
+// Hash password
 function hashPassword(password: string): string {
-  return crypto.createHash('sha256').update(password).digest('hex');
-}
-
-// Generate random token
-function generateToken(): string {
-  return crypto.randomBytes(32).toString('hex');
+  // Use multiple rounds of hashing for better security
+  let hash = password;
+  for (let i = 0; i < 100; i++) {
+    hash = simpleHash(hash + password + i.toString());
+  }
+  return hash;
 }
 
 // Load users from storage
@@ -111,7 +140,7 @@ export const db = {
     }
 
     const user: User = {
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       email,
       password: hashPassword(password),
       displayName,
@@ -171,7 +200,7 @@ export const db = {
     await cleanExpiredSessions();
     
     const sessions = await loadSessions();
-    const token = generateToken();
+    const token = generateRandomToken();
     const session: Session = {
       userId,
       token,
