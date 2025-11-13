@@ -4,8 +4,19 @@ import { logger } from 'hono/logger';
 import { trpcServer } from '@hono/trpc-server';
 import { appRouter } from './trpc/app-router';
 import { createContext } from './trpc/create-context';
+import { db } from './db';
 
 const app = new Hono();
+
+// Initialize demo account on server start
+(async () => {
+  try {
+    await db.initializeDemoAccount();
+    console.log('Backend database initialized');
+  } catch (error) {
+    console.error('Failed to initialize demo account:', error);
+  }
+})();
 
 // Add CORS middleware with more permissive settings for development
 app.use('*', cors({

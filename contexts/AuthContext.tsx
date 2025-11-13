@@ -11,6 +11,10 @@ interface AuthContextType extends AuthState {
   register: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  changePassword: (newPassword: string) => Promise<void>;
+  updateDisplayName: (displayName: string) => Promise<void>;
+  updateProfilePhoto: (photoUri: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -254,6 +258,71 @@ export function AuthProvider({ children }: AuthProviderProps) {
     initializeAuth();
   }, []);
 
+  const forgotPassword = async (email: string) => {
+    try {
+      console.log('Password reset requested for:', email);
+      throw new Error('Password reset functionality is not yet implemented. Please contact support for password recovery.');
+    } catch (error: any) {
+      console.error('Password reset failed:', error);
+      throw error;
+    }
+  };
+
+  const changePassword = async (newPassword: string) => {
+    try {
+      if (!authState.isAuthenticated || !userAccount) {
+        throw new Error('You must be logged in to change your password.');
+      }
+      console.log('Password change not yet implemented');
+      throw new Error('Password change functionality is not yet implemented.');
+    } catch (error: any) {
+      console.error('Password change failed:', error);
+      throw error;
+    }
+  };
+
+  const updateDisplayName = async (displayName: string) => {
+    try {
+      if (!authState.isAuthenticated || !userAccount) {
+        throw new Error('You must be logged in to update your display name.');
+      }
+      
+      console.log('Updating display name to:', displayName);
+      
+      const updatedUser: UserAccount = {
+        ...userAccount,
+        displayName,
+      };
+      
+      setUserAccount(updatedUser);
+      console.log('Display name updated successfully');
+    } catch (error: any) {
+      console.error('Display name update failed:', error);
+      throw error;
+    }
+  };
+
+  const updateProfilePhoto = async (photoUri: string) => {
+    try {
+      if (!authState.isAuthenticated || !userAccount) {
+        throw new Error('You must be logged in to update your profile photo.');
+      }
+      
+      console.log('Updating profile photo');
+      
+      const updatedUser: UserAccount = {
+        ...userAccount,
+        photoURL: photoUri,
+      };
+      
+      setUserAccount(updatedUser);
+      console.log('Profile photo updated successfully');
+    } catch (error: any) {
+      console.error('Profile photo update failed:', error);
+      throw error;
+    }
+  };
+
   const contextValue: AuthContextType = {
     isAuthenticated: authState.isAuthenticated,
     user: userAccount,
@@ -264,6 +333,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
     register,
     logout,
     refreshProfile,
+    forgotPassword,
+    changePassword,
+    updateDisplayName,
+    updateProfilePhoto,
   };
 
   return (

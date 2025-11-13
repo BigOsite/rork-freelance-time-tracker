@@ -1,32 +1,39 @@
 import { protectedProcedure } from '../../../create-context';
 import { TRPCError } from '@trpc/server';
+import { db } from '../../../../db';
 
 export const getProfileProcedure = protectedProcedure
   .query(async ({ ctx }) => {
     try {
-      if (!ctx.user) {
+      if (!ctx.userId) {
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'User not authenticated',
         });
       }
 
-      console.log('Getting profile for user:', ctx.user.id);
+      console.log('Getting profile for user:', ctx.userId);
 
-      const displayName = ctx.user.user_metadata?.display_name || 
-                         ctx.user.email?.split('@')[0] || 
-                         'User';
+      // Get user from database
+      const user = await db.findUserById(ctx.userId);
+      
+      if (!user) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'User not found',
+        });
+      }
 
       const profile = {
-        uid: ctx.user.id,
-        email: ctx.user.email!,
-        displayName,
-        photoURL: ctx.user.user_metadata?.avatar_url || ctx.user.user_metadata?.photo_url || null,
+        uid: user.id,
+        email: user.email,
+        displayName: user.displayName,
+        photoURL: user.photoURL,
         isLoggedIn: true,
-        createdAt: new Date(ctx.user.created_at).getTime(),
+        createdAt: user.createdAt,
       };
 
-      console.log('Profile retrieved successfully for user:', ctx.user.id);
+      console.log('Profile retrieved successfully for user:', user.id);
       return profile;
     } catch (error: any) {
       console.error('Profile retrieval error:', error);

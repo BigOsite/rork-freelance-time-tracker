@@ -250,4 +250,37 @@ export const db = {
     usersCache = null;
     sessionsCache = null;
   },
+
+  // Initialize demo account
+  async initializeDemoAccount(): Promise<void> {
+    try {
+      const users = await loadUsers();
+      
+      // Check if demo account already exists
+      const demoExists = users.find(u => u.email === 'demo@example.com');
+      if (demoExists) {
+        console.log('Demo account already exists');
+        return;
+      }
+
+      // Create demo account
+      const demoUser: User = {
+        id: generateUUID(),
+        email: 'demo@example.com',
+        password: hashPassword('password123'),
+        displayName: 'Demo User',
+        photoURL: null,
+        createdAt: Date.now(),
+      };
+
+      users.push(demoUser);
+      await saveUsers(users);
+      
+      console.log('Demo account created successfully');
+      console.log('Email: demo@example.com');
+      console.log('Password: password123');
+    } catch (error) {
+      console.error('Error initializing demo account:', error);
+    }
+  },
 };
