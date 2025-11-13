@@ -1,32 +1,51 @@
 import Database from 'better-sqlite3';
 import * as path from 'path';
+import * as fs from 'fs';
 
-const dbPath = path.join(process.cwd(), 'data', 'hours-tracker.db');
-const sqlite = new Database(dbPath);
+let sqlite: Database.Database;
+try {
+  const dataDir = path.join(process.cwd(), 'data');
+  if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+    console.log('✅ Created data directory:', dataDir);
+  }
 
-sqlite.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id TEXT PRIMARY KEY,
-    email TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    displayName TEXT NOT NULL,
-    photoURL TEXT,
-    createdAt INTEGER NOT NULL
-  );
-  
-  CREATE TABLE IF NOT EXISTS sessions (
-    token TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    createdAt INTEGER NOT NULL,
-    expiresAt INTEGER NOT NULL,
-    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
-  );
-  
-  CREATE INDEX IF NOT EXISTS idx_sessions_userId ON sessions(userId);
-  CREATE INDEX IF NOT EXISTS idx_sessions_expiresAt ON sessions(expiresAt);
-`);
+  const dbPath = path.join(dataDir, 'hours-tracker.db');
+  console.log('📊 Initializing database at:', dbPath);
+  sqlite = new Database(dbPath);
+  console.log('✅ Database connection established');
+} catch (error) {
+  console.error('❌ Database initialization failed:', error);
+  throw error;
+}
 
-console.log('Database initialized at:', dbPath);
+try {
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE NOT NULL,
+      password TEXT NOT NULL,
+      displayName TEXT NOT NULL,
+      photoURL TEXT,
+      createdAt INTEGER NOT NULL
+    );
+    
+    CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      userId TEXT NOT NULL,
+      createdAt INTEGER NOT NULL,
+      expiresAt INTEGER NOT NULL,
+      FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+    );
+    
+    CREATE INDEX IF NOT EXISTS idx_sessions_userId ON sessions(userId);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expiresAt ON sessions(expiresAt);
+  `);
+  console.log('✅ Database schema initialized');
+} catch (error) {
+  console.error('❌ Failed to create database schema:', error);
+  throw error;
+}
 
 function simpleHash(str: string): string {
   let hash = 0;

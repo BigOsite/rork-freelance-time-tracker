@@ -8,13 +8,17 @@ import { db } from './db';
 
 const app = new Hono();
 
+console.log('🚀 Hono backend server initializing...');
+
 // Initialize demo account on server start
 (async () => {
   try {
+    console.log('Initializing backend database...');
     await db.initializeDemoAccount();
-    console.log('Backend database initialized');
+    console.log('✅ Backend database initialized successfully');
+    console.log('📧 Demo account ready: demo@example.com / password123');
   } catch (error) {
-    console.error('Failed to initialize demo account:', error);
+    console.error('❌ Failed to initialize demo account:', error);
   }
 })();
 
