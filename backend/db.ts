@@ -1,4 +1,33 @@
-// Simple hash function for server (since crypto module is not available)
+import Database from 'better-sqlite3';
+import * as path from 'path';
+
+const dbPath = path.join(process.cwd(), 'data', 'hours-tracker.db');
+const sqlite = new Database(dbPath);
+
+sqlite.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    displayName TEXT NOT NULL,
+    photoURL TEXT,
+    createdAt INTEGER NOT NULL
+  );
+  
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    expiresAt INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+  
+  CREATE INDEX IF NOT EXISTS idx_sessions_userId ON sessions(userId);
+  CREATE INDEX IF NOT EXISTS idx_sessions_expiresAt ON sessions(expiresAt);
+`);
+
+console.log('Database initialized at:', dbPath);
+
 function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -9,7 +38,6 @@ function simpleHash(str: string): string {
   return Math.abs(hash).toString(36);
 }
 
-// Generate a random UUID
 function generateUUID(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
@@ -18,7 +46,6 @@ function generateUUID(): string {
   });
 }
 
-// Generate a random token
 function generateRandomToken(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
   let token = '';
@@ -44,13 +71,7 @@ export interface Session {
   expiresAt: number;
 }
 
-// In-memory storage for server
-let usersStore: User[] = [];
-let sessionsStore: Session[] = [];
-
-// Hash password
 function hashPassword(password: string): string {
-  // Use multiple rounds of hashing for better security
   let hash = password;
   for (let i = 0; i < 100; i++) {
     hash = simpleHash(hash + password + i.toString());
@@ -58,45 +79,18 @@ function hashPassword(password: string): string {
   return hash;
 }
 
-// Load users from in-memory storage
-async function loadUsers(): Promise<User[]> {
-  return usersStore;
-}
-
-// Save users to in-memory storage
-async function saveUsers(users: User[]): Promise<void> {
-  usersStore = users;
-}
-
-// Load sessions from in-memory storage
-async function loadSessions(): Promise<Session[]> {
-  return sessionsStore;
-}
-
-// Save sessions to in-memory storage
-async function saveSessions(sessions: Session[]): Promise<void> {
-  sessionsStore = sessions;
-}
-
-// Clean expired sessions
-async function cleanExpiredSessions(): Promise<void> {
-  const sessions = await loadSessions();
+function cleanExpiredSessions(): void {
   const now = Date.now();
-  const validSessions = sessions.filter(s => s.expiresAt > now);
-  
-  if (validSessions.length !== sessions.length) {
-    await saveSessions(validSessions);
-  }
+  const stmt = sqlite.prepare('DELETE FROM sessions WHERE expiresAt <= ?');
+  stmt.run(now);
 }
 
-// Database operations
 export const db = {
-  // User operations
   async createUser(email: string, password: string, displayName: string): Promise<User> {
-    const users = await loadUsers();
+    const stmt = sqlite.prepare('SELECT id FROM users WHERE email = ?');
+    const existingUser = stmt.get(email);
     
-    // Check if user already exists
-    if (users.find(u => u.email === email)) {
+    if (existingUser) {
       throw new Error('User already exists with this email');
     }
 
@@ -109,37 +103,40 @@ export const db = {
       createdAt: Date.now(),
     };
 
-    users.push(user);
-    await saveUsers(users);
+    const insertStmt = sqlite.prepare(
+      'INSERT INTO users (id, email, password, displayName, photoURL, createdAt) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    insertStmt.run(user.id, user.email, user.password, user.displayName, user.photoURL, user.createdAt);
     
     return user;
   },
 
   async findUserByEmail(email: string): Promise<User | null> {
-    const users = await loadUsers();
-    return users.find(u => u.email === email) || null;
+    const stmt = sqlite.prepare('SELECT * FROM users WHERE email = ?');
+    const user = stmt.get(email) as User | undefined;
+    return user || null;
   },
 
   async findUserById(id: string): Promise<User | null> {
-    const users = await loadUsers();
-    return users.find(u => u.id === id) || null;
+    const stmt = sqlite.prepare('SELECT * FROM users WHERE id = ?');
+    const user = stmt.get(id) as User | undefined;
+    return user || null;
   },
 
   async updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User | null> {
-    const users = await loadUsers();
-    const userIndex = users.findIndex(u => u.id === id);
-    
-    if (userIndex === -1) {
+    const user = await this.findUserById(id);
+    if (!user) {
       return null;
     }
 
-    users[userIndex] = {
-      ...users[userIndex],
-      ...updates,
-    };
-
-    await saveUsers(users);
-    return users[userIndex];
+    const updatedUser = { ...user, ...updates };
+    
+    const stmt = sqlite.prepare(
+      'UPDATE users SET email = ?, password = ?, displayName = ?, photoURL = ? WHERE id = ?'
+    );
+    stmt.run(updatedUser.email, updatedUser.password, updatedUser.displayName, updatedUser.photoURL, id);
+    
+    return updatedUser;
   },
 
   async verifyPassword(email: string, password: string): Promise<User | null> {
@@ -156,73 +153,59 @@ export const db = {
     return user;
   },
 
-  // Session operations
   async createSession(userId: string): Promise<Session> {
-    await cleanExpiredSessions();
+    cleanExpiredSessions();
     
-    const sessions = await loadSessions();
     const token = generateRandomToken();
     const session: Session = {
       userId,
       token,
       createdAt: Date.now(),
-      expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000), // 30 days
+      expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000),
     };
 
-    sessions.push(session);
-    await saveSessions(sessions);
+    const stmt = sqlite.prepare(
+      'INSERT INTO sessions (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)'
+    );
+    stmt.run(session.token, session.userId, session.createdAt, session.expiresAt);
     
     return session;
   },
 
   async findSessionByToken(token: string): Promise<Session | null> {
-    await cleanExpiredSessions();
+    cleanExpiredSessions();
     
-    const sessions = await loadSessions();
-    const session = sessions.find(s => s.token === token);
+    const stmt = sqlite.prepare('SELECT * FROM sessions WHERE token = ? AND expiresAt > ?');
+    const session = stmt.get(token, Date.now()) as Session | undefined;
     
-    if (!session) {
-      return null;
-    }
-
-    if (session.expiresAt < Date.now()) {
-      return null;
-    }
-
-    return session;
+    return session || null;
   },
 
   async deleteSession(token: string): Promise<void> {
-    const sessions = await loadSessions();
-    const filteredSessions = sessions.filter(s => s.token !== token);
-    await saveSessions(filteredSessions);
+    const stmt = sqlite.prepare('DELETE FROM sessions WHERE token = ?');
+    stmt.run(token);
   },
 
   async deleteUserSessions(userId: string): Promise<void> {
-    const sessions = await loadSessions();
-    const filteredSessions = sessions.filter(s => s.userId !== userId);
-    await saveSessions(filteredSessions);
+    const stmt = sqlite.prepare('DELETE FROM sessions WHERE userId = ?');
+    stmt.run(userId);
   },
 
-  // Clear all data (for testing/reset)
   async clearAll(): Promise<void> {
-    usersStore = [];
-    sessionsStore = [];
+    sqlite.exec('DELETE FROM sessions');
+    sqlite.exec('DELETE FROM users');
   },
 
-  // Initialize demo account
   async initializeDemoAccount(): Promise<void> {
     try {
-      const users = await loadUsers();
+      const stmt = sqlite.prepare('SELECT id FROM users WHERE email = ?');
+      const demoExists = stmt.get('demo@example.com');
       
-      // Check if demo account already exists
-      const demoExists = users.find(u => u.email === 'demo@example.com');
       if (demoExists) {
         console.log('Demo account already exists');
         return;
       }
 
-      // Create demo account
       const demoUser: User = {
         id: generateUUID(),
         email: 'demo@example.com',
@@ -232,8 +215,10 @@ export const db = {
         createdAt: Date.now(),
       };
 
-      users.push(demoUser);
-      await saveUsers(users);
+      const insertStmt = sqlite.prepare(
+        'INSERT INTO users (id, email, password, displayName, photoURL, createdAt) VALUES (?, ?, ?, ?, ?, ?)'
+      );
+      insertStmt.run(demoUser.id, demoUser.email, demoUser.password, demoUser.displayName, demoUser.photoURL, demoUser.createdAt);
       
       console.log('Demo account created successfully');
       console.log('Email: demo@example.com');
@@ -241,5 +226,9 @@ export const db = {
     } catch (error) {
       console.error('Error initializing demo account:', error);
     }
+  },
+
+  close(): void {
+    sqlite.close();
   },
 };
