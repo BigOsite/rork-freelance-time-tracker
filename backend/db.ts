@@ -1,6 +1,4 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
-
-// Simple hash function for React Native (since crypto module is not available)
+// Simple hash function for server (since crypto module is not available)
 function simpleHash(str: string): string {
   let hash = 0;
   for (let i = 0; i < str.length; i++) {
@@ -46,12 +44,9 @@ export interface Session {
   expiresAt: number;
 }
 
-const DB_KEY_USERS = 'backend_users';
-const DB_KEY_SESSIONS = 'backend_sessions';
-
-// In-memory cache for faster access
-let usersCache: User[] | null = null;
-let sessionsCache: Session[] | null = null;
+// In-memory storage for server
+let usersStore: User[] = [];
+let sessionsStore: Session[] = [];
 
 // Hash password
 function hashPassword(password: string): string {
@@ -63,58 +58,24 @@ function hashPassword(password: string): string {
   return hash;
 }
 
-// Load users from storage
+// Load users from in-memory storage
 async function loadUsers(): Promise<User[]> {
-  if (usersCache !== null) {
-    return usersCache;
-  }
-
-  try {
-    const data = await AsyncStorage.getItem(DB_KEY_USERS);
-    usersCache = data ? JSON.parse(data) : [];
-    return usersCache;
-  } catch (error) {
-    console.error('Error loading users:', error);
-    return [];
-  }
+  return usersStore;
 }
 
-// Save users to storage
+// Save users to in-memory storage
 async function saveUsers(users: User[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(DB_KEY_USERS, JSON.stringify(users));
-    usersCache = users;
-  } catch (error) {
-    console.error('Error saving users:', error);
-    throw error;
-  }
+  usersStore = users;
 }
 
-// Load sessions from storage
+// Load sessions from in-memory storage
 async function loadSessions(): Promise<Session[]> {
-  if (sessionsCache !== null) {
-    return sessionsCache;
-  }
-
-  try {
-    const data = await AsyncStorage.getItem(DB_KEY_SESSIONS);
-    sessionsCache = data ? JSON.parse(data) : [];
-    return sessionsCache;
-  } catch (error) {
-    console.error('Error loading sessions:', error);
-    return [];
-  }
+  return sessionsStore;
 }
 
-// Save sessions to storage
+// Save sessions to in-memory storage
 async function saveSessions(sessions: Session[]): Promise<void> {
-  try {
-    await AsyncStorage.setItem(DB_KEY_SESSIONS, JSON.stringify(sessions));
-    sessionsCache = sessions;
-  } catch (error) {
-    console.error('Error saving sessions:', error);
-    throw error;
-  }
+  sessionsStore = sessions;
 }
 
 // Clean expired sessions
@@ -245,10 +206,8 @@ export const db = {
 
   // Clear all data (for testing/reset)
   async clearAll(): Promise<void> {
-    await AsyncStorage.removeItem(DB_KEY_USERS);
-    await AsyncStorage.removeItem(DB_KEY_SESSIONS);
-    usersCache = null;
-    sessionsCache = null;
+    usersStore = [];
+    sessionsStore = [];
   },
 
   // Initialize demo account
