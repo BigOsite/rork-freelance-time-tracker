@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
-import { db } from '../../../../db';
+import { database } from '../../../../db';
 import { TRPCError } from '@trpc/server';
 
 const registerInputSchema = z.object({
@@ -20,7 +20,7 @@ export const registerProcedure = publicProcedure
       // Create user
       let user;
       try {
-        user = await db.createUser(email, password, displayName);
+        user = await database.createUser(email, password, displayName);
       } catch (createError: any) {
         console.error('User creation error:', createError);
         
@@ -34,7 +34,7 @@ export const registerProcedure = publicProcedure
       }
 
       // Create session
-      const session = await db.createSession(user.id);
+      const session = await database.createSession(user.id);
 
       const response = {
         success: true,

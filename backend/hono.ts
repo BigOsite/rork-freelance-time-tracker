@@ -4,7 +4,7 @@ import { logger } from 'hono/logger';
 import { trpcServer } from '@hono/trpc-server';
 import { appRouter } from './trpc/app-router';
 import { createContext } from './trpc/create-context';
-import { db } from './db';
+import { database } from './db';
 
 const app = new Hono();
 
@@ -14,7 +14,7 @@ console.log('🚀 Hono backend server initializing...');
 (async () => {
   try {
     console.log('Initializing backend database...');
-    await db.initializeDemoAccount();
+    await database.initializeDemoAccount();
     console.log('✅ Backend database initialized successfully');
     console.log('📧 Demo account ready: demo@example.com / password123');
   } catch (error) {

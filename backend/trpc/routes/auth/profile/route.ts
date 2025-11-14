@@ -1,6 +1,6 @@
 import { protectedProcedure } from '../../../create-context';
 import { TRPCError } from '@trpc/server';
-import { db } from '../../../../db';
+import { database } from '../../../../db';
 
 export const getProfileProcedure = protectedProcedure
   .query(async ({ ctx }) => {
@@ -15,7 +15,7 @@ export const getProfileProcedure = protectedProcedure
       console.log('Getting profile for user:', ctx.userId);
 
       // Get user from database
-      const user = await db.findUserById(ctx.userId);
+      const user = await database.findUserById(ctx.userId);
       
       if (!user) {
         throw new TRPCError({

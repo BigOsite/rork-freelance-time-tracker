@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { publicProcedure } from '../../../create-context';
-import { db } from '../../../../db';
+import { database } from '../../../../db';
 import { TRPCError } from '@trpc/server';
 
 const loginInputSchema = z.object({
@@ -17,7 +17,7 @@ export const loginProcedure = publicProcedure
       console.log('Login attempt for email:', email);
       
       // Verify user credentials
-      const user = await db.verifyPassword(email, password);
+      const user = await database.verifyPassword(email, password);
 
       if (!user) {
         console.error('Invalid credentials');
@@ -28,7 +28,7 @@ export const loginProcedure = publicProcedure
       }
 
       // Create session
-      const session = await db.createSession(user.id);
+      const session = await database.createSession(user.id);
 
       const response = {
         success: true,

@@ -1,7 +1,7 @@
 import { FetchCreateContextFnOptions } from "@trpc/server/adapters/fetch";
 import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
-import { db } from "../db";
+import { database } from "../db";
 
 // Context creation function
 export const createContext = async (opts: FetchCreateContextFnOptions) => {
@@ -93,7 +93,7 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
 
   try {
     // Verify token with backend database
-    const session = await db.findSessionByToken(ctx.token);
+    const session = await database.findSessionByToken(ctx.token);
     
     if (!session) {
       console.error('Token validation error: Invalid or expired session');
@@ -103,7 +103,7 @@ export const protectedProcedure = t.procedure.use(async ({ ctx, next }) => {
       });
     }
 
-    const user = await db.findUserById(session.userId);
+    const user = await database.findUserById(session.userId);
     
     if (!user) {
       console.error('Token validation error: User not found');

@@ -1,5 +1,5 @@
 import { protectedProcedure } from '../../../create-context';
-import { db } from '../../../../db';
+import { database } from '../../../../db';
 
 export const logoutProcedure = protectedProcedure
   .mutation(async ({ ctx }) => {
@@ -8,7 +8,7 @@ export const logoutProcedure = protectedProcedure
       
       // Delete session from database
       if (ctx.token) {
-        await db.deleteSession(ctx.token);
+        await database.deleteSession(ctx.token);
       }
 
       console.log('Logout successful for user:', ctx.userId);

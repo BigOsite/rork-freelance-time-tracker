@@ -3,13 +3,12 @@ import { persist, createJSONStorage } from 'zustand/middleware';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Job, TimeEntry, PayPeriod, SyncQueueItem, NetworkInfo, JobWithDuration, UserAccount } from '@/types';
 import { 
-  supabase, 
   batchSyncJobs, 
   batchSyncTimeEntries, 
   batchSyncPayPeriods, 
   fetchAllUserData,
   checkNetworkConnectivity 
-} from '@/lib/supabase';
+} from '@/lib/backend-sync';
 import { getPayPeriodDates } from '@/utils/time';
 
 interface JobsState {
@@ -69,7 +68,7 @@ interface JobsState {
   // Sync actions
   addToSyncQueue: (item: Omit<SyncQueueItem, 'id' | 'timestamp' | 'retryCount'>) => void;
   processSyncQueue: (userId: string) => Promise<void>;
-  syncWithSupabase: (userId: string) => Promise<void>;
+  syncWithBackend: (userId: string) => Promise<void>;
   clearSyncQueue: () => void;
   cleanupSyncQueue: () => void;
   setNetworkInfo: (info: NetworkInfo) => void;
@@ -146,7 +145,7 @@ export const useJobsStore = create<JobsState>()(
           data: job,
         });
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveJobImmediately(job, currentUser.uid).catch(error => {
@@ -191,7 +190,7 @@ export const useJobsStore = create<JobsState>()(
             data: updatedJob,
           });
           
-          // Try immediate save to Supabase
+          // Try immediate save to backend
           const currentUser = get().getCurrentUser();
           if (currentUser?.uid) {
             get().saveJobImmediately(updatedJob, currentUser.uid).catch(error => {
@@ -366,7 +365,7 @@ export const useJobsStore = create<JobsState>()(
           data: timeEntry,
         });
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(timeEntry, currentUser.uid).catch(error => {
@@ -404,7 +403,7 @@ export const useJobsStore = create<JobsState>()(
         // Recalculate pay periods for this job after stopping entry
         get().recalculatePayPeriodsForJob(updatedEntry.jobId);
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
@@ -459,7 +458,7 @@ export const useJobsStore = create<JobsState>()(
           // Recalculate pay periods for this job so manual entries appear immediately
           get().recalculatePayPeriodsForJob(timeEntry.jobId);
           
-          // Try immediate save to Supabase
+          // Try immediate save to backend
           const currentUser = get().getCurrentUser();
           console.log('Current user for sync:', currentUser ? 'found' : 'not found');
           
@@ -501,7 +500,7 @@ export const useJobsStore = create<JobsState>()(
           // Recalculate pay periods for this job to keep periods in sync
           get().recalculatePayPeriodsForJob(updatedEntry.jobId);
           
-          // Try immediate save to Supabase
+          // Try immediate save to backend
           const currentUser = get().getCurrentUser();
           if (currentUser?.uid) {
             get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
@@ -579,7 +578,7 @@ export const useJobsStore = create<JobsState>()(
           data: timeEntry,
         });
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(timeEntry, currentUser.uid).catch(error => {
@@ -617,7 +616,7 @@ export const useJobsStore = create<JobsState>()(
         // Recalculate pay periods for this job after clock out
         get().recalculatePayPeriodsForJob(updatedEntry.jobId);
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
@@ -659,7 +658,7 @@ export const useJobsStore = create<JobsState>()(
           data: updatedEntry,
         });
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
@@ -701,7 +700,7 @@ export const useJobsStore = create<JobsState>()(
           data: updatedEntry,
         });
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().saveTimeEntryImmediately(updatedEntry, currentUser.uid).catch(error => {
@@ -727,7 +726,7 @@ export const useJobsStore = create<JobsState>()(
           data: payPeriod,
         });
         
-        // Try immediate save to Supabase
+        // Try immediate save to backend
         const currentUser = get().getCurrentUser();
         if (currentUser?.uid) {
           get().savePayPeriodImmediately(payPeriod, currentUser.uid).catch(error => {
@@ -752,7 +751,7 @@ export const useJobsStore = create<JobsState>()(
             data: updatedPeriod,
           });
           
-          // Try immediate save to Supabase
+          // Try immediate save to backend
           const currentUser = get().getCurrentUser();
           if (currentUser?.uid) {
             get().savePayPeriodImmediately(updatedPeriod, currentUser.uid).catch(error => {
@@ -1351,14 +1350,14 @@ export const useJobsStore = create<JobsState>()(
         }
       },
       
-      syncWithSupabase: async (userId: string) => {
+      syncWithBackend: async (userId: string) => {
         try {
           set({ isLoading: true });
           
           // First process any pending local changes (upload to server)
           await get().processSyncQueue(userId);
           
-          // Then fetch latest data from Supabase
+          // Then fetch latest data from backend
           const result = await fetchAllUserData(userId);
           
           if (result.errors.length > 0) {
@@ -1414,10 +1413,10 @@ export const useJobsStore = create<JobsState>()(
             }
           });
           
-          console.log('Intelligent sync with Supabase completed');
+          console.log('Intelligent sync with backend completed');
           
         } catch (error) {
-          console.error('Error syncing with Supabase:', error);
+          console.error('Error syncing with backend:', error);
           set({ isLoading: false });
           throw error;
         }
@@ -1513,7 +1512,7 @@ export const useJobsStore = create<JobsState>()(
           }
           
           await batchSyncJobs([job], userId, 'upsert');
-          console.log('Job saved immediately to Supabase');
+          console.log('Job saved immediately to backend');
         } catch (error) {
           console.error('Failed to save job immediately:', error);
           throw error;
@@ -1528,7 +1527,7 @@ export const useJobsStore = create<JobsState>()(
           }
           
           await batchSyncTimeEntries([entry], userId, 'upsert');
-          console.log('Time entry saved immediately to Supabase');
+          console.log('Time entry saved immediately to backend');
         } catch (error) {
           console.error('Failed to save time entry immediately:', error);
           throw error;
@@ -1543,7 +1542,7 @@ export const useJobsStore = create<JobsState>()(
           }
           
           await batchSyncPayPeriods([period], userId, 'upsert');
-          console.log('Pay period saved immediately to Supabase');
+          console.log('Pay period saved immediately to backend');
         } catch (error) {
           console.error('Failed to save pay period immediately:', error);
           throw error;

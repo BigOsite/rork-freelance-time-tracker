@@ -1,13 +1,88 @@
-// In-memory database implementation (no dependencies)
-console.log('🗄️ Initializing in-memory database...');
+import Database from 'better-sqlite3';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 
-// Store data in memory
-const usersMap = new Map<string, User>();
-const emailToUserId = new Map<string, string>();
-const sessionsMap = new Map<string, Session>();
-const userSessionsMap = new Map<string, Set<string>>();
+console.log('🗄️ Initializing SQLite database...');
 
-console.log('✅ In-memory database initialized');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+const dbPath = join(__dirname, 'database.sqlite');
+
+const db = new Database(dbPath);
+db.pragma('journal_mode = WAL');
+
+console.log('✅ SQLite database opened at:', dbPath);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT UNIQUE NOT NULL,
+    password TEXT NOT NULL,
+    displayName TEXT NOT NULL,
+    photoURL TEXT,
+    createdAt INTEGER NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    expiresAt INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS jobs (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    name TEXT NOT NULL,
+    client TEXT NOT NULL,
+    hourlyRate REAL NOT NULL,
+    color TEXT,
+    settings TEXT,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS time_entries (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    jobId TEXT NOT NULL,
+    startTime INTEGER NOT NULL,
+    endTime INTEGER,
+    note TEXT,
+    breaks TEXT,
+    isOnBreak INTEGER DEFAULT 0,
+    paidInPeriodId TEXT,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (jobId) REFERENCES jobs(id) ON DELETE CASCADE
+  );
+
+  CREATE TABLE IF NOT EXISTS pay_periods (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    jobId TEXT NOT NULL,
+    startDate INTEGER NOT NULL,
+    endDate INTEGER NOT NULL,
+    totalDuration REAL NOT NULL,
+    totalEarnings REAL NOT NULL,
+    isPaid INTEGER DEFAULT 0,
+    paidDate INTEGER,
+    timeEntryIds TEXT NOT NULL,
+    createdAt INTEGER NOT NULL,
+    FOREIGN KEY (userId) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (jobId) REFERENCES jobs(id) ON DELETE CASCADE
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_sessions_userId ON sessions(userId);
+  CREATE INDEX IF NOT EXISTS idx_sessions_expiresAt ON sessions(expiresAt);
+  CREATE INDEX IF NOT EXISTS idx_jobs_userId ON jobs(userId);
+  CREATE INDEX IF NOT EXISTS idx_time_entries_userId ON time_entries(userId);
+  CREATE INDEX IF NOT EXISTS idx_time_entries_jobId ON time_entries(jobId);
+  CREATE INDEX IF NOT EXISTS idx_pay_periods_userId ON pay_periods(userId);
+  CREATE INDEX IF NOT EXISTS idx_pay_periods_jobId ON pay_periods(jobId);
+`);
+
 console.log('✅ Database schema initialized');
 
 function simpleHash(str: string): string {
@@ -63,20 +138,14 @@ function hashPassword(password: string): string {
 
 function cleanExpiredSessions(): void {
   const now = Date.now();
-  for (const [token, session] of sessionsMap.entries()) {
-    if (session.expiresAt <= now) {
-      sessionsMap.delete(token);
-      const userSessions = userSessionsMap.get(session.userId);
-      if (userSessions) {
-        userSessions.delete(token);
-      }
-    }
-  }
+  const deleteStmt = db.prepare('DELETE FROM sessions WHERE expiresAt <= ?');
+  deleteStmt.run(now);
 }
 
-export const db = {
+export const database = {
   async createUser(email: string, password: string, displayName: string): Promise<User> {
-    if (emailToUserId.has(email)) {
+    const existing = db.prepare('SELECT id FROM users WHERE email = ?').get(email);
+    if (existing) {
       throw new Error('User already exists with this email');
     }
 
@@ -89,36 +158,44 @@ export const db = {
       createdAt: Date.now(),
     };
 
-    usersMap.set(user.id, user);
-    emailToUserId.set(email, user.id);
+    const stmt = db.prepare(
+      'INSERT INTO users (id, email, password, displayName, photoURL, createdAt) VALUES (?, ?, ?, ?, ?, ?)'
+    );
+    stmt.run(user.id, user.email, user.password, user.displayName, user.photoURL, user.createdAt);
     
     return user;
   },
 
   async findUserByEmail(email: string): Promise<User | null> {
-    const userId = emailToUserId.get(email);
-    if (!userId) return null;
-    return usersMap.get(userId) || null;
+    const stmt = db.prepare('SELECT * FROM users WHERE email = ?');
+    const row = stmt.get(email) as any;
+    return row || null;
   },
 
   async findUserById(id: string): Promise<User | null> {
-    return usersMap.get(id) || null;
+    const stmt = db.prepare('SELECT * FROM users WHERE id = ?');
+    const row = stmt.get(id) as any;
+    return row || null;
   },
 
   async updateUser(id: string, updates: Partial<Omit<User, 'id' | 'createdAt'>>): Promise<User | null> {
-    const user = usersMap.get(id);
+    const user = await this.findUserById(id);
     if (!user) {
       return null;
     }
 
     const updatedUser = { ...user, ...updates };
-    usersMap.set(id, updatedUser);
     
-    // Update email index if email changed
-    if (updates.email && updates.email !== user.email) {
-      emailToUserId.delete(user.email);
-      emailToUserId.set(updates.email, id);
-    }
+    const stmt = db.prepare(
+      'UPDATE users SET email = ?, password = ?, displayName = ?, photoURL = ? WHERE id = ?'
+    );
+    stmt.run(
+      updatedUser.email,
+      updatedUser.password,
+      updatedUser.displayName,
+      updatedUser.photoURL,
+      id
+    );
     
     return updatedUser;
   },
@@ -148,13 +225,10 @@ export const db = {
       expiresAt: Date.now() + (30 * 24 * 60 * 60 * 1000),
     };
 
-    sessionsMap.set(token, session);
-    
-    // Track sessions per user
-    if (!userSessionsMap.has(userId)) {
-      userSessionsMap.set(userId, new Set());
-    }
-    userSessionsMap.get(userId)!.add(token);
+    const stmt = db.prepare(
+      'INSERT INTO sessions (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)'
+    );
+    stmt.run(session.token, session.userId, session.createdAt, session.expiresAt);
     
     return session;
   },
@@ -162,45 +236,33 @@ export const db = {
   async findSessionByToken(token: string): Promise<Session | null> {
     cleanExpiredSessions();
     
-    const session = sessionsMap.get(token);
-    if (!session || session.expiresAt <= Date.now()) {
-      return null;
-    }
-    
-    return session;
+    const stmt = db.prepare('SELECT * FROM sessions WHERE token = ? AND expiresAt > ?');
+    const row = stmt.get(token, Date.now()) as any;
+    return row || null;
   },
 
   async deleteSession(token: string): Promise<void> {
-    const session = sessionsMap.get(token);
-    if (session) {
-      sessionsMap.delete(token);
-      const userSessions = userSessionsMap.get(session.userId);
-      if (userSessions) {
-        userSessions.delete(token);
-      }
-    }
+    const stmt = db.prepare('DELETE FROM sessions WHERE token = ?');
+    stmt.run(token);
   },
 
   async deleteUserSessions(userId: string): Promise<void> {
-    const userSessions = userSessionsMap.get(userId);
-    if (userSessions) {
-      for (const token of userSessions) {
-        sessionsMap.delete(token);
-      }
-      userSessionsMap.delete(userId);
-    }
+    const stmt = db.prepare('DELETE FROM sessions WHERE userId = ?');
+    stmt.run(userId);
   },
 
   async clearAll(): Promise<void> {
-    sessionsMap.clear();
-    usersMap.clear();
-    emailToUserId.clear();
-    userSessionsMap.clear();
+    db.exec('DELETE FROM sessions');
+    db.exec('DELETE FROM users');
+    db.exec('DELETE FROM jobs');
+    db.exec('DELETE FROM time_entries');
+    db.exec('DELETE FROM pay_periods');
   },
 
   async initializeDemoAccount(): Promise<void> {
     try {
-      if (emailToUserId.has('demo@example.com')) {
+      const existing = db.prepare('SELECT id FROM users WHERE email = ?').get('demo@example.com');
+      if (existing) {
         console.log('Demo account already exists');
         return;
       }
@@ -214,8 +276,17 @@ export const db = {
         createdAt: Date.now(),
       };
 
-      usersMap.set(demoUser.id, demoUser);
-      emailToUserId.set(demoUser.email, demoUser.id);
+      const stmt = db.prepare(
+        'INSERT INTO users (id, email, password, displayName, photoURL, createdAt) VALUES (?, ?, ?, ?, ?, ?)'
+      );
+      stmt.run(
+        demoUser.id,
+        demoUser.email,
+        demoUser.password,
+        demoUser.displayName,
+        demoUser.photoURL,
+        demoUser.createdAt
+      );
       
       console.log('Demo account created successfully');
       console.log('Email: demo@example.com');
@@ -226,6 +297,14 @@ export const db = {
   },
 
   close(): void {
-    // Nothing to close for in-memory database
+    db.close();
+  },
+
+  prepare(sql: string) {
+    return db.prepare(sql);
+  },
+
+  exec(sql: string) {
+    return db.exec(sql);
   },
 };
