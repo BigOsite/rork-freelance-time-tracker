@@ -11,7 +11,8 @@ import {
   MessageCircle, 
   ChevronRight,
   Moon,
-  Sun
+  Sun,
+  Server
 } from 'lucide-react-native';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useAuth } from '@/contexts/AuthContext';
@@ -87,6 +88,12 @@ export default function SettingsScreen() {
           title: 'Customer Support',
           subtitle: 'Get help and send feedback',
           route: '/settings/support',
+        },
+        {
+          icon: Server,
+          title: 'Backend Diagnostics',
+          subtitle: 'Test backend connectivity',
+          route: '/settings/diagnostics',
         },
       ],
     },

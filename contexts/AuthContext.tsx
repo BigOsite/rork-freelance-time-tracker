@@ -75,7 +75,33 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting login process for:', email);
       
+      // Test backend connectivity first
+      try {
+        const baseUrl = 'https://8e23p8rts6cegks6ymhco.rork.com';
+        console.log('Testing backend connectivity at:', baseUrl);
+        
+        const healthCheck = await fetch(`${baseUrl}/health`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+          },
+        });
+        
+        console.log('Health check status:', healthCheck.status);
+        
+        if (!healthCheck.ok) {
+          console.warn('Backend health check failed with status:', healthCheck.status);
+        } else {
+          const healthData = await healthCheck.json();
+          console.log('Backend is healthy:', healthData);
+        }
+      } catch (healthError) {
+        console.error('Backend health check failed:', healthError);
+        throw new Error('Unable to connect to server. The backend service may be starting up. Please wait a moment and try again.');
+      }
+      
       // Use tRPC for authentication
+      console.log('Making login request via tRPC');
       const response = await trpcClient.auth.login.mutate({
         email,
         password,

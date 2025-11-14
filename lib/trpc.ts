@@ -10,14 +10,14 @@ const getBaseUrl = () => {
     return process.env.EXPO_PUBLIC_RORK_API_BASE_URL;
   }
 
-  // For development with Rork platform
+  // For development with Rork platform - use the correct tunnel URL
   if (__DEV__) {
-    // Use the Rork platform tunnel URL
+    // This is the Rork platform's tunnel URL for backend
     return 'https://8e23p8rts6cegks6ymhco.rork.com';
   }
 
-  // Production fallback
-  return 'https://rork.com';
+  // Production - same as dev for now
+  return 'https://8e23p8rts6cegks6ymhco.rork.com';
 };
 
 // Helper function for fetch with timeout
