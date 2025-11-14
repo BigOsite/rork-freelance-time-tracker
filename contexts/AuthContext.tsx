@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 import { useBusinessStore } from '@/store/businessStore';
 import { useJobsStore } from '@/store/jobsStore';
-import { trpcClient } from '@/lib/trpc';
+import { supabase } from '@/lib/supabase';
 import { AuthState, UserAccount } from '@/types';
 
 interface AuthContextType extends AuthState {
@@ -75,53 +75,38 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting login process for:', email);
       
-      // Test backend connectivity first
-      try {
-        const baseUrl = 'https://8e23p8rts6cegks6ymhco.rork.com';
-        console.log('Testing backend connectivity at:', baseUrl);
-        
-        const healthCheck = await fetch(`${baseUrl}/health`, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-          },
-        });
-        
-        console.log('Health check status:', healthCheck.status);
-        
-        if (!healthCheck.ok) {
-          console.warn('Backend health check failed with status:', healthCheck.status);
-        } else {
-          const healthData = await healthCheck.json();
-          console.log('Backend is healthy:', healthData);
-        }
-      } catch (healthError) {
-        console.error('Backend health check failed:', healthError);
-        throw new Error('Unable to connect to server. The backend service may be starting up. Please wait a moment and try again.');
-      }
-      
-      // Use tRPC for authentication
-      console.log('Making login request via tRPC');
-      const response = await trpcClient.auth.login.mutate({
+      // Use Supabase for authentication
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      console.log('Login response received:', response.success);
+      if (error) {
+        console.error('Supabase login error:', error);
+        throw new Error(error.message || 'Login failed. Please check your credentials.');
+      }
+
+      if (!data.user || !data.session) {
+        throw new Error('Login failed. No user data returned.');
+      }
+
+      console.log('Login successful:', data.user.id);
 
       // Store token securely
-      await secureStorage.setItem(TOKEN_KEY, response.token);
+      await secureStorage.setItem(TOKEN_KEY, data.session.access_token);
       
       // Update state - make sure user is marked as logged in
       const loggedInUser: UserAccount = {
-        ...response.user,
-        id: response.user.uid,
+        id: data.user.id,
+        uid: data.user.id,
+        email: data.user.email || email,
+        displayName: data.user.user_metadata?.display_name || data.user.email?.split('@')[0] || 'User',
         isLoggedIn: true,
-        photoURL: response.user.photoURL || null,
+        photoURL: data.user.user_metadata?.avatar_url || null,
       };
       
       setUserAccount(loggedInUser);
-      setAuthToken(response.token);
+      setAuthToken(data.session.access_token);
       setAuthState({ 
         isAuthenticated: true, 
         isLoading: false, 
@@ -147,35 +132,58 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Starting registration process for:', email);
       
-      // Use tRPC for registration
-      const response = await trpcClient.auth.register.mutate({
+      // Use Supabase for registration
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
-        displayName,
+        options: {
+          data: {
+            display_name: displayName,
+          },
+        },
       });
 
-      console.log('Registration response received:', response.success);
+      if (error) {
+        console.error('Supabase registration error:', error);
+        throw new Error(error.message || 'Registration failed. Please try again.');
+      }
 
-      // Store token securely
-      await secureStorage.setItem(TOKEN_KEY, response.token);
-      
-      // Update state - make sure user is marked as logged in
-      const loggedInUser: UserAccount = {
-        ...response.user,
-        id: response.user.uid,
-        isLoggedIn: true,
-        photoURL: response.user.photoURL || null,
-      };
-      
-      setUserAccount(loggedInUser);
-      setAuthToken(response.token);
-      setAuthState({ 
-        isAuthenticated: true, 
-        isLoading: false, 
-        error: null 
-      });
+      if (!data.user) {
+        throw new Error('Registration failed. No user data returned.');
+      }
 
-      console.log('User state updated successfully');
+      console.log('Registration successful:', data.user.id);
+
+      // If session exists (email confirmation disabled), store token and log in
+      if (data.session) {
+        await secureStorage.setItem(TOKEN_KEY, data.session.access_token);
+        
+        const loggedInUser: UserAccount = {
+          id: data.user.id,
+          uid: data.user.id,
+          email: data.user.email || email,
+          displayName: displayName,
+          isLoggedIn: true,
+          photoURL: null,
+        };
+        
+        setUserAccount(loggedInUser);
+        setAuthToken(data.session.access_token);
+        setAuthState({ 
+          isAuthenticated: true, 
+          isLoading: false, 
+          error: null 
+        });
+      } else {
+        // Email confirmation required
+        setAuthState({ 
+          isAuthenticated: false, 
+          isLoading: false, 
+          error: 'Please check your email to confirm your account.' 
+        });
+      }
+
+      console.log('Registration completed successfully');
 
     } catch (error: any) {
       console.error('Registration failed:', error);
@@ -192,13 +200,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       console.log('Starting logout process');
       
-      // Call logout endpoint if authenticated
+      // Sign out from Supabase
       if (authState.isAuthenticated) {
         try {
-          await trpcClient.auth.logout.mutate();
-          console.log('Logout API call successful');
+          await supabase.auth.signOut();
+          console.log('Supabase logout successful');
         } catch (error) {
-          console.log('Logout API call failed:', error);
+          console.log('Supabase logout failed:', error);
         }
       }
     } catch (error) {
@@ -217,21 +225,29 @@ export function AuthProvider({ children }: AuthProviderProps) {
       
       console.log('Refreshing profile');
       
-      // Get profile from backend
-      const profile = await trpcClient.auth.profile.query();
+      // Get profile from Supabase
+      const { data: { user }, error } = await supabase.auth.getUser();
       
-      const loggedInUser: UserAccount = {
-        ...profile,
-        id: profile.uid,
-        isLoggedIn: true,
-        photoURL: profile.photoURL || null,
-      };
-      setUserAccount(loggedInUser);
+      if (error) {
+        console.error('Failed to get user:', error);
+        await logout();
+        return;
+      }
 
-      console.log('Profile refreshed successfully');
+      if (user) {
+        const loggedInUser: UserAccount = {
+          id: user.id,
+          uid: user.id,
+          email: user.email || '',
+          displayName: user.user_metadata?.display_name || user.email?.split('@')[0] || 'User',
+          isLoggedIn: true,
+          photoURL: user.user_metadata?.avatar_url || null,
+        };
+        setUserAccount(loggedInUser);
+        console.log('Profile refreshed successfully');
+      }
     } catch (error) {
       console.log('Failed to refresh profile:', error);
-      // If profile fetch fails, user might be logged out
       await logout();
     }
   };
@@ -244,35 +260,37 @@ export function AuthProvider({ children }: AuthProviderProps) {
         
         console.log('Initializing auth state');
         
-        const token = await secureStorage.getItem(TOKEN_KEY);
-        console.log('Stored token found:', !!token);
+        // Check for existing Supabase session
+        const { data: { session }, error } = await supabase.auth.getSession();
         
-        if (token) {
-          setAuthToken(token);
-          setAuthState({ isAuthenticated: true, isLoading: false, error: null });
+        if (error) {
+          console.error('Error getting session:', error);
+          setAuthState({ isAuthenticated: false, isLoading: false, error: null });
+          return;
+        }
+        
+        if (session && session.user) {
+          console.log('Existing session found:', session.user.id);
           
-          // Try to refresh profile to get latest user data
-          try {
-            console.log('Refreshing profile on app start');
-            const profile = await trpcClient.auth.profile.query();
-            
-            const loggedInUser: UserAccount = {
-              ...profile,
-              id: profile.uid,
-              isLoggedIn: true,
-              photoURL: profile.photoURL || null,
-            };
-            setUserAccount(loggedInUser);
-
-            console.log('Profile refreshed successfully');
-          } catch (error) {
-            console.log('Failed to refresh profile on init:', error);
-            // If profile fetch fails, clear auth
-            await secureStorage.removeItem(TOKEN_KEY);
-            clearAuth();
-          }
+          // Store token
+          await secureStorage.setItem(TOKEN_KEY, session.access_token);
+          setAuthToken(session.access_token);
+          
+          // Set user account
+          const loggedInUser: UserAccount = {
+            id: session.user.id,
+            uid: session.user.id,
+            email: session.user.email || '',
+            displayName: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User',
+            isLoggedIn: true,
+            photoURL: session.user.user_metadata?.avatar_url || null,
+          };
+          
+          setUserAccount(loggedInUser);
+          setAuthState({ isAuthenticated: true, isLoading: false, error: null });
+          console.log('Session restored successfully');
         } else {
-          console.log('No valid auth state found');
+          console.log('No existing session found');
           setAuthState({ isAuthenticated: false, isLoading: false, error: null });
         }
       } catch (error) {
@@ -282,12 +300,50 @@ export function AuthProvider({ children }: AuthProviderProps) {
     };
 
     initializeAuth();
+
+    // Listen to auth state changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('Auth state changed:', event);
+      
+      if (event === 'SIGNED_IN' && session) {
+        await secureStorage.setItem(TOKEN_KEY, session.access_token);
+        setAuthToken(session.access_token);
+        
+        const loggedInUser: UserAccount = {
+          id: session.user.id,
+          uid: session.user.id,
+          email: session.user.email || '',
+          displayName: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User',
+          isLoggedIn: true,
+          photoURL: session.user.user_metadata?.avatar_url || null,
+        };
+        
+        setUserAccount(loggedInUser);
+        setAuthState({ isAuthenticated: true, isLoading: false, error: null });
+      } else if (event === 'SIGNED_OUT') {
+        await secureStorage.removeItem(TOKEN_KEY);
+        clearAuth();
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   const forgotPassword = async (email: string) => {
     try {
       console.log('Password reset requested for:', email);
-      throw new Error('Password reset functionality is not yet implemented. Please contact support for password recovery.');
+      
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: Platform.OS === 'web' ? window.location.origin : undefined,
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      console.log('Password reset email sent successfully');
     } catch (error: any) {
       console.error('Password reset failed:', error);
       throw error;
