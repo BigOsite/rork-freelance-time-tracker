@@ -499,8 +499,15 @@ export default function JobDetailScreen() {
               <ChevronLeft size={24} color={colors.primary} />
             </TouchableOpacity>
           ),
-          headerShown: true,
-          gestureEnabled: false, // Disable default swipe gesture to prevent job-to-job navigation
+          gestureEnabled: false,
+          headerStyle: {
+            backgroundColor: colors.background,
+          },
+          headerTintColor: colors.primary,
+          headerTitleStyle: {
+            color: colors.text,
+            fontWeight: '600',
+          },
         }}
       />
       
