@@ -9,6 +9,7 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
+        headerShown: false,
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.inactive,
         tabBarStyle: {
@@ -24,22 +25,6 @@ export default function TabLayout() {
           shadowRadius: 12,
           elevation: 8,
         },
-        headerStyle: {
-          backgroundColor: colors.background,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.08,
-          shadowRadius: 8,
-          elevation: 4,
-        },
-        headerShadowVisible: true,
-        headerTitleStyle: {
-          fontWeight: "700",
-          fontSize: 18,
-          letterSpacing: -0.3,
-          color: colors.text,
-        },
-        headerTintColor: colors.text,
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: "600",
