@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Clock, CheckCircle, AlertCircle } from 'lucide-react-native';
 import { useJobsStore } from '@/store/jobsStore';
@@ -11,6 +12,7 @@ import { useTheme } from '@/contexts/ThemeContext';
 export default function HistoryScreen() {
   const router = useRouter();
   const store = useJobsStore();
+  const insets = useSafeAreaInsets();
   const [filterPaid, setFilterPaid] = useState<boolean | null>(null); // null = all, true = paid, false = unpaid
   const { colors } = useTheme();
   const { user } = useAuth();
@@ -101,7 +103,7 @@ export default function HistoryScreen() {
   
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <Text style={styles.title}>Time History</Text>
         
         <View style={styles.filterContainer}>
@@ -182,7 +184,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   header: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     backgroundColor: colors.background,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

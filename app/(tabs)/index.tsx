@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Clock, Coins, Briefcase, Plus, Timer, CheckCircle, AlertCircle, TrendingUp } from 'lucide-react-native';
 import { useJobsStore } from '@/store/jobsStore';
@@ -18,6 +19,7 @@ export default function DashboardScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { isAuthenticated, user } = useAuth();
+  const insets = useSafeAreaInsets();
   
   // Get store methods and data
   const store = useJobsStore();
@@ -161,7 +163,7 @@ export default function DashboardScreen() {
   return (
     <View style={styles.container}>
       <ConnectionBanner />
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.title}>Dashboard</Text>
@@ -322,7 +324,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   header: {
     backgroundColor: colors.background,
     paddingHorizontal: 24,
-    paddingTop: 20,
     paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

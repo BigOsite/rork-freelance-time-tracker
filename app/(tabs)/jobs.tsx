@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput, Modal, ScrollView } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Plus, Briefcase, Search, Filter, X, Check } from 'lucide-react-native';
 import { useJobsStore } from '@/store/jobsStore';
@@ -17,6 +18,7 @@ export default function JobsScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = useState('');
   const [showSearchBar, setShowSearchBar] = useState(false);
   const [showSortModal, setShowSortModal] = useState(false);
@@ -225,7 +227,7 @@ export default function JobsScreen() {
   
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.title}>Jobs</Text>
@@ -360,7 +362,6 @@ const createStyles = (colors: any) => StyleSheet.create({
   header: {
     backgroundColor: colors.background,
     paddingHorizontal: 24,
-    paddingTop: 20,
     paddingBottom: 24,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,

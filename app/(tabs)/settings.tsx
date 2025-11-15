@@ -1,5 +1,6 @@
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { 
   Building2, 
@@ -21,6 +22,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { colors, isDark, toggleTheme } = useTheme();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   
   const settingsGroups = [
     {
@@ -111,7 +113,7 @@ export default function SettingsScreen() {
   
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.content}>
+      <View style={[styles.content, { paddingTop: insets.top + 24 }]}>
         <Text style={styles.title}>Settings</Text>
         
         {settingsGroups.map((group, groupIndex) => (
@@ -161,7 +163,8 @@ const createStyles = (colors: any) => StyleSheet.create({
     backgroundColor: colors.surface,
   },
   content: {
-    padding: 24,
+    paddingHorizontal: 24,
+    paddingBottom: 24,
   },
   title: {
     fontSize: 32,

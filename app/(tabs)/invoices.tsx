@@ -1,13 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { FileText } from 'lucide-react-native';
 import Colors from '@/constants/colors';
 import EmptyState from '@/components/EmptyState';
 
 export default function InvoicesScreen() {
+  const insets = useSafeAreaInsets();
+  
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 16 }]}>
         <Text style={styles.title}>Invoices</Text>
       </View>
       
@@ -26,7 +29,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7F9FC',
   },
   header: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
     backgroundColor: '#FFFFFF',
   },
   title: {
